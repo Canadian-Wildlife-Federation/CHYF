@@ -7,9 +7,9 @@ import java.util.List;
 import net.refractions.chyf.enumTypes.CatchmentType;
 import net.refractions.chyf.indexing.SpatiallyIndexable;
 
-import org.locationtech.jts.geom.Envelope;
-import org.locationtech.jts.geom.Point;
-import org.locationtech.jts.geom.Polygon;
+import com.vividsolutions.jts.geom.Envelope;
+import com.vividsolutions.jts.geom.Point;
+import com.vividsolutions.jts.geom.Polygon;
 
 public class ECatchment implements SpatiallyIndexable {
 	private final int id;

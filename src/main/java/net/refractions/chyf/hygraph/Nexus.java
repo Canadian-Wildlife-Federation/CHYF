@@ -7,8 +7,8 @@ import java.util.List;
 import net.refractions.chyf.enumTypes.NexusType;
 import net.refractions.chyf.indexing.SpatiallyIndexable;
 
-import org.locationtech.jts.geom.Envelope;
-import org.locationtech.jts.geom.Point;
+import com.vividsolutions.jts.geom.Envelope;
+import com.vividsolutions.jts.geom.Point;
 
 public class Nexus implements SpatiallyIndexable{
 	private ArrayList<EFlowpath> upFlows = new ArrayList<EFlowpath>();

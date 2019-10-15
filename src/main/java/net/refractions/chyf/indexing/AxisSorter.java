@@ -2,7 +2,7 @@ package net.refractions.chyf.indexing;
 
 import java.util.Comparator;
 
-import org.locationtech.jts.geom.Envelope;
+import com.vividsolutions.jts.geom.Envelope;
 
 public class AxisSorter implements Comparator<SpatiallyIndexable> {
 	private Axis axis;

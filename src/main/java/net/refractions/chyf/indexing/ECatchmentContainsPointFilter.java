@@ -1,6 +1,6 @@
 package net.refractions.chyf.indexing;
 
-import org.locationtech.jts.geom.Point;
+import com.vividsolutions.jts.geom.Point;
 
 import net.refractions.chyf.hygraph.ECatchment;
 

@@ -10,8 +10,8 @@ import java.util.Queue;
 
 import net.refractions.chyf.indexing.Filter;
 
-import org.locationtech.jts.geom.Envelope;
-import org.locationtech.jts.geom.Point;
+import com.vividsolutions.jts.geom.Envelope;
+import com.vividsolutions.jts.geom.Point;
 
 class IndexableEnvelope extends Envelope implements SpatiallyIndexable {
 
