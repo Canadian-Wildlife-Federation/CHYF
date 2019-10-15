@@ -5,9 +5,9 @@ import java.util.UUID;
 import net.refractions.chyf.enumTypes.FlowpathType;
 import net.refractions.chyf.indexing.SpatiallyIndexable;
 
-import com.vividsolutions.jts.geom.Envelope;
-import com.vividsolutions.jts.geom.LineString;
-import com.vividsolutions.jts.geom.Point;
+import org.locationtech.jts.geom.Envelope;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Point;
 
 public class EFlowpath implements SpatiallyIndexable {
 	private final int id;

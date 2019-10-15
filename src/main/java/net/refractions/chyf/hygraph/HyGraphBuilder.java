@@ -13,11 +13,11 @@ import net.refractions.chyf.enumTypes.NexusType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.vividsolutions.jts.geom.IntersectionMatrix;
-import com.vividsolutions.jts.geom.LineString;
-import com.vividsolutions.jts.geom.Point;
-import com.vividsolutions.jts.geom.Polygon;
-import com.vividsolutions.jts.index.quadtree.Quadtree;
+import org.locationtech.jts.geom.IntersectionMatrix;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.index.quadtree.Quadtree;
 
 public class HyGraphBuilder {
 	static final Logger logger = LoggerFactory.getLogger(HyGraphBuilder.class.getCanonicalName());

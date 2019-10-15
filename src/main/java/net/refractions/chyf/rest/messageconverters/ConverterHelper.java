@@ -13,12 +13,12 @@ import net.refractions.chyf.hygraph.Nexus;
 import net.refractions.chyf.indexing.SpatiallyIndexable;
 import net.refractions.chyf.rest.GeotoolsGeometryReprojector;
 
-import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.CoordinateSequence;
-import com.vividsolutions.jts.geom.Envelope;
-import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.geom.LineString;
-import com.vividsolutions.jts.geom.Polygon;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.CoordinateSequence;
+import org.locationtech.jts.geom.Envelope;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Polygon;
 
 public abstract class ConverterHelper {
 	static final DecimalFormat DEGREE_FORMAT = new DecimalFormat("###.#####");

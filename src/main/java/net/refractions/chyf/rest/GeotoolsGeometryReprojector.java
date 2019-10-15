@@ -9,8 +9,8 @@ import org.opengis.referencing.cs.AxisDirection;
 import org.opengis.referencing.operation.MathTransform;
 import org.opengis.referencing.operation.TransformException;
 
-import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.geom.util.AffineTransformation;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.util.AffineTransformation;
 
 public class GeotoolsGeometryReprojector {
 	
@@ -18,8 +18,12 @@ public class GeotoolsGeometryReprojector {
 		if(geom == null) {
 			return null;
 		}
+		if(geom.getSRID() == toSRSCode) {
+			return geom; 
+		}
 		CoordinateReferenceSystem fromCRS = srsCodeToCRS(geom.getSRID());
 		CoordinateReferenceSystem toCRS = srsCodeToCRS(toSRSCode);
+		
 		try {
 			MathTransform transform = CRS.findMathTransform(fromCRS, toCRS);
 			if(fromCRS.getCoordinateSystem().getAxis(0).getDirection().absolute()
@@ -40,6 +44,7 @@ public class GeotoolsGeometryReprojector {
 			throw new RuntimeException("Unexpected error in coordinate reprojection.", te);
 		}
 	}
+	
 	
 	private static CoordinateReferenceSystem srsCodeToCRS(int srsCode) {
 		try {

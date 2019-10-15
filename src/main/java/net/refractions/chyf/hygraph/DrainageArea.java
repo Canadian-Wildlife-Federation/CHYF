@@ -1,6 +1,6 @@
 package net.refractions.chyf.hygraph;
 
-import com.vividsolutions.jts.geom.Geometry;
+import org.locationtech.jts.geom.Geometry;
 
 public class DrainageArea {
 	private final double area;

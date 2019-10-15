@@ -9,7 +9,7 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<geotools.version>18.2</geotools.version>
+		<geotools.version>21.1</geotools.version>
 		<springframework.version>4.3.9.RELEASE</springframework.version>
 		<springframework.security.version>4.2.3.RELEASE</springframework.security.version>
 		<postgres.version>42.1.4</postgres.version>
@@ -123,15 +123,25 @@
 			<artifactId>logback-classic</artifactId>
 			<version>1.1.7</version>
 		</dependency>
-		<dependency>
+		<!-- dependency>
 			<groupId>com.vividsolutions</groupId>
 			<artifactId>jts-core</artifactId>
 			<version>1.14.0</version>
-		</dependency>
+		</dependency-->
+		<dependency>
+			<groupId>org.locationtech.jts</groupId>
+			<artifactId>jts-core</artifactId>
+			<version>1.16.0</version>
+		</dependency>		
 		<dependency>
 			<groupId>org.geotools</groupId>
 			<artifactId>gt-shapefile</artifactId>
 			<version>${geotools.version}</version>
+		</dependency>
+		<dependency>
+  			<groupId>org.geotools</groupId>
+  			<artifactId>gt-geotiff</artifactId>
+  			<version>${geotools.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.geotools</groupId>
