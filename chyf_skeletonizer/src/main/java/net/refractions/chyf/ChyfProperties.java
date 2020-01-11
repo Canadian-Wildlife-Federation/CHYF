@@ -17,9 +17,18 @@ package net.refractions.chyf;
 
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Properties;
+
+import javax.measure.Unit;
+
+import org.geotools.referencing.util.CRSUtilities;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
+
+import si.uom.NonSI;
+import tec.uom.se.unit.Units;
 
 /**
  * Class for managing properties related to skeletonizer
@@ -29,7 +38,8 @@ import java.util.Properties;
  */
 public class ChyfProperties {
 
-	public static final String PROP_FILE = "chyf.properties";
+	public static final String M_PROP_FILE = "chyf.meter.properties";
+	public static final String DEG_PROP_FILE = "chyf.degree.properties";
 	
 	public enum Property{
 		
@@ -69,19 +79,12 @@ public class ChyfProperties {
 	public void setProperty(Property prop, Double value) {
 		properties.put(prop, value);
 	}
-	/**
-	 * Reads the properties file
-	 * from the classpath, parses the contents
-	 * and returns new properties object
-	 * 
-	 * @return
-	 */
-	public static ChyfProperties getProperties() throws Exception{
-		ChyfProperties props = new ChyfProperties();
-		
+	
+	public static ChyfProperties getProperties(Path filename) throws Exception{
 		Properties p = new Properties();
-//		try(InputStream is = props.getClass().getClassLoader().getResourceAsStream("/"+PROP_FILE)){
-		try(InputStream is = Files.newInputStream(Paths.get(PROP_FILE))){
+		ChyfProperties props = new ChyfProperties();
+
+		try(InputStream is = Files.newInputStream(filename)){
 			p.load(is);
 		}
 		
@@ -89,7 +92,39 @@ public class ChyfProperties {
 			String value = 	p.getProperty(prop.key);
 			props.properties.put(prop,  Double.valueOf(value));
 		}
+		return props;
+	}
+	
+	/**
+	 * Reads the properties file
+	 * from the classpath, parses the contents
+	 * and returns new properties object
+	 * 
+	 * @return
+	 */
+	public static ChyfProperties getProperties(CoordinateReferenceSystem crs) throws Exception{
+		Unit<?> units = CRSUtilities.getUnit(crs.getCoordinateSystem());
+		if (units.equals(Units.METRE)) { //TODO: feet|| units.equals(NonSI.fe.)) {
+			return loadDefaults(M_PROP_FILE);
+		}else if (units.equals(NonSI.DEGREE_ANGLE)) {
+			return loadDefaults(DEG_PROP_FILE);
+		}else {
+			throw new Exception("Default skeletonizer settings are not provided for the projection units of " + units.toString() + ".  Use the -settings parameter to supply them");
+		}
+	}
+	
+	private static ChyfProperties loadDefaults(String filename) throws Exception{
+		Properties p = new Properties();
+		ChyfProperties props = new ChyfProperties();
+
+		try(InputStream is = props.getClass().getClassLoader().getResourceAsStream("net/refractions/chyf/" + filename)){
+			p.load(is);
+		}
 		
+		for (Property prop : Property.values()) {
+			String value = 	p.getProperty(prop.key);
+			props.properties.put(prop,  Double.valueOf(value));
+		}
 		return props;
 	}
 }

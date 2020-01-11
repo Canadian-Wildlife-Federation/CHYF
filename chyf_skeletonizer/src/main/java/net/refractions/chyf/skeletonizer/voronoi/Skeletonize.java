@@ -21,6 +21,8 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 
 import net.refractions.chyf.ChyfProperties;
+import net.refractions.chyf.Utils;
+import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.skeletonizer.points.PointEngine;
 
 /**
@@ -33,22 +35,24 @@ import net.refractions.chyf.skeletonizer.points.PointEngine;
 public class Skeletonize {
 
 	public static void main(String[] args) throws Exception {
-
-//		if (args.length != 2) {
-//			
-//		}
-//		String in = args[0];
-//		String out = args[1];
-//		Path input = Paths.get("C:\\temp\\chyf\\input2\\KOTL.gpkg");
-//		Path output = Paths.get("C:\\temp\\chyf\\input2\\KOTL.out.gpkg");
+		String[] fields = Utils.parseArguments(args);
+		if (fields == null) {
+			Utils.printUsage("Skeletonize");
+			return;
+		}
+		Path input = Paths.get(fields[0]);
+		if (!Files.exists(input)) {
+			System.err.println("Input file not found: " + input.toString());
+			return;
+		}
 		
-//		Path input = Paths.get("C:\\temp\\chyf\\input2\\NS.gpkg");
-//		Path output = Paths.get("C:\\temp\\chyf\\input2\\NS.out.gpkg");
-		Path input = Paths.get("C:\\temp\\chyf\\input2\\Richelieu.gpkg");
-		Path output = Paths.get("C:\\temp\\chyf\\input2\\Richelieu.out2.gpkg");
+		Path output = Paths.get(fields[1]);
+		ChyfGeoPackageDataSource.deleteOutputFile(output);
+		
 		Files.copy(input, output, StandardCopyOption.REPLACE_EXISTING);
 		
-		ChyfProperties prop = ChyfProperties.getProperties();
+		ChyfProperties prop = null;
+		if (fields[2] != null) prop = ChyfProperties.getProperties(Paths.get(fields[2]));
 		
 		long now = System.nanoTime();
 		PointEngine.doWork(output, prop);

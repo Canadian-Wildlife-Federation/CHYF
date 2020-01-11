@@ -28,6 +28,7 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineSegment;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.LinearRing;
+import org.locationtech.jts.geom.MultiLineString;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.operation.distance.DistanceOp;
 import org.locationtech.jts.operation.linemerge.LineMerger;
@@ -111,7 +112,7 @@ public class BankSkeletonizer {
 						
 						double minDistance = ls.getLength() * bankNodeDistanceFactor;
 						double maxDistance = ls.getLength() * (1-bankNodeDistanceFactor);
-						part = chopLineString(ls.getCoordinates(), minDistance, maxDistance, gf);
+						part = chopLineString(part.getCoordinates(), minDistance, maxDistance, gf);
 						
 						//find the closest point between the polygon boundary edge
 						//and the skeleton ediges
@@ -226,11 +227,15 @@ public class BankSkeletonizer {
 			if (p.getPolygon().getNumInteriorRing() == 0) {
 				//we are finished
 //				complete.add(p);
+			}else if (p.getInnerEdges().isEmpty()) {
+				//hole is made by skeletons we don't need to process anything
+				System.out.println("here");
 			}else {
+				
 				List<WorkingPolygon> polys = breakPolgyon(p, newskels);
 				for (WorkingPolygon wp : polys) {
 					if (wp.getPolygon().getNumInteriorRing() == 0) continue;
-					
+					if (wp.getInnerEdges().isEmpty()) continue; //hole is made by skeletons do not process
 					LineString exterior = wp.getPolygon().getExteriorRing();
 					
 					for (int i = 0; i < wp.getPolygon().getNumInteriorRing(); i ++) {
@@ -389,6 +394,12 @@ public class BankSkeletonizer {
 		for(LineString l : wateredges) {
 			g = g.difference(l);
 		}
+		if (!(g instanceof LineString)) {
+			//TODO:
+			System.out.println("ERROR");
+			return (LineString)(((MultiLineString)g).getGeometryN(0));
+			//throw new RuntimeException("There is a problem with the existing skeletons and waterbodies near linestring " + ls.toText());
+		}
 		return (LineString)g;
 	}
 	
@@ -502,10 +513,8 @@ public class BankSkeletonizer {
 		
 		List<WorkingPolygon> working = new ArrayList<>();
 		
-		for (Polygon p : items) {
-			
+		for (Polygon p : items) {			
 			WorkingPolygon wp = new WorkingPolygon (p);
-			
 			for (LineString ls : parts) {
 				if (ls.relate(p, "F1*F0****")) wp.getBoundaryEdges().add(ls);
 			}
@@ -593,10 +602,8 @@ public class BankSkeletonizer {
 		
 		List<WorkingPolygon> working = new ArrayList<>();
 		
-		boolean add = false;
 		for (Polygon p : items) {
 			WorkingPolygon wp = new WorkingPolygon (p);
-			
 			for (LineString ls : bnds) {
 				if (ls.relate(p, "F1*F0****")) wp.getBoundaryEdges().add(ls);
 			}
@@ -631,21 +638,33 @@ public class BankSkeletonizer {
 		Coordinate[] nearest = DistanceOp.nearestPoints(ls1, ls2);
 		
 		Coordinate c0 = nearest[0];
+		Coordinate n = null;
+		double distance  = Double.MAX_VALUE;
 		for (Coordinate c : ls1.getCoordinates()) {
-			if (c.distance(c0) < properties.getProperty(Property.BANK_MIN_VERTEX_DISTANCE)) {
+			double temp = c.distance(c0);
+			if (temp < properties.getProperty(Property.BANK_MIN_VERTEX_DISTANCE) 
+					&& temp < distance) {
 				//snap to this coordinate
-				c0 = c;
-				break;
+				n = c;
+				distance = temp;
 			}
 		}
+		if (n != null) c0 = n;
+		
 		Coordinate c1 = nearest[1];
+		n = null;
+		distance  = Double.MAX_VALUE;
 		for (Coordinate c : ls2.getCoordinates()) {
-			if (c.distance(c1)  < properties.getProperty(Property.BANK_MIN_VERTEX_DISTANCE)) {
+			double temp = c.distance(c1);
+			if (temp < properties.getProperty(Property.BANK_MIN_VERTEX_DISTANCE) 
+					&& temp < distance) {
 				//snap to this coordinate
-				c1 = c;
-				break;
+				n = c;
+				distance = temp;
 			}
 		}
+		if (n != null) c1 = n;
+		
 		return new Coordinate[] {c0,c1};
 	}
 	
@@ -801,11 +820,20 @@ public class BankSkeletonizer {
 		public LineString getMergedSkels() throws Exception{
 			LineMerger lm = new LineMerger();
 			lm.add(skels);
+			
 			Collection<LineString> items = lm.getMergedLineStrings();
-			if (items.size() > 1) {
-				throw new Exception("Skeletons don't form closed loop");
+			if (items.size() == 0) throw new Exception("No skeletons found");
+			if (items.size() == 1) return (LineString)items.iterator().next();
+			//skeletons could form holes; find the linestring and intersects the 
+			//exterior
+			LineString ex = null;
+			for (LineString ls : items) {
+				if (ls.intersects(poly.getExteriorRing())) {
+					if (ex != null) throw new Exception("Skeletons don't form closed loop on exterior of polygon");
+					ex = ls;
+				}
 			}
-			return (LineString)items.iterator().next();
+			return ex;
 		}
 	}
 

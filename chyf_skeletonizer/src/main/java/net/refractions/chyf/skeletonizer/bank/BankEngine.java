@@ -40,6 +40,8 @@ import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.datasource.ChyfDataSource;
+import net.refractions.chyf.datasource.ChyfDataSource.Attribute;
+import net.refractions.chyf.datasource.ChyfDataSource.EfType;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.skeletonizer.points.BoundaryEdge;
 import net.refractions.chyf.skeletonizer.points.PolygonInfo;
@@ -60,16 +62,18 @@ public class BankEngine {
 		List<LineString> ftouch = new ArrayList<>();
 
 		try(ChyfGeoPackageDataSource dataSource = new ChyfGeoPackageDataSource(output)){
+
 			dataSource.addProcessedAttribute();
-			dataSource.addPolygonIdAttribute();
+			dataSource.removeExistingSkeletons(true);
+
+			if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			
 			BankSkeletonizer generator = new BankSkeletonizer(properties);
-			
+			List<BoundaryEdge> be = dataSource.getBoundary();
+
 			while(true) {
-				//find next feature to process
-				int polyid = cnt;
-				
-				SimpleFeature toProcess = dataSource.getNextWaterbody(polyid);
+				//find next feature to process				
+				SimpleFeature toProcess = dataSource.getNextWaterbody();
 				if (toProcess == null) break; //finished processing
 				
 				logger.info("Generating Banks: " + cnt);
@@ -98,17 +102,21 @@ public class BankEngine {
 								wateredges.add((LineString) ms.getGeometryN(i));
 							}
 						}else {
-							if (! (g instanceof Polygon && ((Polygon)g).isEmpty()))
+							if (! (g instanceof Polygon && ((Polygon)g).isEmpty())) {
+								System.out.println(temp.toText());
+								System.out.println(workingPolygon.toText());
 								throw new Exception("Intersection of waterbodies does not return LineStrings");
+							}
+								
 						}
 					}
 				}
 				
 				//get any water boundary edges
-				List<BoundaryEdge> be = dataSource.getBoundary();
 				for (BoundaryEdge e : be) {
-					if (e.getLineString().intersects(workingPolygon)) {
-						wateredges.add(e.getLineString());
+					if (e.getLineString().getEnvelopeInternal().intersects(workingPolygon.getEnvelopeInternal()) &&
+						e.getLineString().intersects(workingPolygon)) {
+							wateredges.add(e.getLineString());
 					}
 				}
 				
@@ -118,11 +126,12 @@ public class BankEngine {
 				try(SimpleFeatureReader flowtouches = dataSource.getFlowpaths(env)){
 					while(flowtouches.hasNext()) {
 						SimpleFeature t = flowtouches.next();
-						
-						if (t.getAttribute("TYPE").toString().equalsIgnoreCase("Bank")) continue;
+						if (! (((Geometry)t.getDefaultGeometry()).getEnvelopeInternal().intersects(workingPolygon.getEnvelopeInternal()))) continue; 
+						EfType type = EfType.parseType( (Integer)t.getAttribute(Attribute.EFTYPE.getFieldName()) );
+						if (type == EfType.BANK) continue;
 						
 						boolean isskel = false;
-						if (t.getAttribute("TYPE").toString().equalsIgnoreCase("Inferred")) { 
+						if (type == EfType.SKELETON) { 
 							LineString temp = ChyfDataSource.getLineString(t);
 							if (workingPolygon.contains(temp)) {
 								isskel = true;
@@ -169,6 +178,11 @@ public class BankEngine {
 					}
 				}
 
+				if (ftouch.isEmpty()) {
+					logger.warn("WARNING: Waterbody found without any skeletons.  Centroid: " + workingPolygon.getCentroid().toText());
+					continue;
+				}
+				
 				List<Coordinate> degree1nodes = new ArrayList<>();
 				for (Entry<Coordinate,Integer> e : nodes.entrySet()) {
 					if (e.getValue() == 1) degree1nodes.add(e.getKey());
@@ -187,14 +201,13 @@ public class BankEngine {
 					throw new Exception("Invalid number of headwater/terminal nodes in the lake");
 				}
 				
-				//generate points
-//				System.out.println(workingPolygon.toText());
+				//generate bank skeletons
 				SkeletonResult result = generator.skeletonize(workingPolygon, ftouch, terminalnode, wateredges);
-//				items.forEach(e->System.out.println(e.toText()));
-//				//update polygons as required
+
+				//update polygons as required
 				Polygon newwb = result.getPolygon();
-//				System.out.println(newwb.toText());
-				newwb.setUserData(new PolygonInfo(toProcess.getIdentifier(), polyid));
+
+				newwb.setUserData(new PolygonInfo(toProcess.getIdentifier(), null));
 				dataSource.updateWaterbodyGeometries(Collections.singletonList(newwb));
 				dataSource.writeSkeletons(result.getSkeletons());
 			}
@@ -206,24 +219,28 @@ public class BankEngine {
 
 
 	
-	public static void main(String[] args) throws Exception {
-//		Path input = Paths.get("C:\\temp\\chyf\\KOTL.gpkg");
-//		Path output = Paths.get("C:\\temp\\chyf\\KOTL.out.gpkg");
+	public static void main(String[] args) throws Exception {		
+		if (args.length != 2) {
+			System.err.println("Invalid Usage");
+			System.err.println("usage: BankEngine infile outfile");
+			System.err.println("   infile:  the input geopackage file");
+			System.err.println("   outfile: the output geopackage file, will be overwritten");
+			return;
+		}
+
+		Path input = Paths.get(args[0]);
+		if (!Files.exists(input)) {
+			System.err.println("Input file not found: " + input.toString());
+			return;
+		}
 		
-//		Path input = Paths.get("C:\\temp\\chyf\\Richelieu.gpkg");
-//		Path output = Paths.get("C:\\temp\\chyf\\Richelieu.out.gpkg");
+		Path output = Paths.get(args[1]);
+		ChyfGeoPackageDataSource.deleteOutputFile(output);
 		
-//		Path input = Paths.get("C:\\temp\\chyf\\KOTL.merged.gpkg");
-//		Path output = Paths.get("C:\\temp\\chyf\\KOTL.merged.out2.gpkg");
-		
-//		Path input = Paths.get("C:\\temp\\chyf\\Richelieu.M.gpkg");
-//		Path output = Paths.get("C:\\temp\\chyf\\Richelieu.Me.out.gpkg");
-		
-		Path input = Paths.get("C:\\temp\\chyf\\KOTL.merged.gpkg");
-		Path output = Paths.get("C:\\temp\\chyf\\KOTL.mbank.gpkg");
+		Files.copy(input, output, StandardCopyOption.REPLACE_EXISTING);
 		
 		long now = System.nanoTime();
-		BankEngine.doWork(input, output, ChyfProperties.getProperties());
+		BankEngine.doWork(input, output, null);
 		long then = System.nanoTime();
 		
 		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );

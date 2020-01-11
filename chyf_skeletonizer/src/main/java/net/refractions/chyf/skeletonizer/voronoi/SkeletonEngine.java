@@ -50,6 +50,7 @@ public class SkeletonEngine {
 			dataSource.addProcessedAttribute();
 			dataSource.removeExistingSkeletons(false);
 			
+			if (props == null) props = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			SkeletonGenerator generator = new SkeletonGenerator(props);
 		
 			//break up tasks
@@ -82,25 +83,31 @@ public class SkeletonEngine {
 
 	
 	public static void main(String[] args) throws Exception {
-//		Path input = Paths.get("C:\\temp\\chyf\\KOTL.out.gpkg");
-//		Path output = Paths.get("C:\\temp\\chyf\\KOTL.skeleton.gpkg");
-		
-//		Path input = Paths.get("C:\\temp\\chyf\\Richelieu.gpkg");
-//		Path output = Paths.get("C:\\temp\\chyf\\Richelieu.out.gpkg");
-		
-//		Path input = Paths.get("C:\\temp\\chyf\\KOTL.merged.out2.gpkg");
-//		Path output = Paths.get("C:\\temp\\chyf\\KOTL.test2.gpkg");
+		if (args.length != 2) {
+			System.err.println("Invalid Usage");
+			System.err.println("usage: SkeletonEngine infile outfile");
+			System.err.println("   infile:  the input geopackage file");
+			System.err.println("   outfile: the output geopackage file, will be overwritten");
+			return;
+		}
 
+		Path input = Paths.get(args[0]);
+		if (!Files.exists(input)) {
+			System.err.println("Input file not found: " + input.toString());
+			return;
+		}
 		
-		Path input = Paths.get("C:\\temp\\chyf\\input2\\KOTL.out.gpkg");
-		Path output = Paths.get("C:\\temp\\chyf\\input2\\KOTL.out.2.gpkg");
+		Path output = Paths.get(args[1]);
+		ChyfGeoPackageDataSource.deleteOutputFile(output);
 		
 		Files.copy(input, output, StandardCopyOption.REPLACE_EXISTING);
 		
+//		ChyfProperties prop = ChyfProperties.getProperties();
+		
 		long now = System.nanoTime();
-		SkeletonEngine.doWork(output, ChyfProperties.getProperties());
+		SkeletonEngine.doWork(output, null);
 		long then = System.nanoTime();
 		
-		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );
+		System.out.println("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );
 	}
 }

@@ -139,18 +139,18 @@ public class PointGenerator {
 		}
 		if (outcount == 0 && incount > 0 && unknowncount == 0) {
 			//list all the points from the  
-			Coordinate c = findLongestMidPoint(workingWaterbody.getExteriorRing(), wbpoints.stream().map(a->a.getCoordinate()).collect(Collectors.toSet()), false);
+			Coordinate c = findLongestMidPoint(workingWaterbody.getExteriorRing(), touches, wbpoints.stream().map(a->a.getCoordinate()).collect(Collectors.toSet()), false);
 			wbpoints.add(new SkeletonPoint(c, Type.TERMINAL, FlowDirection.OUT, (PolygonInfo) workingWaterbody.getUserData()));
 		}
 		//if there are only outnodes then we need to add an in node
 		if (incount == 0 && outcount > 0 && unknowncount == 0) {
-			Coordinate c = findLongestMidPoint(workingWaterbody.getExteriorRing(), wbpoints.stream().map(a->a.getCoordinate()).collect(Collectors.toSet()), false);
+			Coordinate c = findLongestMidPoint(workingWaterbody.getExteriorRing(), touches, wbpoints.stream().map(a->a.getCoordinate()).collect(Collectors.toSet()), false);
 			wbpoints.add(new SkeletonPoint(c, Type.HEADWATER, FlowDirection.IN, (PolygonInfo) workingWaterbody.getUserData()));
 		}
 		if (unknowncount == 1 && incount == 0 && outcount == 0) {
-			Coordinate c = findLongestMidPoint(workingWaterbody.getExteriorRing(), wbpoints.stream().map(a->a.getCoordinate()).collect(Collectors.toSet()), false);
-			//TODO: incorrect classification
-			wbpoints.add(new SkeletonPoint(c, Type.WATER, FlowDirection.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
+			Coordinate c = findLongestMidPoint(workingWaterbody.getExteriorRing(), touches, wbpoints.stream().map(a->a.getCoordinate()).collect(Collectors.toSet()), false);
+			//TODO: incorrect classification; thought could be either headwater or terminal, but it is a degree1 node
+			wbpoints.add(new SkeletonPoint(c, Type.HEADWATER, FlowDirection.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
 		}
 		
 		//add bank points, ensuring they are not added
@@ -227,7 +227,26 @@ public class PointGenerator {
 	 * @param ls
 	 * @param points
 	 */
-	private Coordinate findLongestMidPoint(LineString ls, Set<Coordinate> points, boolean interpolate) {
+	private Coordinate findLongestMidPoint(LineString ls, List<Polygon> touches, Set<Coordinate> points, boolean interpolate) {
+		
+		
+		//first remove any shared edges from this linestring
+		Geometry temp = ls;
+		for (Polygon p : touches) {
+			if (!p.getExteriorRing().getEnvelopeInternal().intersects(temp.getEnvelopeInternal())) continue;
+			temp = temp.difference(p.getExteriorRing());
+		}
+		for (BoundaryEdge g : boundaries) {
+			if (!g.getLineString().getEnvelopeInternal().intersects(temp.getEnvelopeInternal())) continue;
+			temp = temp.difference(g.getLineString());
+		}
+		
+		//if its a linestring
+		if (!(temp instanceof LineString)) throw new RuntimeException("not a linestring");
+		
+		ls = (LineString)temp;
+
+		
 		HashMap<Double, Coordinate> options = new HashMap<>();
 		
 		Coordinate[] cs = ls.getCoordinates();

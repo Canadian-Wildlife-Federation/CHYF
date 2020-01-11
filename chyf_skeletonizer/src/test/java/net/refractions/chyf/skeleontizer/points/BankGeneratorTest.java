@@ -51,6 +51,9 @@ public class BankGeneratorTest {
 		prop.setProperty(Property.BANK_NODE_DISTANCE_OFFSET, 0.2);
 		prop.setProperty(Property.BANK_NODE_DISTANCE_OFFSET, 0.2);
 		prop.setProperty(Property.PNT_VERTEX_DISTANCE, 0.001);
+		prop.setProperty(Property.PNT_VERTEX_DISTANCE, 0.001);
+		prop.setProperty(Property.BANK_MIN_VERTEX_DISTANCE, 0.001);
+
 		BankSkeletonizer gen = new BankSkeletonizer(prop);
 		return gen;
 	}
@@ -177,7 +180,18 @@ public class BankGeneratorTest {
 			items.add((LineString)reader.read(s));
 		}
 		
-		SkeletonResult r = createSkeletonizer().skeletonize(wb, items, terminal, Collections.emptyList());
+		ChyfProperties prop = new ChyfProperties();
+		prop.setProperty(Property.SKEL_DENSIFY_FACTOR, 0.0001);
+		prop.setProperty(Property.SKEL_MINSIZE, 0.0001);
+		prop.setProperty(Property.SKEL_SIMPLIFY_FACTOR, 0.000001);
+		prop.setProperty(Property.SKEL_ACUTE_ANGLE_RAD, 0.3);
+		prop.setProperty(Property.BANK_NODE_DISTANCE_OFFSET, 0.2);
+		prop.setProperty(Property.BANK_NODE_DISTANCE_OFFSET, 0.2);
+		prop.setProperty(Property.PNT_VERTEX_DISTANCE, 0.001);
+		prop.setProperty(Property.BANK_MIN_VERTEX_DISTANCE, 0.001);
+		
+		BankSkeletonizer gen = new BankSkeletonizer(prop);
+		SkeletonResult r = gen.skeletonize(wb, items, terminal, Collections.emptyList());
 		r.getSkeletons().forEach(e->System.out.println(e.toText()));
 
 	}
@@ -198,8 +212,17 @@ public class BankGeneratorTest {
 		for (String s : ls) {
 			items.add((LineString)reader.read(s));
 		}
-		
-		SkeletonResult r = createSkeletonizer().skeletonize(wb, items, terminal, Collections.emptyList());
+		ChyfProperties prop = new ChyfProperties();
+		prop.setProperty(Property.SKEL_DENSIFY_FACTOR, 0.0001);
+		prop.setProperty(Property.SKEL_MINSIZE, 0.0001);
+		prop.setProperty(Property.SKEL_SIMPLIFY_FACTOR, 0.000001);
+		prop.setProperty(Property.SKEL_ACUTE_ANGLE_RAD, 0.3);
+		prop.setProperty(Property.BANK_NODE_DISTANCE_OFFSET, 0.2);
+		prop.setProperty(Property.BANK_NODE_DISTANCE_OFFSET, 0.2);
+		prop.setProperty(Property.PNT_VERTEX_DISTANCE, 0.001);
+		prop.setProperty(Property.BANK_MIN_VERTEX_DISTANCE, 0.001);
+		BankSkeletonizer gen = new BankSkeletonizer(prop);
+		SkeletonResult r = gen.skeletonize(wb, items, terminal, Collections.emptyList());
 		r.getSkeletons().forEach(e->System.out.println(e.toText()));
 
 	}

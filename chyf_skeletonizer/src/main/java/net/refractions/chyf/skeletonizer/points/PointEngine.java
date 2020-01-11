@@ -34,6 +34,7 @@ import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfDataSource.Attribute;
 import net.refractions.chyf.datasource.ChyfDataSource.EfType;
+import net.refractions.chyf.skeletonizer.bank.BankEngine;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 
 /**
@@ -65,15 +66,16 @@ public class PointEngine {
 		try(ChyfGeoPackageDataSource dataSource = new ChyfGeoPackageDataSource(output)){
 			dataSource.addProcessedAttribute();
 			dataSource.addPolygonIdAttribute();
-			
+			if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			PointGenerator generator = new PointGenerator(dataSource.getBoundary(),  properties);
 			
 			while(true) {
 				//find next feature to process
 				int polyid = cnt;
-				
+		
 				SimpleFeature toProcess = dataSource.getNextWaterbody(polyid);
 				if (toProcess == null) break; //finished processing
+
 				logger.info("POINT GENERATOR: " + cnt);
 				cnt++;
 				
@@ -127,13 +129,27 @@ public class PointEngine {
 	
 	public static void main(String[] args) throws Exception {
 
-		Path input = Paths.get("C:\\temp\\chyf\\input2\\NS.gpkg");
-		Path output = Paths.get("C:\\temp\\chyf\\input2\\NS.points.gpkg");
+		if (args.length != 2) {
+			System.err.println("Invalid Usage");
+			System.err.println("usage: PointEngine infile outfile");
+			System.err.println("   infile:  the input geopackage file");
+			System.err.println("   outfile: the output geopackage file, will be overwritten");
+			return;
+		}
+
+		Path input = Paths.get(args[0]);
+		if (!Files.exists(input)) {
+			System.err.println("Input file not found: " + input.toString());
+			return;
+		}
+		
+		Path output = Paths.get(args[1]);
+		ChyfGeoPackageDataSource.deleteOutputFile(output);
 		
 		Files.copy(input, output, StandardCopyOption.REPLACE_EXISTING);
 		
 		long now = System.nanoTime();
-		PointEngine.doWork(output, ChyfProperties.getProperties());
+		PointEngine.doWork(output, null);
 		long then = System.nanoTime();
 		
 		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );

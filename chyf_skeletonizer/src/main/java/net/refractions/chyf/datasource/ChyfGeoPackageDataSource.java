@@ -16,6 +16,7 @@
 package net.refractions.chyf.datasource;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -52,6 +53,7 @@ import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.filter.Filter;
 import org.opengis.filter.FilterFactory2;
 import org.opengis.filter.identity.FeatureId;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -118,6 +120,9 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		read();
 	}
 	
+	public CoordinateReferenceSystem getCoordinateReferenceSystem() {
+		return flowpaths.getBounds().getCoordinateReferenceSystem();
+	}
 	private void read() throws Exception {
 		geopkg = new GeoPackage(geopackageFile.toFile());
 		geopkg.init();
@@ -526,5 +531,16 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	}
 	
 	
+	public static final void deleteOutputFile(Path outputFile) throws Exception{
+		if (Files.exists(outputFile)) {
+			Files.delete(outputFile);
+			//also delete -shm and -wal if files
+			Path p = outputFile.getParent().resolve(outputFile.getFileName().toString() + "-shm");
+			if (Files.exists(p)) Files.delete(p);
+			
+			p = outputFile.getParent().resolve(outputFile.getFileName().toString() + "-wal");
+			if (Files.exists(p)) Files.delete(p);
+		}
+	}
 
 }
