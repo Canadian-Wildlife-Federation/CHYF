@@ -18,7 +18,6 @@ package net.refractions.chyf;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Properties;
 
@@ -28,6 +27,7 @@ import org.geotools.referencing.util.CRSUtilities;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 import si.uom.NonSI;
+import systems.uom.common.USCustomary;
 import tec.uom.se.unit.Units;
 
 /**
@@ -104,7 +104,7 @@ public class ChyfProperties {
 	 */
 	public static ChyfProperties getProperties(CoordinateReferenceSystem crs) throws Exception{
 		Unit<?> units = CRSUtilities.getUnit(crs.getCoordinateSystem());
-		if (units.equals(Units.METRE)) { //TODO: feet|| units.equals(NonSI.fe.)) {
+		if (units.equals(Units.METRE) || units.equals(USCustomary.FOOT)) {
 			return loadDefaults(M_PROP_FILE);
 		}else if (units.equals(NonSI.DEGREE_ANGLE)) {
 			return loadDefaults(DEG_PROP_FILE);

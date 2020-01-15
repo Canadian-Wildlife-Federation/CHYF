@@ -269,7 +269,6 @@ public class PointGenerator {
 			
 			if (points.contains(n)) {
 				//find the midpoint between first and cnt and create node
-				
 				options.put(distance, findMidpoint(coords, interpolate));
 				coords = new ArrayList<>();
 				coords.add(n);

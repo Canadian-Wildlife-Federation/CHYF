@@ -15,14 +15,7 @@
  */
 package net.refractions.chyf.skeletonizer.voronoi;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-
-import net.refractions.chyf.ChyfProperties;
-import net.refractions.chyf.Utils;
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
+import net.refractions.chyf.Args;
 import net.refractions.chyf.skeletonizer.points.PointEngine;
 
 /**
@@ -35,28 +28,16 @@ import net.refractions.chyf.skeletonizer.points.PointEngine;
 public class Skeletonize {
 
 	public static void main(String[] args) throws Exception {
-		String[] fields = Utils.parseArguments(args);
-		if (fields == null) {
-			Utils.printUsage("Skeletonize");
+		Args runtime = Args.parseArguments(args);
+		if (runtime == null) {
+			Args.printUsage("Skeletonize");
 			return;
 		}
-		Path input = Paths.get(fields[0]);
-		if (!Files.exists(input)) {
-			System.err.println("Input file not found: " + input.toString());
-			return;
-		}
-		
-		Path output = Paths.get(fields[1]);
-		ChyfGeoPackageDataSource.deleteOutputFile(output);
-		
-		Files.copy(input, output, StandardCopyOption.REPLACE_EXISTING);
-		
-		ChyfProperties prop = null;
-		if (fields[2] != null) prop = ChyfProperties.getProperties(Paths.get(fields[2]));
+		runtime.prepareOutput();
 		
 		long now = System.nanoTime();
-		PointEngine.doWork(output, prop);
-		SkeletonEngine.doWork(output, prop);
+		PointEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
+		SkeletonEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
 		long then = System.nanoTime();
 		
 		System.out.println("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );

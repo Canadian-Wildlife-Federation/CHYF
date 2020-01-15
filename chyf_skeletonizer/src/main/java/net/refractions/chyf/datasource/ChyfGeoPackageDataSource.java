@@ -496,7 +496,6 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		}
 	}
 	
-	
 	/**
 	 * Add a processed column to the waterbodies table
 	 * 

@@ -81,6 +81,7 @@ public class BankSkeletonizer {
 			Coordinate terminalNode, List<LineString> wateredges) throws Exception {
 		gf = waterbody.getFactory();
 		
+		
 		List<LineString> newSkeletonBankEdges = new ArrayList<>();
 		SkeletonGenerator gen = new SkeletonGenerator(properties);
 				
@@ -91,7 +92,7 @@ public class BankSkeletonizer {
 			
 			//process each working polygon
 			WorkingPolygon p = toprocess.remove(0);
-
+			
 			//points for skeletonizing
 			List<SkeletonPoint> points = new ArrayList<>();
 			List<SkeletonPoint> breakpoints = new ArrayList<>();
@@ -110,8 +111,8 @@ public class BankSkeletonizer {
 					for (LineString ls : p.getBoundaryEdges()) {
 						LineString part = removeWaterPart(ls, wateredges);
 						
-						double minDistance = ls.getLength() * bankNodeDistanceFactor;
-						double maxDistance = ls.getLength() * (1-bankNodeDistanceFactor);
+						double minDistance = part.getLength() * bankNodeDistanceFactor;
+						double maxDistance = part.getLength() * (1-bankNodeDistanceFactor);
 						part = chopLineString(part.getCoordinates(), minDistance, maxDistance, gf);
 						
 						//find the closest point between the polygon boundary edge
@@ -205,7 +206,7 @@ public class BankSkeletonizer {
 				p.getInnerEdges().add(newb);
 				p.getBoundaryEdges().remove(bnk);
 				p.getBoundaryEdges().add(newb2);
-			}
+			} 
 			
 			List<LineString> newskels = new ArrayList<>();
 			if (!points.isEmpty()) {
@@ -226,10 +227,8 @@ public class BankSkeletonizer {
 			//process the closest ring to the skeleton line
 			if (p.getPolygon().getNumInteriorRing() == 0) {
 				//we are finished
-//				complete.add(p);
 			}else if (p.getInnerEdges().isEmpty()) {
 				//hole is made by skeletons we don't need to process anything
-				System.out.println("here");
 			}else {
 				
 				List<WorkingPolygon> polys = breakPolgyon(p, newskels);
@@ -287,10 +286,7 @@ public class BankSkeletonizer {
 				if (i == cs.length - 1) i = 1;
 			}
 			if (toremove == null) {
-				//TODO:
-				System.out.println("unable to find bank edge to remove from headwater lake");
-				System.out.println(waterbody.toText());
-//				throw new IllegalStateException("Unable to find bank edge to remove for headwater lake");
+				throw new IllegalStateException("Unable to find bank edge to remove for headwater lake: " + waterbody.toText());
 			} else {
 				newSkeletonBankEdges.remove(toremove);
 			}
@@ -397,6 +393,7 @@ public class BankSkeletonizer {
 		if (!(g instanceof LineString)) {
 			//TODO:
 			System.out.println("ERROR");
+			System.out.println(g.toText());
 			return (LineString)(((MultiLineString)g).getGeometryN(0));
 			//throw new RuntimeException("There is a problem with the existing skeletons and waterbodies near linestring " + ls.toText());
 		}
@@ -455,6 +452,7 @@ public class BankSkeletonizer {
 	 * @param existingSkeletons
 	 * @return
 	 */
+	@SuppressWarnings("unchecked")
 	private List<WorkingPolygon> breakPolgyon(Polygon polygon, Collection<LineString> existingSkeletons,
 			List<LineString> wateredges) {
 		
@@ -467,8 +465,10 @@ public class BankSkeletonizer {
 		
 		Set<Coordinate> stopPoints = new HashSet<>();
 		for (LineString ls : existingSkeletons) {
-			stopPoints.add(ls.getCoordinateN(0));
-			stopPoints.add(ls.getCoordinateN(ls.getCoordinates().length - 1));
+			if (polygon.getExteriorRing().intersects(ls)) {
+				stopPoints.add(ls.getCoordinateN(0));
+				stopPoints.add(ls.getCoordinateN(ls.getCoordinates().length - 1));
+			}
 		}
 
 		//break the outer linestring at the existing skeleton points
@@ -497,7 +497,7 @@ public class BankSkeletonizer {
 			cnt ++;
 			if (cnt == outc.length) cnt = 0;
 		}
-		if (coords.size() > 1) {
+		if (coords.size() > 1) { 
 			coords.add(outc[start]);
 			LineString ls = gf.createLineString(coords.toArray(new Coordinate[coords.size()]));
 			parts.add(ls);
@@ -512,17 +512,16 @@ public class BankSkeletonizer {
 		Collection<Polygon> items = pgen.getPolygons();
 		
 		List<WorkingPolygon> working = new ArrayList<>();
-		
-		for (Polygon p : items) {			
+		for (Polygon p : items) {
 			WorkingPolygon wp = new WorkingPolygon (p);
 			for (LineString ls : parts) {
-				if (ls.relate(p, "F1*F0****")) wp.getBoundaryEdges().add(ls);
+				if (ls.relate(p, "F1*F*****")) wp.getBoundaryEdges().add(ls);
 			}
 			for (LineString ls : inner) {
 				if (ls.relate(p, "F1*F*****")) wp.getInnerEdges().add(ls);
 			}
 			for (LineString ls : existingSkeletons) {
-				if (ls.relate(p, "F1*F0****")) wp.getSkeletonEdges().add(ls);
+				if (ls.relate(p, "F1*F*****")) wp.getSkeletonEdges().add(ls);
 			}
 			if (!wp.getSkeletonEdges().isEmpty()) {
 				working.add(wp);
@@ -538,6 +537,7 @@ public class BankSkeletonizer {
 	 * @param bankSkels the additional bank skeleton lines to use when breaking polygon
 	 * @return
 	 */
+	@SuppressWarnings("unchecked")
 	private List<WorkingPolygon> breakPolgyon(WorkingPolygon tobreak, Collection<LineString> bankSkels) {
 		
 		HashSet<Coordinate> breakpoints = new HashSet<>();
@@ -601,23 +601,22 @@ public class BankSkeletonizer {
 		Collection<Polygon> items = pgen.getPolygons();
 		
 		List<WorkingPolygon> working = new ArrayList<>();
-		
 		for (Polygon p : items) {
 			WorkingPolygon wp = new WorkingPolygon (p);
 			for (LineString ls : bnds) {
-				if (ls.relate(p, "F1*F0****")) wp.getBoundaryEdges().add(ls);
+				if (ls.relate(p, "F1*F*****")) wp.getBoundaryEdges().add(ls);
 			}
 			for (LineString ls : inner) {
 				if (ls.relate(p, "F1*F*****")) wp.getInnerEdges().add(ls);
 			}
 			for (LineString ls : skels) {
-				if (ls.relate(p, "F1*F0****")) wp.getSkeletonEdges().add(ls);
+				if (ls.relate(p, "F1*F*****")) wp.getSkeletonEdges().add(ls);
 			}
 			for (LineString ls : bankSkels) {
-				if (ls.relate(p, "F1*F0****")) wp.getBankSkeletonEdges().add(ls);
+				if (ls.relate(p, "F1*F*****")) wp.getBankSkeletonEdges().add(ls);
 			}
 			for (LineString ls : tobreak.getBankSkeletonEdges()) {
-				if (ls.relate(p, "F1*F0****")) wp.getBankSkeletonEdges().add(ls);
+				if (ls.relate(p, "F1*F*****")) wp.getBankSkeletonEdges().add(ls);
 			}
 			if (!wp.getSkeletonEdges().isEmpty()) working.add(wp);
 		}
@@ -753,6 +752,7 @@ public class BankSkeletonizer {
 		/**
 		 * Regenerate the polygon from the boundary edges.
 		 */
+		@SuppressWarnings("unchecked")
 		public void regeneratePolygon() {
 			//regenerate the working polygon; this adds the verticies
 			//we may have added to the ediges
@@ -817,6 +817,7 @@ public class BankSkeletonizer {
 			return this.bankskels;
 		}
 		
+		@SuppressWarnings("unchecked")
 		public LineString getMergedSkels() throws Exception{
 			LineMerger lm = new LineMerger();
 			lm.add(skels);
@@ -824,8 +825,9 @@ public class BankSkeletonizer {
 			Collection<LineString> items = lm.getMergedLineStrings();
 			if (items.size() == 0) throw new Exception("No skeletons found");
 			if (items.size() == 1) return (LineString)items.iterator().next();
-			//skeletons could form holes; find the linestring and intersects the 
-			//exterior
+			
+			//skeletons could form holes; find the linestring that 
+			//intersects the exterior ring
 			LineString ex = null;
 			for (LineString ls : items) {
 				if (ls.intersects(poly.getExteriorRing())) {

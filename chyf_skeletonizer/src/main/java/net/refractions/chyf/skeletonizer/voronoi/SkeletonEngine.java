@@ -15,10 +15,7 @@
  */
 package net.refractions.chyf.skeletonizer.voronoi;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -29,6 +26,7 @@ import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.Args;
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.skeletonizer.points.PointEngine;
@@ -83,29 +81,15 @@ public class SkeletonEngine {
 
 	
 	public static void main(String[] args) throws Exception {
-		if (args.length != 2) {
-			System.err.println("Invalid Usage");
-			System.err.println("usage: SkeletonEngine infile outfile");
-			System.err.println("   infile:  the input geopackage file");
-			System.err.println("   outfile: the output geopackage file, will be overwritten");
+		Args runtime = Args.parseArguments(args);
+		if (runtime == null) {
+			Args.printUsage("Skeletonize");
 			return;
 		}
-
-		Path input = Paths.get(args[0]);
-		if (!Files.exists(input)) {
-			System.err.println("Input file not found: " + input.toString());
-			return;
-		}
-		
-		Path output = Paths.get(args[1]);
-		ChyfGeoPackageDataSource.deleteOutputFile(output);
-		
-		Files.copy(input, output, StandardCopyOption.REPLACE_EXISTING);
-		
-//		ChyfProperties prop = ChyfProperties.getProperties();
+		runtime.prepareOutput();
 		
 		long now = System.nanoTime();
-		SkeletonEngine.doWork(output, null);
+		SkeletonEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
 		long then = System.nanoTime();
 		
 		System.out.println("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );

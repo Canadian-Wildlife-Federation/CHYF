@@ -15,10 +15,7 @@
  */
 package net.refractions.chyf.skeletonizer.bank;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,13 +28,13 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiLineString;
-import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.opengis.feature.simple.SimpleFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.Args;
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfDataSource.Attribute;
@@ -45,17 +42,14 @@ import net.refractions.chyf.datasource.ChyfDataSource.EfType;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.skeletonizer.points.BoundaryEdge;
 import net.refractions.chyf.skeletonizer.points.PolygonInfo;
-import net.refractions.chyf.skeletonizer.voronoi.SkeletonJob;
 import net.refractions.chyf.skeletonizer.voronoi.SkeletonResult;
 
 public class BankEngine {
 
 	static final Logger logger = LoggerFactory.getLogger(BankEngine.class.getCanonicalName());
 
-	public static void doWork(Path input, Path output, ChyfProperties properties) throws Exception {
-		//copy input to output
-		Files.copy(input, output, StandardCopyOption.REPLACE_EXISTING);
-
+	public static void doWork(Path output, ChyfProperties properties) throws Exception {
+		
 		int cnt = 1;
 		
 		List<Polygon> ptouch = new ArrayList<>();
@@ -71,6 +65,8 @@ public class BankEngine {
 			BankSkeletonizer generator = new BankSkeletonizer(properties);
 			List<BoundaryEdge> be = dataSource.getBoundary();
 
+			List<LineString> newSkeletons = new ArrayList<>();
+			
 			while(true) {
 				//find next feature to process				
 				SimpleFeature toProcess = dataSource.getNextWaterbody();
@@ -103,8 +99,6 @@ public class BankEngine {
 							}
 						}else {
 							if (! (g instanceof Polygon && ((Polygon)g).isEmpty())) {
-								System.out.println(temp.toText());
-								System.out.println(workingPolygon.toText());
 								throw new Exception("Intersection of waterbodies does not return LineStrings");
 							}
 								
@@ -206,12 +200,13 @@ public class BankEngine {
 
 				//update polygons as required
 				Polygon newwb = result.getPolygon();
-
 				newwb.setUserData(new PolygonInfo(toProcess.getIdentifier(), null));
 				dataSource.updateWaterbodyGeometries(Collections.singletonList(newwb));
-				dataSource.writeSkeletons(result.getSkeletons());
-			}
-			dataSource.writeSkeletons(Collections.emptyList());
+				
+				newSkeletons.addAll(result.getSkeletons());
+			}			
+			dataSource.removeExistingSkeletons(false);
+			dataSource.writeSkeletons(newSkeletons);
 		}
 
 	}
@@ -220,27 +215,15 @@ public class BankEngine {
 
 	
 	public static void main(String[] args) throws Exception {		
-		if (args.length != 2) {
-			System.err.println("Invalid Usage");
-			System.err.println("usage: BankEngine infile outfile");
-			System.err.println("   infile:  the input geopackage file");
-			System.err.println("   outfile: the output geopackage file, will be overwritten");
+		Args runtime = Args.parseArguments(args);
+		if (runtime == null) {
+			Args.printUsage("BankEngine");
 			return;
 		}
-
-		Path input = Paths.get(args[0]);
-		if (!Files.exists(input)) {
-			System.err.println("Input file not found: " + input.toString());
-			return;
-		}
-		
-		Path output = Paths.get(args[1]);
-		ChyfGeoPackageDataSource.deleteOutputFile(output);
-		
-		Files.copy(input, output, StandardCopyOption.REPLACE_EXISTING);
+		runtime.prepareOutput();
 		
 		long now = System.nanoTime();
-		BankEngine.doWork(input, output, null);
+		BankEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
 		long then = System.nanoTime();
 		
 		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );
