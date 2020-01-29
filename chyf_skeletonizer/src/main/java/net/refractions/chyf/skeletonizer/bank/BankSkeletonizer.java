@@ -33,11 +33,14 @@ import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.operation.distance.DistanceOp;
 import org.locationtech.jts.operation.linemerge.LineMerger;
 import org.locationtech.jts.operation.polygonize.Polygonizer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.ChyfProperties.Property;
 import net.refractions.chyf.datasource.ChyfDataSource.EfType;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource.FlowDirection;
+import net.refractions.chyf.skeletonizer.points.PointEngine;
 import net.refractions.chyf.skeletonizer.points.SkeletonPoint;
 import net.refractions.chyf.skeletonizer.points.SkeletonPoint.Type;
 import net.refractions.chyf.skeletonizer.voronoi.SkeletonGenerator;
@@ -53,6 +56,8 @@ import net.refractions.chyf.skeletonizer.voronoi.SkeletonResult;
  */
 public class BankSkeletonizer {
 	
+	private static final Logger logger = LoggerFactory.getLogger(BankSkeletonizer.class.getCanonicalName());
+
 	private static double DISTANCE_ZERO_TOLERANCE = 0.000000001;
 	
 	private double bankNodeDistanceFactor = 0.2;
@@ -411,7 +416,7 @@ public class BankSkeletonizer {
 		//we need to use the skeletonizer as we need to navigate around curves or islands
 		SkeletonResult skels = gen.generateSkeleton(p.getPolygon(), points);
 		if (!skels.getErrors().isEmpty()) {
-			skels.getErrors().forEach(e->System.out.println(e));
+			skels.getErrors().forEach(e->logger.warn(e));
 			throw new IllegalStateException("Skeletonizer threw errors");
 		}
 		//build a graph from the skeletons and keep the shortest path between the points

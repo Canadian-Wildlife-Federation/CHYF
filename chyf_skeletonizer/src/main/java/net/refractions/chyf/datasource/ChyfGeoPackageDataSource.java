@@ -247,6 +247,19 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		return edges;
 	}
 	
+	public List<Point> getBoundaries() throws Exception{
+		List<Point> pnt = new ArrayList<>();
+		try(SimpleFeatureReader reader = query(null, geopkg.feature(Layer.BOUNDARY_POINTS.getLayerName()), null)){
+			while(reader.hasNext()){
+				SimpleFeature point = reader.next();
+				Point pg = ChyfDataSource.getPoint(point);
+//				pg.setUserData(FlowDirection.getDirection((Integer)point.getAttribute(Attribute.IOTYPE.getFieldName())));
+//				inoutpoints.add(pg);
+				pnt.add(pg);
+			}
+		}
+		return pnt;
+	}
 	/**
 	 * Create a new layer for skeleton construction points
 	 * @param points
@@ -423,6 +436,46 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 								sf.setDefaultGeometry(polygon.getFactory().createMultiPolygon(new Polygon[] {polygon}));
 							}else {
 								sf.setDefaultGeometry(polygon);
+							}
+							writer.write();
+						}else {
+							throw new IOException("No feature with fid " + fid.toString() + "found to update");
+						}
+					}
+				}
+				tx.commit();
+			}catch (IOException ex) {
+				tx.rollback();
+				throw ex;
+			}
+		}
+	}
+	
+	
+	/**
+	 * Updates the geometry of the give polygon.  The polygon must
+	 * have a user data set to PolygonInfo class.
+	 * 
+	 * @param polygon
+	 * @throws IOException
+	 */
+	public void flipFlowEdges(Collection<FeatureId> pathstoflip) throws Exception{
+		
+		try(DefaultTransaction tx = new DefaultTransaction()){
+			try {
+				for (FeatureId fid : pathstoflip) {
+					try(SimpleFeatureWriter writer = geopkg.writer(getFlowpaths(), false, ff.id(fid), tx)){
+						if (writer.hasNext()) {
+							SimpleFeature sf = writer.next();
+							
+							//todo support multi
+							LineString ls = ChyfDataSource.getLineString(sf);
+							ls = (LineString) ls.reverse();
+							
+							if (cIsMulti) {
+								sf.setDefaultGeometry(ls.getFactory().createMultiLineString(new LineString[] {ls}));
+							}else {
+								sf.setDefaultGeometry(ls);
 							}
 							writer.write();
 						}else {
