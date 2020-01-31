@@ -37,7 +37,7 @@ import org.locationtech.jts.triangulate.VoronoiDiagramBuilder;
 
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.ChyfProperties.Property;
-import net.refractions.chyf.skeletonizer.points.SkeletonPoint;
+import net.refractions.chyf.skeletonizer.points.ConstructionPoint;
 import net.refractions.fastPIP.FastPIP;
 import net.refractions.fastPIP.FastSegInPolygon;
 
@@ -57,7 +57,7 @@ public class SkeletonGenerator {
 	}
 
 	
-	public SkeletonResult generateSkeleton(Polygon waterbody, List<SkeletonPoint> inoutPoints) throws Exception {
+	public SkeletonResult generateSkeleton(Polygon waterbody, List<ConstructionPoint> inoutPoints) throws Exception {
 		if (inoutPoints.size() < 2) throw new IOException("invalid number of input/output points");
 		
 		ArrayList<Coordinate> points = preprocess(waterbody, inoutPoints);
@@ -85,7 +85,7 @@ public class SkeletonGenerator {
 	 * @param waterbody
 	 * @param inoutPoints
 	 */
-	private Collection<String> validate(Collection<LineString> skeletons, Polygon waterbody, List<SkeletonPoint> inoutPoints) {
+	private Collection<String> validate(Collection<LineString> skeletons, Polygon waterbody, List<ConstructionPoint> inoutPoints) {
 		ArrayList<String> errors = new ArrayList<>();
 		//ensure linestring wholly contained within polygon
 		HashMap<Coordinate, Integer> nodes = new HashMap<>();
@@ -129,7 +129,7 @@ public class SkeletonGenerator {
 			
 		}
 		//every inout point should have a degree 1 node
-		for (SkeletonPoint pnt : inoutPoints) {
+		for (ConstructionPoint pnt : inoutPoints) {
 			Integer d = nodes.get(pnt.getCoordinate());
 			if (d == null) {
 				//ERROR
@@ -148,12 +148,12 @@ public class SkeletonGenerator {
 	 * create a path from an input to an output
 	 * @return
 	 */
-	private Collection<LineString> filterExcess(Collection<LineSegment> segments, List<SkeletonPoint> inoutPoints, GeometryFactory gf){
+	private Collection<LineString> filterExcess(Collection<LineSegment> segments, List<ConstructionPoint> inoutPoints, GeometryFactory gf){
 		SkeletonGraph graph = SkeletonGraph.buildGraph(segments, inoutPoints);
 		graph.mergedegree2();
 		graph.trim(inoutPoints);
 		graph.collapseShortEdges(properties.getProperty(Property.SKEL_MINSIZE));
-		graph.directionalize(inoutPoints);
+		graph.directionalizeBanks(inoutPoints);
 
 		return graph.getSkeletons(properties, gf);
 			
@@ -168,7 +168,7 @@ public class SkeletonGenerator {
 	 * @return
 	 * @throws Exception
 	 */
-	private Set<LineSegment> processVoronoi(Polygon waterbody, List<SkeletonPoint> inoutPoints, Geometry voronoi) throws Exception{
+	private Set<LineSegment> processVoronoi(Polygon waterbody, List<ConstructionPoint> inoutPoints, Geometry voronoi) throws Exception{
 		Set<LineSegment> segments = new HashSet<>();
 		Set<LineSegment> inoutsegments = new HashSet<>();
 		
@@ -198,7 +198,7 @@ public class SkeletonGenerator {
 		}
 		//only keep the inout segments that are closest to input/output point
 		//and truncate to original inout point
-		for (SkeletonPoint spnt : inoutPoints) {
+		for (ConstructionPoint spnt : inoutPoints) {
 			LineSegment nearest = null;
 			double d = Double.MAX_VALUE;
 			Coordinate c = spnt.getCoordinate();
@@ -230,14 +230,14 @@ public class SkeletonGenerator {
 	 * @param inoutPoints
 	 * @return
 	 */
-	private ArrayList<Coordinate> preprocess(Polygon waterbody, List<SkeletonPoint> inoutPoints) {
+	private ArrayList<Coordinate> preprocess(Polygon waterbody, List<ConstructionPoint> inoutPoints) {
 		//find all rings
 		List<LineString> outside = new ArrayList<>();
 		outside.add(waterbody.getExteriorRing());
 		for (int i = 0; i < waterbody.getNumInteriorRing(); i ++) outside.add(waterbody.getInteriorRingN(i));
 				
 		HashSet<Coordinate> inoutset = new HashSet<>();
-		for (SkeletonPoint p : inoutPoints) inoutset.add(p.getCoordinate());
+		for (ConstructionPoint p : inoutPoints) inoutset.add(p.getCoordinate());
 				
 		//for each linestring
 		//1. densify

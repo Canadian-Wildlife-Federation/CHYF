@@ -37,8 +37,8 @@ import org.locationtech.jts.operation.linemerge.LineMerger;
 
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.ChyfProperties.Property;
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource.FlowDirection;
-import net.refractions.chyf.skeletonizer.points.SkeletonPoint.Type;
+import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Direction;
+import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Type;
 
 /**
  * Generates input/output points for skeletonizer
@@ -48,7 +48,7 @@ import net.refractions.chyf.skeletonizer.points.SkeletonPoint.Type;
  */
 public class PointGenerator {
 	
-	private Set<SkeletonPoint> points;
+	private Set<ConstructionPoint> points;
 	
 	private Polygon workingWaterbody = null;
 	private Set<Polygon> workingPolygons = new HashSet<>();
@@ -65,7 +65,7 @@ public class PointGenerator {
 	}
 	
 	
-	public Set<SkeletonPoint> getPoints(){
+	public Set<ConstructionPoint> getPoints(){
 		return this.points;
 	}
 	
@@ -77,7 +77,7 @@ public class PointGenerator {
 	}
 	
 	public void processPolygon(Polygon waterbodya, List<Polygon> touches, List<LineString> flowpaths) throws Exception {
-		Set<SkeletonPoint> wbpoints = new HashSet<>();
+		Set<ConstructionPoint> wbpoints = new HashSet<>();
 	
 		workingWaterbody = waterbodya;
 		workingPolygons.clear();
@@ -110,7 +110,7 @@ public class PointGenerator {
 				for (LineString ls : g) {
 					List<Coordinate> items = new ArrayList<>();
 					for (Coordinate n : ls.getCoordinates()) items.add(n);
-					wbpoints.add(new SkeletonPoint(findMidpoint(items, true), Type.WATER, FlowDirection.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
+					wbpoints.add(new ConstructionPoint(findMidpoint(items, true), Type.WATER, Direction.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
 				}
 			}
 			
@@ -121,7 +121,7 @@ public class PointGenerator {
 						//use the b.getinout point
 						List<Coordinate> items = new ArrayList<>();
 						for (Coordinate n : b.getLineString().getCoordinates()) items.add(n);
-						wbpoints.add(new SkeletonPoint(b.getInOut().getCoordinate(), Type.WATER, b.getDirection(), (PolygonInfo) workingWaterbody.getUserData()));
+						wbpoints.add(new ConstructionPoint(b.getInOut().getCoordinate(), Type.WATER, b.getDirection(), (PolygonInfo) workingWaterbody.getUserData()));
 					}
 				}
 			}
@@ -132,30 +132,30 @@ public class PointGenerator {
 		int incount = 0;
 		int outcount = 0;
 		int unknowncount = 0;
-		for (SkeletonPoint p : wbpoints) {
-			if (p.getDirection() == FlowDirection.IN) incount ++;
-			if (p.getDirection() == FlowDirection.OUT) outcount ++;
-			if (p.getDirection() == FlowDirection.UNKNOWN) unknowncount ++;
+		for (ConstructionPoint p : wbpoints) {
+			if (p.getDirection() == Direction.IN) incount ++;
+			if (p.getDirection() == Direction.OUT) outcount ++;
+			if (p.getDirection() == Direction.UNKNOWN) unknowncount ++;
 		}
 		if (outcount == 0 && incount > 0 && unknowncount == 0) {
 			//list all the points from the  
 			Coordinate c = findLongestMidPoint(workingWaterbody.getExteriorRing(), touches, wbpoints.stream().map(a->a.getCoordinate()).collect(Collectors.toSet()), false);
-			wbpoints.add(new SkeletonPoint(c, Type.TERMINAL, FlowDirection.OUT, (PolygonInfo) workingWaterbody.getUserData()));
+			wbpoints.add(new ConstructionPoint(c, Type.TERMINAL, Direction.OUT, (PolygonInfo) workingWaterbody.getUserData()));
 		}
 		//if there are only outnodes then we need to add an in node
 		if (incount == 0 && outcount > 0 && unknowncount == 0) {
 			Coordinate c = findLongestMidPoint(workingWaterbody.getExteriorRing(), touches, wbpoints.stream().map(a->a.getCoordinate()).collect(Collectors.toSet()), false);
-			wbpoints.add(new SkeletonPoint(c, Type.HEADWATER, FlowDirection.IN, (PolygonInfo) workingWaterbody.getUserData()));
+			wbpoints.add(new ConstructionPoint(c, Type.HEADWATER, Direction.IN, (PolygonInfo) workingWaterbody.getUserData()));
 		}
 		if (unknowncount == 1 && incount == 0 && outcount == 0) {
 			Coordinate c = findLongestMidPoint(workingWaterbody.getExteriorRing(), touches, wbpoints.stream().map(a->a.getCoordinate()).collect(Collectors.toSet()), false);
 			//TODO: incorrect classification; thought could be either headwater or terminal, but it is a degree1 node
-			wbpoints.add(new SkeletonPoint(c, Type.HEADWATER, FlowDirection.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
+			wbpoints.add(new ConstructionPoint(c, Type.HEADWATER, Direction.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
 		}
 		
 		//add bank points, ensuring they are not added
 		//at the waterbody intersections
-		Set<SkeletonPoint> banks = addBanks(workingWaterbody, wbpoints, workingPolygons);
+		Set<ConstructionPoint> banks = addBanks(workingWaterbody, wbpoints, workingPolygons);
 		points.addAll(wbpoints);
 		points.addAll(banks);		
 		//add verticies to all polygons as necessary
@@ -283,13 +283,13 @@ public class PointGenerator {
 	}
 	
 	
-	private void processLineString(LineString ls, Set<Coordinate> inpoints, Set<Coordinate> outpoints, Set<SkeletonPoint> points ) {
+	private void processLineString(LineString ls, Set<Coordinate> inpoints, Set<Coordinate> outpoints, Set<ConstructionPoint> points ) {
 		for (int i = 0; i < ls.getCoordinates().length-1; i ++) {
 			Coordinate c = ls.getCoordinateN(i);
 			if (outpoints.contains(c)) {
-				points.add(new SkeletonPoint(c, Type.FLOWPATH,FlowDirection.OUT, (PolygonInfo) workingWaterbody.getUserData()));
+				points.add(new ConstructionPoint(c, Type.FLOWPATH, Direction.OUT, (PolygonInfo) workingWaterbody.getUserData()));
 			}else if (inpoints.contains(c)) {
-				points.add(new SkeletonPoint(c, Type.FLOWPATH,FlowDirection.IN, (PolygonInfo) workingWaterbody.getUserData()));
+				points.add(new ConstructionPoint(c, Type.FLOWPATH, Direction.IN, (PolygonInfo) workingWaterbody.getUserData()));
 			}
 		}
 	}
@@ -301,14 +301,14 @@ public class PointGenerator {
 	 * @param donotuse set of points to not use for bank flows
 	 * @return
 	 */
-	private Set<SkeletonPoint> addBanks(Polygon waterbody, Set<SkeletonPoint> flowpoints,  Set<Polygon> otherpolys){
+	private Set<ConstructionPoint> addBanks(Polygon waterbody, Set<ConstructionPoint> flowpoints,  Set<Polygon> otherpolys){
 		if (flowpoints.isEmpty()) return Collections.emptySet();
 
-		Set<SkeletonPoint> banks = new HashSet<>();
+		Set<ConstructionPoint> banks = new HashSet<>();
 		
 		Set<Coordinate> flows = new HashSet<>();
 		boolean hasheadwater = false;
-		for(SkeletonPoint p : flowpoints) {
+		for(ConstructionPoint p : flowpoints) {
 			flows.add(p.getCoordinate());
 			if (p.getType() == Type.HEADWATER) hasheadwater = true;
 			if (p.getType() == Type.TERMINAL) hasheadwater = true;
@@ -365,7 +365,7 @@ public class PointGenerator {
 	 * @param banks
 	 * @param donotuse coordinates to not use for flowpath node
 	 */
-	private void generateBanks(LineString ls, Set<Coordinate> flows, boolean hasheadwater,  Set<SkeletonPoint> banks) {
+	private void generateBanks(LineString ls, Set<Coordinate> flows, boolean hasheadwater,  Set<ConstructionPoint> banks) {
 		Coordinate[] cs = ls.getCoordinates();
 		if (cs[0].equals2D(cs[cs.length - 1])) {
 			int start = 0;
@@ -386,7 +386,7 @@ public class PointGenerator {
 				coords.add(n);
 				if (flows.contains(n)) {
 					//find the midpoint between first and cnt and create node
-					banks.add(new SkeletonPoint(findMidpoint(coords, false),Type.BANK, FlowDirection.IN, (PolygonInfo) workingWaterbody.getUserData()));
+					banks.add(new ConstructionPoint(findMidpoint(coords, false),Type.BANK, Direction.IN, (PolygonInfo) workingWaterbody.getUserData()));
 					coords = new ArrayList<>();
 					coords.add(n);
 				}
@@ -394,19 +394,19 @@ public class PointGenerator {
 			}
 			//find midpoint between first and cnt and create node
 			coords.add(cs[start]);
-			if (coords.size() > 1 && !hasheadwater) banks.add(new SkeletonPoint(findMidpoint(coords, false),Type.BANK, FlowDirection.IN, (PolygonInfo) workingWaterbody.getUserData()));
+			if (coords.size() > 1 && !hasheadwater) banks.add(new ConstructionPoint(findMidpoint(coords, false),Type.BANK, Direction.IN, (PolygonInfo) workingWaterbody.getUserData()));
 		}else {
 			List<Coordinate> coords = new ArrayList<>();
 			for (int i = 0; i < cs.length; i ++) {
 				coords.add(cs[i]);
 				if (flows.contains(cs[i])) {
-					banks.add(new SkeletonPoint(findMidpoint(coords, false),Type.BANK, FlowDirection.IN, (PolygonInfo) workingWaterbody.getUserData()));
+					banks.add(new ConstructionPoint(findMidpoint(coords, false),Type.BANK, Direction.IN, (PolygonInfo) workingWaterbody.getUserData()));
 					coords.clear();
 					coords.add(cs[i]);	
 					
 				}
 			}
-			if (!hasheadwater) banks.add(new SkeletonPoint(findMidpoint(coords, false),Type.BANK, FlowDirection.IN, (PolygonInfo) workingWaterbody.getUserData()));
+			if (!hasheadwater) banks.add(new ConstructionPoint(findMidpoint(coords, false),Type.BANK, Direction.IN, (PolygonInfo) workingWaterbody.getUserData()));
 		}
 		
 	
@@ -427,19 +427,77 @@ public class PointGenerator {
 	private Coordinate findMidpoint(List<Coordinate> items, boolean interpolate) {		
 		//if there is already a point on this line, reuse the exact same point
 		for (Coordinate c : items) {
-			for (SkeletonPoint p : points) {
+			for (ConstructionPoint p : points) {
 				if (p.getCoordinate().equals2D(c))  return c;
 			}
 		}
 
+		double vertexDistance = props.getProperty(Property.PNT_VERTEX_DISTANCE);
+
+		Coordinate[] mid = findMidPoint(items,  vertexDistance, interpolate);
+		if (mid == null) return null;
+		if (mid[1] != null) { 
+			insertCoordinates.add(new Coordinate[] {mid[1], mid[2], mid[0]});
+		}
+		return mid[0];
+//		if (items.size() == 2) {
+//			//we are going to have to add another vertex to waterbody
+//			Coordinate c = LineSegment.midPoint(items.get(0),  items.get(1));
+//			insertCoordinates.add(new Coordinate[] {items.get(0), items.get(1), c});
+//			return c;
+//		}
+//		
+//		
+//		//if mid coordinate is not near the center in terms of distance
+//		//then add a vertex note: vertex will need to be added to all waterbodies here
+//		double length = 0;
+//		for (int i = 1; i < items.size(); i ++) {
+//			length += items.get(i).distance(items.get(i-1));
+//		}
+//		double target = length / 2.0;
+//		double distance = 0;
+//		
+//		for (int i = 1; i < items.size(); i ++) {
+//			double lastdistance = distance;
+//			distance += items.get(i-1).distance(items.get(i));
+//			if (distance > target) {
+//				//stop here
+//				if (target - lastdistance < distance - target) {
+//					if (interpolate && (target-lastdistance) > vertexDistance) {
+//						//compute a coordinate nearest to the center
+//						LineSegment seg = new LineSegment(items.get(i-1), items.get(i));
+//						Coordinate c = seg.pointAlong((target-lastdistance) / seg.getLength());
+//						
+//						insertCoordinates.add(new Coordinate[] {items.get(i-1), items.get(i), c});
+//						return c;
+//					}else {
+//						return items.get(i-1);
+//					}
+//				}else {
+//					if (interpolate &&  distance - target > vertexDistance) {
+//						//add new
+//						LineSegment seg = new LineSegment(items.get(i-1), items.get(i));
+//						Coordinate c = seg.pointAlong( 1 - ((distance-target) / seg.getLength()));
+//						insertCoordinates.add(new Coordinate[] {items.get(i-1), items.get(i), c});
+//						return c;
+//					}else {
+//						return items.get(i);
+//					}
+//				}
+//			}
+//		}
+//		return null;
+	}
+	
+	public static Coordinate[] findMidPoint(List<Coordinate> items, double vertexDistance, boolean interpolate) {
+		
 		if (items.size() == 2) {
 			//we are going to have to add another vertex to waterbody
 			Coordinate c = LineSegment.midPoint(items.get(0),  items.get(1));
-			insertCoordinates.add(new Coordinate[] {items.get(0), items.get(1), c});
-			return c;
+			return new Coordinate[] {c, items.get(0), items.get(1)};
+//			insertCoordinates.add(new Coordinate[] {items.get(0), items.get(1), c});
+//			return c;
 		}
-		
-		double vertexDistance = props.getProperty(Property.PNT_VERTEX_DISTANCE);
 		
 		//if mid coordinate is not near the center in terms of distance
 		//then add a vertex note: vertex will need to be added to all waterbodies here
@@ -461,20 +519,24 @@ public class PointGenerator {
 						LineSegment seg = new LineSegment(items.get(i-1), items.get(i));
 						Coordinate c = seg.pointAlong((target-lastdistance) / seg.getLength());
 						
-						insertCoordinates.add(new Coordinate[] {items.get(i-1), items.get(i), c});
-						return c;
+//						insertCoordinates.add(new Coordinate[] {items.get(i-1), items.get(i), c});
+//						return c;
+						return new Coordinate[] {c, items.get(i-1), items.get(i)};
 					}else {
-						return items.get(i-1);
+						return new Coordinate[] {items.get(i-1), null, null};
 					}
 				}else {
 					if (interpolate &&  distance - target > vertexDistance) {
 						//add new
 						LineSegment seg = new LineSegment(items.get(i-1), items.get(i));
 						Coordinate c = seg.pointAlong( 1 - ((distance-target) / seg.getLength()));
-						insertCoordinates.add(new Coordinate[] {items.get(i-1), items.get(i), c});
-						return c;
+//						insertCoordinates.add(new Coordinate[] {items.get(i-1), items.get(i), c});
+//						return c;
+						return new Coordinate[] {c, items.get(i-1), items.get(i)};
 					}else {
-						return items.get(i);
+//						return items.get(i);
+						return new Coordinate[] {items.get(i), null, null};
+
 					}
 				}
 			}
@@ -489,7 +551,7 @@ public class PointGenerator {
 	 * @param waterbody
 	 * @return
 	 */
-	private Set<SkeletonPoint> processIsolated(Polygon waterbody) {
+	private Set<ConstructionPoint> processIsolated(Polygon waterbody) {
 		
 		Coordinate[] cs = waterbody.getExteriorRing().getCoordinates();
 		
@@ -511,9 +573,9 @@ public class PointGenerator {
 			}
 		}
 		Coordinate end = cs[index];
-		Set<SkeletonPoint> points = new HashSet<>();
-		points.add(new SkeletonPoint(start, Type.HEADWATER, FlowDirection.IN, (PolygonInfo) workingWaterbody.getUserData()));
-		points.add(new SkeletonPoint(end, Type.TERMINAL, FlowDirection.OUT, (PolygonInfo) workingWaterbody.getUserData()));
+		Set<ConstructionPoint> points = new HashSet<>();
+		points.add(new ConstructionPoint(start, Type.HEADWATER, Direction.IN, (PolygonInfo) workingWaterbody.getUserData()));
+		points.add(new ConstructionPoint(end, Type.TERMINAL, Direction.OUT, (PolygonInfo) workingWaterbody.getUserData()));
 		return points;
 	}
 	

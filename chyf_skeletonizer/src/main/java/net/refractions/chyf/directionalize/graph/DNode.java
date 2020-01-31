@@ -5,31 +5,22 @@ import java.util.List;
 
 import org.locationtech.jts.geom.Coordinate;
 
-import net.refractions.chyf.directionalize.DirectionType;
-
+/**
+ * Represents a node in the directionalizer graph
+ * 
+ * @author Emily
+ *
+ */
 public class DNode {
 	
 	private Coordinate c;
 	private List<DEdge> edges = new ArrayList<>();
-
-	
-	public enum NodeType{
-		SOURCE,
-		SINK,
-		SOURCE_OR_SINK
-	}
-	List<DEdge> temp = new ArrayList<>();
-	NodeType type;
-	
+	private boolean isSink = false;
 	
 	//these two variable to used in
 	//the bridge edge calculations	
 	protected int bridgePre = -1;
 	protected int bridgeMin = -1;
-	
-
-//	public boolean collapsenode = false;
-	public boolean hassource = false;
 
 	//used for computing shortest paths
 	protected double pathdistance = 0;
@@ -38,23 +29,21 @@ public class DNode {
 	//visited flag used by shortest path finder
 	protected boolean pathvisited;
 	
+	//used for computing subgraphs
+	protected boolean visited = false;
+	
 	public DNode(Coordinate c) {
 		this.c = c;
-		this.type = null;
+		this.isSink = false;
 	}
 	
 	public boolean isSink() {
-		return type != null && type == NodeType.SINK;
+		return this.isSink;
 	}
-	public boolean isSource() {
-		return type != null && type == NodeType.SOURCE;
+	public void setSink(boolean issink) {
+		this.isSink = issink;
 	}
-	public void setType(NodeType type) {
-		this.type = type;
-	}
-	public NodeType getType() {
-		return this.type;
-	}
+	
 	public Coordinate getCoordinate() {
 		return this.c;
 	}
@@ -72,22 +61,7 @@ public class DNode {
 	public List<DEdge> getEdges(){
 		return this.edges;
 	}
-	
-	public List<DEdge> getKnownEdges(){
-		temp.clear();
-		for (DEdge e : edges) {
-			if (e.getDType() == DirectionType.KNOWN) temp.add(e);
-		}
-		return temp;
-	}
-	
-	public List<DEdge> getUnKnownEdges(){
-		temp.clear();
-		for (DEdge e : edges) {
-			if (e.getDType() == DirectionType.UNKNOWN) temp.add(e);
-		}
-		return temp;
-	}
+
 	
 	public String toString() {
 		return "POINT( " + c.x + " " + c.y + ")";
@@ -96,7 +70,5 @@ public class DNode {
 		System.out.println(toString());
 	}
 	
-	public boolean visited = false;
-	public int order = 0;
-	public int suborder = 0;
+	
 }

@@ -41,15 +41,14 @@ import org.geotools.geopkg.FeatureEntry;
 import org.geotools.geopkg.GeoPackage;
 import org.geotools.util.factory.Hints;
 import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiLineString;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
-import org.locationtech.jts.operation.linemerge.LineMerger;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.feature.type.Name;
 import org.opengis.filter.Filter;
 import org.opengis.filter.FilterFactory2;
 import org.opengis.filter.identity.FeatureId;
@@ -57,9 +56,8 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.refractions.chyf.skeletonizer.points.BoundaryEdge;
+import net.refractions.chyf.skeletonizer.points.ConstructionPoint;
 import net.refractions.chyf.skeletonizer.points.PolygonInfo;
-import net.refractions.chyf.skeletonizer.points.SkeletonPoint;
 
 /**
  * Reads a geopackage input dataset.  
@@ -79,29 +77,6 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	public static final String POLYID_ATTRIBUTE = "poly_id";
 	public static final String POINTID_ATTRIBUTE = "point_id";
 	public static final String NODETYPE_ATTRIBUTE = "node_type";
-	
-	public enum FlowDirection{
-		IN(1),
-		OUT(2),
-		UNKNOWN(3);
-		
-		private int modelValue;
-		
-		private FlowDirection(int modelValue) {
-			this.modelValue = modelValue;
-		}
-		
-		public int modelValue() {
-			return this.modelValue;
-		}
-		
-		public static FlowDirection getDirection(int value) throws IOException{
-			for (FlowDirection d : FlowDirection.values()) {
-				if (d.modelValue == value) return d;
-			}
-			throw new IOException("Flow direction of " + value + " is invalid");
-		}
-	}
 	
 	private Path geopackageFile ;
 	private GeoPackage geopkg;
@@ -123,156 +98,116 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	public CoordinateReferenceSystem getCoordinateReferenceSystem() {
 		return flowpaths.getBounds().getCoordinateReferenceSystem();
 	}
+	
 	private void read() throws Exception {
 		geopkg = new GeoPackage(geopackageFile.toFile());
 		geopkg.init();
 		
-	    logger.info("Reading waterbodies");
+		//TODO: report bug
+//		List<Entry> items = geopkg.contents();
+		
+	    logger.info("waterbodies");
 	    catchments = geopkg.feature(Layer.CATCHMENT.getLayerName());
 	    catchments.setM(false); //4d not supported
         if (getCatchments().getGeometryType()== Geometries.MULTIPOLYGON) cIsMulti = true;
         
-		logger.info("Reading flowpaths");
+		logger.info("flowpaths");
 		flowpaths = geopkg.feature(Layer.FLOWPATH.getLayerName());
+		
+		boolean add = true;
+		try(SimpleFeatureReader reader = geopkg.reader(flowpaths, Filter.EXCLUDE, null)){
+			if (ChyfDataSource.findAttribute(reader.getFeatureType(),  Attribute.DIRECTION) != null) {
+				add = false;
+			}
+		}
+		if (add) {
+			addDirectionAttribute();
+		}
 	}
 	
 	private FeatureEntry getCatchments() throws IOException {
-//		return geopkg.feature(Layer.CATCHMENT.getLayerName());
 		return catchments;
 	}
 	private FeatureEntry getFlowpaths() throws IOException {
-//		return geopkg.feature(Layer.FLOWPATH.getLayerName());
 		return flowpaths;
 	}
 	
-	public List<BoundaryEdge> getBoundary() throws Exception{
-		//TODO: coastline
-		//intersect aoi with waterbodies
-		List<BoundaryEdge> edges = new ArrayList<>();
-		
-		List<LineString> common = new ArrayList<>();
-		
-		List<LineString> tocheck = new ArrayList<>();
-		
-		try(SimpleFeatureReader reader = query(null, geopkg.feature(Layer.AOI.getLayerName()), null)){
-			while(reader.hasNext()){
-				SimpleFeature aoi = reader.next();
-				//TODO: aoi must be a simple polygon with no holes
-				Polygon pg = ChyfDataSource.getPolygon(aoi);
-				LineString ring = pg.getExteriorRing();
-				tocheck.add(ring);
-			}
-		}
-		if (geopkg.feature(Layer.COASTLINE.getLayerName()) != null){
-			try(SimpleFeatureReader reader = query(null, geopkg.feature(Layer.COASTLINE.getLayerName()), null)){
-				while(reader.hasNext()){
-					SimpleFeature aoi = reader.next();
-					LineString ring = ChyfDataSource.getLineString(aoi);
-					tocheck.add(ring);
-				}
-			}
-		}
-
-		//intersect with waterbodies
-		try(SimpleFeatureReader wbreader = getWaterbodies()){
-			while(wbreader.hasNext()) {
-				SimpleFeature ww = wbreader.next();
-				Polygon wb = ChyfDataSource.getPolygon(ww);
-		
-				for (LineString ring : tocheck) {
-					if (!ring.getEnvelopeInternal().intersects(wb.getEnvelopeInternal())) continue;
-					Geometry t = ring.intersection(wb);
-					if (t.isEmpty()) continue;
-					if (t instanceof LineString) {
-						common.add((LineString)t);
-					}else if (t instanceof MultiLineString) {
-						for (int i = 0; i < ((MultiLineString)t).getNumGeometries(); i ++) {
-							common.add((LineString)t.getGeometryN(i));
-						}
-					}else if (t instanceof Point) {
-						//ignore
-					}else {
-						throw new RuntimeException("The intersection of aoi and waterbodies returns invalid geometry type ("+ t.getGeometryType() + ")");
-					}		
-				}
-			}
-		}
-		
-		
-		List<Point> inoutpoints = new ArrayList<>();
-		if (geopkg.feature(Layer.BOUNDARY_POINTS.getLayerName()) != null){
-			try(SimpleFeatureReader reader = query(null, geopkg.feature(Layer.BOUNDARY_POINTS.getLayerName()), null)){
-				while(reader.hasNext()){
-					SimpleFeature point = reader.next();
-					Point pg = ChyfDataSource.getPoint(point);
-					pg.setUserData(FlowDirection.getDirection((Integer)point.getAttribute(Attribute.IOTYPE.getFieldName())));
-					inoutpoints.add(pg);
-				}
-			}
-		}
-		
-		LineMerger m = new LineMerger();
-		m.add(common);
-		Collection<?> items = m.getMergedLineStrings();
-		
-		for (Object x : items) {
-			if (x instanceof LineString) {
-				//find the nearest point within 0.004 units
-				LineString ls = (LineString)x;
-				
-				Point found = null;
-				for (Coordinate c : ls.getCoordinates()) {
-					for (Point p : inoutpoints) {
-						if (c.equals2D(p.getCoordinate())) {
-							found = p;
-							break;
-						}
-					}
-					if (found != null) break;
-				}
-					
-				if (found != null) {
-					BoundaryEdge be = new BoundaryEdge((FlowDirection)found.getUserData(),  (LineString)x, found);
-					edges.add(be);
-				}else {
-					BoundaryEdge be = new BoundaryEdge(FlowDirection.UNKNOWN,  (LineString)x, null);
-					edges.add(be);
-					logger.warn("WARNING: The boundary edge has no in/out points: " + be.getLineString().toText());
-				}
-			}else {
-				throw new RuntimeException("The intersection of aoi and waterbodies linestring merger does not return linestring geometry");
-
-			}
-		}
-		return edges;
+	public FeatureEntry getEntry(Layer layer) throws IOException {
+		return geopkg.feature(layer.getLayerName());
 	}
 	
+	public void updateCoastline(FeatureId fid, LineString newls) throws IOException {
+		try(DefaultTransaction tx = new DefaultTransaction()){
+			try {
+				try(SimpleFeatureWriter writer = geopkg.writer(getEntry(Layer.COASTLINE), false, ff.id(fid), tx)){
+					if (writer.hasNext()) {
+						SimpleFeature sf = writer.next();
+						if (sf.getDefaultGeometry() instanceof MultiLineString) {
+							sf.setDefaultGeometry(newls.getFactory().createMultiLineString(new LineString[] {newls}));
+						}else {
+							sf.setDefaultGeometry(newls);
+						}
+						writer.write();
+					}else {
+						throw new IOException("No coastline feature with fid " + fid.toString() + "found to update");
+					}
+				}
+				tx.commit();
+			}catch (IOException ex) {
+				tx.rollback();
+				throw ex;
+			}
+		}
+	}
+	
+	/**
+	 * All points from the boundary layer with the userdata set to the FlowDirection
+	 * type
+	 * 
+	 * @return
+	 * @throws Exception
+	 */
 	public List<Point> getBoundaries() throws Exception{
 		List<Point> pnt = new ArrayList<>();
 		try(SimpleFeatureReader reader = query(null, geopkg.feature(Layer.BOUNDARY_POINTS.getLayerName()), null)){
+			Name ioatt = ChyfDataSource.findAttribute(reader.getFeatureType(), Attribute.IOTYPE);
 			while(reader.hasNext()){
 				SimpleFeature point = reader.next();
 				Point pg = ChyfDataSource.getPoint(point);
-//				pg.setUserData(FlowDirection.getDirection((Integer)point.getAttribute(Attribute.IOTYPE.getFieldName())));
-//				inoutpoints.add(pg);
+				pg.setUserData(IoType.parseType( (Integer)point.getAttribute(ioatt)) );
 				pnt.add(pg);
 			}
 		}
 		return pnt;
 	}
+	
+	public List<LineString> getCoastline() throws Exception{
+		List<LineString> coastline = new ArrayList<>();
+		if (geopkg.feature(Layer.COASTLINE.getLayerName()) != null){
+			try(SimpleFeatureReader reader = query(null, geopkg.feature(Layer.COASTLINE.getLayerName()), null)){
+				while(reader.hasNext()){
+					SimpleFeature aoi = reader.next();
+					LineString ring = ChyfDataSource.getLineString(aoi);
+					coastline.add(ring);
+				}
+			}
+		}
+		return coastline;
+	}
+	
 	/**
 	 * Create a new layer for skeleton construction points
 	 * @param points
 	 * @throws IOException
 	 */
-	public void addPointLayer(Set<SkeletonPoint> points) throws IOException {
+	public void createConstructionsPoints(Set<ConstructionPoint> points) throws IOException {
 		
 		SimpleFeatureTypeBuilder builder = new SimpleFeatureTypeBuilder();
 		builder.add("the_geom", Point.class, getCatchments().getBounds().getCoordinateReferenceSystem());
 		builder.add(POINTID_ATTRIBUTE, Integer.class);
 		builder.add(POLYID_ATTRIBUTE, Integer.class);
 		builder.add("node_type", Integer.class);
-		builder.add("io_type", Integer.class);
+		builder.add(Attribute.IOTYPE.getFieldName(), Integer.class);
 		builder.setName("ConstructionPoints");
 		SimpleFeatureType pntType = builder.buildFeatureType();
 		
@@ -283,7 +218,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		SimpleFeatureBuilder featureBuilder = new SimpleFeatureBuilder(pntType);
 		GeometryFactory gf = new GeometryFactory();
 		int pointid = 1;
-		for (SkeletonPoint pnt : points) {
+		for (ConstructionPoint pnt : points) {
 			featureBuilder.set("the_geom", gf.createPoint(pnt.getCoordinate()));
 			featureBuilder.set(NODETYPE_ATTRIBUTE, pnt.getType().modelValue());
 			featureBuilder.set(Attribute.IOTYPE.getFieldName(), pnt.getDirection().modelValue());
@@ -302,17 +237,17 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	 * @return
 	 * @throws IOException
 	 */
-	public synchronized List<SkeletonPoint> getSkeletonPoints(int polyId) throws IOException{
+	public synchronized List<ConstructionPoint> getConstructionsPoints(int polyId) throws IOException{
 		Filter filter = ff.equals(ff.property(POLYID_ATTRIBUTE), ff.literal(polyId));
-		List<SkeletonPoint> points = new ArrayList<>();
+		List<ConstructionPoint> points = new ArrayList<>();
 		try(SimpleFeatureReader reader = geopkg.reader(geopkg.feature(CONSTRUCTION_PNTS_LAYER), filter, null)){
         	while(reader.hasNext()) {
         		SimpleFeature sf = reader.next();
         		
         		Coordinate c = ((Point)sf.getDefaultGeometry()).getCoordinate();
-        		SkeletonPoint.Type type = SkeletonPoint.Type.getType((Integer)sf.getAttribute(NODETYPE_ATTRIBUTE));
-        		FlowDirection fd = FlowDirection.getDirection((Integer)sf.getAttribute(Attribute.IOTYPE.getFieldName()));
-        		SkeletonPoint p = new SkeletonPoint(c, type, fd, null);
+        		ConstructionPoint.Type type = ConstructionPoint.Type.getType((Integer)sf.getAttribute(NODETYPE_ATTRIBUTE));
+        		ConstructionPoint.Direction fd = ConstructionPoint.Direction.getDirection((Integer)sf.getAttribute(Attribute.IOTYPE.getFieldName()));
+        		ConstructionPoint p = new ConstructionPoint(c, type, fd, null);
         		points.add(p);
         	}
         }
@@ -331,8 +266,9 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	public SimpleFeatureReader getFlowpaths(ReferencedEnvelope bounds) throws IOException{
 		return query(bounds, getFlowpaths(), null);
 	}
+
 	
-	private SimpleFeatureReader query(ReferencedEnvelope bounds, FeatureEntry source, Filter filter) throws IOException {
+	public SimpleFeatureReader query(ReferencedEnvelope bounds, FeatureEntry source, Filter filter) throws IOException {
 		if (source == null) throw new IOException("Required dataset not found.");
 		if (bounds == null) {
 			return geopkg.reader(source, null, null);
@@ -459,16 +395,18 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	 * @param polygon
 	 * @throws IOException
 	 */
-	public void flipFlowEdges(Collection<FeatureId> pathstoflip) throws Exception{
+	public void flipFlowEdges(Collection<FeatureId> pathstoflip, Collection<FeatureId> processed) throws Exception{
 		
 		try(DefaultTransaction tx = new DefaultTransaction()){
 			try {
-				for (FeatureId fid : pathstoflip) {
-					try(SimpleFeatureWriter writer = geopkg.writer(getFlowpaths(), false, ff.id(fid), tx)){
-						if (writer.hasNext()) {
-							SimpleFeature sf = writer.next();
-							
-							//todo support multi
+				try(SimpleFeatureWriter writer = geopkg.writer(getFlowpaths(), false, Filter.INCLUDE, tx)){
+					Name diratt = ChyfDataSource.findAttribute(writer.getFeatureType(), Attribute.DIRECTION);
+					
+					while(writer.hasNext()) {
+						SimpleFeature sf = writer.next();
+						FeatureId fid = sf.getIdentifier();
+						
+						if (pathstoflip.contains(fid)) {
 							LineString ls = ChyfDataSource.getLineString(sf);
 							ls = (LineString) ls.reverse();
 							
@@ -477,14 +415,18 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 							}else {
 								sf.setDefaultGeometry(ls);
 							}
+							sf.setAttribute(diratt, DirectionType.KNOWN.type);
 							writer.write();
-						}else {
-							throw new IOException("No feature with fid " + fid.toString() + "found to update");
+						}else if (processed.contains(fid)) {
+							sf.setAttribute(diratt, DirectionType.KNOWN.type);
+							writer.write();
 						}
 					}
 				}
+				
 				tx.commit();
 			}catch (IOException ex) {
+				ex.printStackTrace();
 				tx.rollback();
 				throw ex;
 			}
@@ -501,12 +443,17 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		if (skeletonWriteCache == null) skeletonWriteCache = new ArrayList<>();
 		skeletonWriteCache.addAll(skeletons);
 		
+		
 		if (skeletonWriteCache.size() > 1000 || skeletons.isEmpty()) {
 			try(Transaction tx = new DefaultTransaction()) {	
 				try(SimpleFeatureWriter fw = geopkg.writer(getFlowpaths(), true, Filter.EXCLUDE, tx)){
+					Name diratt = ChyfDataSource.findAttribute(fw.getFeatureType(), Attribute.DIRECTION);
+					Name eftypeatt = ChyfDataSource.findAttribute(fw.getFeatureType(), Attribute.EFTYPE);
+							
 					for (LineString item : skeletonWriteCache) {
 						SimpleFeature fs = fw.next();
-						fs.setAttribute(Attribute.EFTYPE.getFieldName(), ((EfType)item.getUserData()).getType() );
+						fs.setAttribute(eftypeatt, ((EfType)item.getUserData()).getType() );
+						fs.setAttribute(diratt, DirectionType.UNKNOWN.type);
 						fs.setDefaultGeometry(item);
 						fw.write();
 					}
@@ -550,15 +497,43 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	}
 	
 	/**
-	 * Add a processed column to the waterbodies table
+	 * Gets aoi layer as a list of polygons
+	 * @return
+	 * @throws Exception
+	 */
+	public List<Polygon> getAoi() throws Exception{
+		List<Polygon> aois = new ArrayList<>();
+		try(SimpleFeatureReader reader = geopkg.reader(getEntry(Layer.AOI), Filter.INCLUDE, null)){
+			while(reader.hasNext()) {
+				SimpleFeature fs = reader.next();
+				Polygon p = ChyfDataSource.getPolygon(fs);
+				aois.add(p);
+			}
+		}
+		return aois;
+	}
+	/**
+	 * Creates a list of waterbodies to process.  Only includes
+	 * waterbodies that are inside the aoi.
 	 * 
 	 * @throws SQLException
 	 */
 	public void addProcessedAttribute() throws Exception{
 		wbToProcess = new ArrayList<>();
+		
+		List<Polygon> aois = getAoi();
+		
 		try(SimpleFeatureReader reader = getWaterbodies()){
 			while(reader.hasNext()) {
-				wbToProcess.add(reader.next().getID());
+				SimpleFeature fs = reader.next();
+				Polygon p = ChyfDataSource.getPolygon(fs);
+				
+				for (Polygon aoi:aois) {
+					if (p.relate(aoi,"2********")) {
+						wbToProcess.add(fs.getID());
+						break;
+					}
+				}
 			}
 		}
 	}
@@ -571,6 +546,18 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	public void addPolygonIdAttribute() throws Exception{
 		Connection c = geopkg.getDataSource().getConnection();
 		String query = "ALTER TABLE " + getCatchments().getTableName() + " add column " + POLYID_ATTRIBUTE + " integer ";
+		c.createStatement().execute(query);
+		
+		geopkg.close();
+		read();
+	}
+	
+	public void addDirectionAttribute() throws Exception{	
+		Connection c = geopkg.getDataSource().getConnection();
+		String query = "ALTER TABLE " + getFlowpaths().getTableName() + " add column " + Attribute.DIRECTION.getFieldName()  + " integer ";
+		c.createStatement().execute(query);
+		
+		query = "UPDATE TABLE " + getFlowpaths().getTableName() + " set " + Attribute.DIRECTION.getFieldName()  + " = " + DirectionType.UNKNOWN.type;
 		c.createStatement().execute(query);
 		
 		geopkg.close();

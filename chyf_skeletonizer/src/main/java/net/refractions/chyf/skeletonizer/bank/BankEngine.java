@@ -17,6 +17,7 @@ package net.refractions.chyf.skeletonizer.bank;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -30,7 +31,9 @@ import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiLineString;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.operation.linemerge.LineMerger;
 import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.type.Name;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,8 +42,8 @@ import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfDataSource.Attribute;
 import net.refractions.chyf.datasource.ChyfDataSource.EfType;
+import net.refractions.chyf.datasource.ChyfDataSource.Layer;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
-import net.refractions.chyf.skeletonizer.points.BoundaryEdge;
 import net.refractions.chyf.skeletonizer.points.PolygonInfo;
 import net.refractions.chyf.skeletonizer.voronoi.SkeletonResult;
 
@@ -63,7 +66,7 @@ public class BankEngine {
 			if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			
 			BankSkeletonizer generator = new BankSkeletonizer(properties);
-			List<BoundaryEdge> be = dataSource.getBoundary();
+			List<LineString> be = getBoundary(dataSource);
 
 			List<LineString> newSkeletons = new ArrayList<>();
 			
@@ -107,10 +110,10 @@ public class BankEngine {
 				}
 				
 				//get any water boundary edges
-				for (BoundaryEdge e : be) {
-					if (e.getLineString().getEnvelopeInternal().intersects(workingPolygon.getEnvelopeInternal()) &&
-						e.getLineString().intersects(workingPolygon)) {
-							wateredges.add(e.getLineString());
+				for (LineString e : be) {
+					if (e.getEnvelopeInternal().intersects(workingPolygon.getEnvelopeInternal()) &&
+						e.intersects(workingPolygon)) {
+							wateredges.add(e);
 					}
 				}
 				
@@ -118,10 +121,11 @@ public class BankEngine {
 				HashMap<Coordinate, Integer> nodes = new HashMap<>();
 				HashMap<Coordinate, Integer> ctype = new HashMap<>();
 				try(SimpleFeatureReader flowtouches = dataSource.getFlowpaths(env)){
+					Name efatt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), Attribute.EFTYPE);
 					while(flowtouches.hasNext()) {
 						SimpleFeature t = flowtouches.next();
 						if (! (((Geometry)t.getDefaultGeometry()).getEnvelopeInternal().intersects(workingPolygon.getEnvelopeInternal()))) continue; 
-						EfType type = EfType.parseType( (Integer)t.getAttribute(Attribute.EFTYPE.getFieldName()) );
+						EfType type = EfType.parseType( (Integer)t.getAttribute(efatt) );
 						if (type == EfType.BANK) continue;
 						
 						boolean isskel = false;
@@ -211,7 +215,81 @@ public class BankEngine {
 
 	}
 	
+	private static List<LineString> getBoundary(ChyfGeoPackageDataSource geopkg) throws Exception{
 
+		logger.info("computing boundary edges");
+		
+		//intersect aoi with waterbodies
+		List<LineString> edges = new ArrayList<>();	
+		List<LineString> common = new ArrayList<>();
+		
+		List<LineString> aoiedges = new ArrayList<>();
+		
+		try(SimpleFeatureReader reader = geopkg.query(null, geopkg.getEntry(Layer.AOI), null)){
+			while(reader.hasNext()){
+				SimpleFeature aoi = reader.next();
+				Polygon pg = ChyfDataSource.getPolygon(aoi);
+				LineString ring = pg.getExteriorRing();
+				aoiedges.add(ring);
+			}
+		}
+		
+		if (geopkg.getEntry(Layer.COASTLINE) != null){
+			try(SimpleFeatureReader reader = geopkg.query(null, geopkg.getEntry(Layer.COASTLINE), null)){
+				while(reader.hasNext()){
+					SimpleFeature aoi = reader.next();
+					LineString ring = ChyfDataSource.getLineString(aoi);
+					ring.setUserData(aoi.getIdentifier());
+					aoiedges.add(ring);
+				}
+			}
+		}
+
+
+		//intersect with waterbodies
+		try(SimpleFeatureReader wbreader = geopkg.getWaterbodies()){
+			while(wbreader.hasNext()) {
+				SimpleFeature ww = wbreader.next();
+				Polygon wb = ChyfDataSource.getPolygon(ww);
+				
+				//aoi
+				for (LineString ring : aoiedges) {
+					if (!ring.getEnvelopeInternal().intersects(wb.getEnvelopeInternal())) continue;
+					Geometry t = ring.intersection(wb);
+					if (t.isEmpty()) continue;
+					if (t instanceof LineString) {
+						common.add((LineString)t);
+					}else if (t instanceof MultiLineString) {
+						for (int i = 0; i < ((MultiLineString)t).getNumGeometries(); i ++) {
+							common.add((LineString)t.getGeometryN(i));
+						}
+					}else if (t instanceof Point) {
+						//ignore
+					}else {
+						throw new RuntimeException("The intersection of aoi and waterbodies returns invalid geometry type ("+ t.getGeometryType() + ")");
+					}		
+				}
+			}
+		}
+		
+		
+		//find aoi points
+		LineMerger m = new LineMerger();
+		m.add(common);
+		Collection<?> items = m.getMergedLineStrings();
+		
+		for (Object x : items) {
+			if (x instanceof LineString) {
+				//find the nearest point within 0.004 units
+				LineString ls = (LineString)x;
+				edges.add(ls);
+			}else {
+				throw new RuntimeException("The intersection of aoi and waterbodies linestring merger does not return linestring geometry");
+
+			}
+		}
+		return edges;
+	}
 
 	
 	public static void main(String[] args) throws Exception {		

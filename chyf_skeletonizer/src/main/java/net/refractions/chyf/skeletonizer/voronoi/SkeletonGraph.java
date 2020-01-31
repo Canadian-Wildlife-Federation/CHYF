@@ -35,9 +35,8 @@ import org.locationtech.jts.simplify.DouglasPeuckerSimplifier;
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.ChyfProperties.Property;
 import net.refractions.chyf.datasource.ChyfDataSource.EfType;
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource.FlowDirection;
-import net.refractions.chyf.skeletonizer.points.SkeletonPoint;
-import net.refractions.chyf.skeletonizer.points.SkeletonPoint.Type;
+import net.refractions.chyf.skeletonizer.points.ConstructionPoint;
+import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Type;
 
 /**
  * Graph used for processing skeletons
@@ -55,7 +54,7 @@ public class SkeletonGraph {
 	 * @param inout
 	 * @return
 	 */
-	public static SkeletonGraph buildGraph(Collection<LineSegment> segments, List<SkeletonPoint> inout) {
+	public static SkeletonGraph buildGraph(Collection<LineSegment> segments, List<ConstructionPoint> inout) {
 		SkeletonGraph graph = new SkeletonGraph();
 		HashMap<Coordinate, Node> nodes = new HashMap<>();
 		
@@ -79,7 +78,7 @@ public class SkeletonGraph {
 			}
 			
 			EfType type = EfType.SKELETON;
-			for (SkeletonPoint p : inout) {
+			for (ConstructionPoint p : inout) {
 				if (p.getType() == Type.BANK && (p.getCoordinate().equals2D(c0) || p.getCoordinate().equals2D(c1))) {
 					type = EfType.BANK;
 				}
@@ -103,7 +102,7 @@ public class SkeletonGraph {
 	 * @param inout
 	 * @return
 	 */
-	public static SkeletonGraph buildGraphLines(Collection<LineString> segments, List<SkeletonPoint> inout) {
+	public static SkeletonGraph buildGraphLines(Collection<LineString> segments, List<ConstructionPoint> inout) {
 		SkeletonGraph graph = new SkeletonGraph();
 		HashMap<Coordinate, Node> nodes = new HashMap<>();
 		
@@ -127,7 +126,7 @@ public class SkeletonGraph {
 			}
 			
 			EfType type = EfType.SKELETON;
-			for (SkeletonPoint p : inout) {
+			for (ConstructionPoint p : inout) {
 				if (p.getType() == Type.BANK && (p.getCoordinate().equals2D(c0) || p.getCoordinate().equals2D(c1))) {
 					type = EfType.BANK;
 				}
@@ -140,9 +139,6 @@ public class SkeletonGraph {
 			graph.edges.add(e);
 		}
 		return graph;
-	}
-	
-	public SkeletonGraph() {
 	}
 	
 	public LineString shortestPath(GeometryFactory gf){
@@ -215,7 +211,7 @@ public class SkeletonGraph {
 		return skeletons;
 	}
 	
-	public void directionalize(List<SkeletonPoint> inout) {
+	public void directionalizeBanks(List<ConstructionPoint> inout) {
 		Set<Coordinate> keeppoints = inout.stream().map(e -> e.getCoordinate()).collect(Collectors.toSet());
 
 		// process bank edges
@@ -228,48 +224,6 @@ public class SkeletonGraph {
 				}
 			}
 		}
-
-		Set<Coordinate> inpoints = inout.stream().filter(e -> e.getDirection() == FlowDirection.IN)
-				.map(e -> e.getCoordinate()).collect(Collectors.toSet());
-
-		// find the start points based on the input flows
-		List<Node> toProcess = new ArrayList<>();
-		for (Edge e : edges) {
-			if (e.visited)
-				continue;
-			
-			if (inpoints.contains(e.getStartCoordinate())) {
-				e.visited = true;
-			} else if (inpoints.contains(e.getEndCoordinate())) {
-				Collections.reverse(e.coordinates);
-				e.visited = true;
-			}
-			
-			if (e.visited) {
-				if (e.getNodeA().getDegree() != 1) toProcess.add(e.getNodeA());
-				else if (e.getNodeB().getDegree() != 1)toProcess.add(e.getNodeB());
-			}
-		}
-
-		while (!toProcess.isEmpty()) {
-			Node n = toProcess.remove(0);
-			// n.print();
-			for (Edge e : n.edges) {
-				if (e.visited) continue;
-
-				if (n.c.equals2D(e.getStartCoordinate())) {
-					// ok
-					e.visited = true;
-				} else if (n.c.equals2D(e.getEndCoordinate())) {
-					Collections.reverse(e.coordinates);
-					e.visited = true;
-				}
-				if (e.visited) {
-					if (e.getNodeA() == n) toProcess.add(e.getNodeB());
-					if (e.getNodeB() == n) toProcess.add(e.getNodeA());
-				}
-			}
-		}
 	}
 
 	/**
@@ -277,7 +231,7 @@ public class SkeletonGraph {
 	 * flow in/out points 
 	 * @param inout
 	 */
-	public void trim(List<SkeletonPoint> inout) {
+	public void trim(List<ConstructionPoint> inout) {
 		
 		Set<Coordinate> keeppoints = inout.stream().map(e -> e.getCoordinate()).collect(Collectors.toSet());
 		List<Node> toremove = new ArrayList<>();
@@ -346,27 +300,6 @@ public class SkeletonGraph {
 				c.addAll(e1.coordinates);
 				a2 = e1.getNodeB();
 			}
-//			if (e1.getNodeA() == node) {
-//			}
-//			
-//			
-//			} else if (e1.getNodeA() == node) {
-//				for (int i = e1.coordinates.size() - 1; i >= 0; i --) {
-//					c.add(e1.coordinates.get(i));
-//				}
-//				a1 = e1.getNodeB();
-//			}
-//			
-//			Node a2 = null;
-//			if (e2.getNodeA() == node) {
-//				c.addAll(e2.coordinates);
-//				a2 = e2.getNodeB();
-//			} else if (e2.getNodeB() == node) {
-//				for (int i = e2.coordinates.size() - 1; i >= 0; i --) {
-//					c.add(e2.coordinates.get(i));
-//				}
-//				a2 = e2.getNodeA();
-//			}
 
 			//remove the node and existing edges
 			nodes.remove(node);

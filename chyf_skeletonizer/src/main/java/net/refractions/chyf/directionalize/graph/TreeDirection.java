@@ -3,7 +3,7 @@ package net.refractions.chyf.directionalize.graph;
 import java.util.ArrayList;
 import java.util.List;
 
-import net.refractions.chyf.directionalize.DirectionType;
+import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
 
 /**
  * Directionalizes a non-directionalized tree structured
@@ -52,6 +52,8 @@ public class TreeDirection {
 				}
 				if (e.getNodeB() != sink) {
 					e.flip();
+				}else {
+					e.setKnown();
 				}
 				e.visited = true;
 				prev = sink;
@@ -88,10 +90,9 @@ public class TreeDirection {
 				}else {
 					e.visited = true;
 					if (e.getNodeB() != current) {
-						if (e.getDType() == DirectionType.KNOWN) {
-							throw new Exception("Flipped a known edge: " + e.toString());
-						}
 						e.flip();
+					}else {
+						e.setKnown();
 					}
 					tovisit.add(e.getOtherNode(current));
 				}

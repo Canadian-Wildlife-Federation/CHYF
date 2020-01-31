@@ -30,7 +30,6 @@ import org.locationtech.jts.io.WKTReader;
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.ChyfProperties.Property;
 import net.refractions.chyf.skeletonizer.bank.BankSkeletonizer;
-import net.refractions.chyf.skeletonizer.points.SkeletonPoint;
 import net.refractions.chyf.skeletonizer.voronoi.SkeletonResult;
 
 /**

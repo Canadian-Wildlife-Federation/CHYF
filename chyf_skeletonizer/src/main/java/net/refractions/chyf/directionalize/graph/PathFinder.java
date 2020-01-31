@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 
-import net.refractions.chyf.directionalize.DirectionType;
+import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
 
 /**
  * Finds the shortest path between the source node and the sink node.

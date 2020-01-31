@@ -70,7 +70,7 @@ public class SkeletonJob implements Runnable{
 
 				try {
 					Polygon workingPolygon = ChyfDataSource.getPolygon(toProcess);
-					SkeletonResult result = generator.generateSkeleton(workingPolygon, dataSource.getSkeletonPoints(polyid));
+					SkeletonResult result = generator.generateSkeleton(workingPolygon, dataSource.getConstructionsPoints(polyid));
 					dataSource.writeSkeletons(result.getSkeletons());
 					skelerrors.addAll(result.getErrors());
 				}catch (Exception ex) {

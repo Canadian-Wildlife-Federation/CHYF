@@ -19,15 +19,36 @@ import java.io.IOException;
 
 import org.locationtech.jts.geom.Coordinate;
 
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource.FlowDirection;
-
 /**
  * Represents a skeleton input/ouput point
  * @author Emily
  *
  */
-public class SkeletonPoint {
+public class ConstructionPoint {
 
+	public enum Direction{
+		IN(1),
+		OUT(2),
+		UNKNOWN(3);
+		
+		private int modelValue;
+		
+		private Direction(int modelValue) {
+			this.modelValue = modelValue;
+		}
+		
+		public int modelValue() {
+			return this.modelValue;
+		}
+		
+		public static Direction getDirection(int value) throws IOException{
+			for (Direction d : Direction.values()) {
+				if (d.modelValue == value) return d;
+			}
+			throw new IOException("Construction point direction of " + value + " is invalid");
+		}
+	}
+	
 	public enum Type{
 		BANK(1),
 		FLOWPATH(2),
@@ -54,10 +75,10 @@ public class SkeletonPoint {
 	
 	private Coordinate point;
 	private Type type;
-	private FlowDirection fd;
+	private Direction fd;
 	private PolygonInfo pinfo;
 	
-	public SkeletonPoint(Coordinate coordinate, Type type, FlowDirection fd, PolygonInfo pinfo) {
+	public ConstructionPoint(Coordinate coordinate, Type type, Direction fd, PolygonInfo pinfo) {
 		this.point = coordinate;
 		this.type = type;
 		this.fd = fd;
@@ -76,7 +97,7 @@ public class SkeletonPoint {
 		return this.type;
 	}
 	
-	public FlowDirection getDirection() {
+	public Direction getDirection() {
 		return this.fd;
 	}
 	

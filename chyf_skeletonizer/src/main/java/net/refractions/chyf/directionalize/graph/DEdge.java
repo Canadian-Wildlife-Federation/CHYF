@@ -5,12 +5,20 @@ import java.util.List;
 
 import org.locationtech.jts.geom.Coordinate;
 import org.opengis.filter.identity.FeatureId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
 import net.refractions.chyf.datasource.ChyfDataSource.EfType;
-import net.refractions.chyf.directionalize.DirectionType;
 
+/**
+ * Represents an edge in our direction graph
+ * 
+ */
 public class DEdge {
 
+	private static final Logger logger = LoggerFactory.getLogger(DEdge.class.getCanonicalName());
+	
 	private DNode n1;
 	private DNode n2;
 	
@@ -44,13 +52,19 @@ public class DEdge {
 		this.visited = isvisited;
 	}
 	
+	/**
+	 * Reset the direction type and direction of this
+	 * edge back to the original state.
+	 * 
+	 * @throws Exception
+	 */
 	public void resetKnown() throws Exception{
 		if (rawdt == info.getDirectionType()) return;
 		
 
 		if (rawdt == DirectionType.KNOWN ) {
 			//currently unknown; resetting to known; should never happen
-			throw new Exception("Should reset an edge from unknown dir to known direction");
+			throw new Exception("Should never reset an edge from unknown dir to known direction");
 		}
 		//known resetting to unknown; if flipped lets flip back
 		if (isFlipped()) {
@@ -135,8 +149,7 @@ public class DEdge {
 	}
 	public void flip() throws Exception{
 		if (rawdt == DirectionType.KNOWN) {
-//			throw new Exception("Cannot flip direction of known edge: " + toString());
-			System.out.println("Cannot flip direction of known edge: " + toString());
+			logger.error("Flipping the direction of a known edge: " + toString());
 		}
 		DNode temp = n1;
 		n1 = n2;

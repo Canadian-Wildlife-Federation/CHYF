@@ -23,7 +23,8 @@ import java.util.List;
 import org.locationtech.jts.geom.Coordinate;
 
 /**
- * Graph used for processing skeletons
+ * Graph used for directionanlizing flow edges
+ * 
  * @author Emily
  *
  */
@@ -54,8 +55,8 @@ public class DGraph {
 		
 		for (EdgeInfo ls : segments) {
 			
-			Coordinate c0 = ls.getStart();//ls.getCoordinateN(0);
-			Coordinate c1 = ls.getEnd(); //ls.getCoordinateN(ls.getCoordinates().length - 1);
+			Coordinate c0 = ls.getStart();
+			Coordinate c1 = ls.getEnd();
 			
 			DNode a1 = graph.createNode(c0);
 			DNode a2 = graph.createNode(c1);

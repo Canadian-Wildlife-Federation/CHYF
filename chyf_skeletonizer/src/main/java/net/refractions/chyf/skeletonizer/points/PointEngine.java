@@ -17,22 +17,34 @@ package net.refractions.chyf.skeletonizer.points;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.geometry.jts.ReferencedEnvelope;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.operation.linemerge.LineMerger;
 import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.type.Name;
+import org.opengis.filter.identity.FeatureId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.Args;
 import net.refractions.chyf.ChyfProperties;
+import net.refractions.chyf.ChyfProperties.Property;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfDataSource.Attribute;
 import net.refractions.chyf.datasource.ChyfDataSource.EfType;
+import net.refractions.chyf.datasource.ChyfDataSource.Layer;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
+import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Direction;
 
 /**
  * Engine for generating skeleton input/output points 
@@ -45,7 +57,7 @@ public class PointEngine {
 	static final Logger logger = LoggerFactory.getLogger(PointEngine.class.getCanonicalName());
 
 	/**
-	 * Modifies the geopackaged provided by the output path
+	 * Modifies the geopackage provided by the output path
 	 * with skeleton in/out points (and updates waterbodies as required)
 	 * 
 	 * @param output
@@ -64,7 +76,7 @@ public class PointEngine {
 			dataSource.addProcessedAttribute();
 			dataSource.addPolygonIdAttribute();
 			if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
-			PointGenerator generator = new PointGenerator(dataSource.getBoundary(),  properties);
+			PointGenerator generator = new PointGenerator(getBoundary(dataSource, properties),  properties);
 			
 			while(true) {
 				//find next feature to process
@@ -98,10 +110,11 @@ public class PointEngine {
 				}
 				//get overlapping flowpaths							
 				try(SimpleFeatureReader flowtouches = dataSource.getFlowpaths(env)){
+					Name eftypeatt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), Attribute.EFTYPE);
 					while(flowtouches.hasNext()) {
 						SimpleFeature t = flowtouches.next();
 						
-						EfType type = EfType.parseType( (Integer)t.getAttribute(Attribute.EFTYPE.getFieldName()));
+						EfType type = EfType.parseType( (Integer)t.getAttribute(eftypeatt) );
 						if (type == EfType.BANK || type == EfType.SKELETON) continue; //ignore existing skeletons
 						
 						LineString temp = ChyfDataSource.getLineString(t);
@@ -118,11 +131,200 @@ public class PointEngine {
 			}
 						
 			//write point layers
-			dataSource.addPointLayer(generator.getPoints());
+			dataSource.createConstructionsPoints(generator.getPoints());
 		}
 
 	}
 
+	private static List<BoundaryEdge> getBoundary(ChyfGeoPackageDataSource geopkg, ChyfProperties properties) throws Exception{
+
+		logger.info("computing boundary points");
+		
+		//intersect aoi with waterbodies
+		List<BoundaryEdge> edges = new ArrayList<>();	
+		List<LineString> common = new ArrayList<>();
+		List<LineString> aoiedges = new ArrayList<>();
+		List<LineString> coastlineedges = new ArrayList<>();
+
+		try(SimpleFeatureReader reader = geopkg.query(null, geopkg.getEntry(Layer.AOI), null)){
+			while(reader.hasNext()){
+				SimpleFeature aoi = reader.next();
+				//TODO: aoi must be a simple polygon with no holes
+				Polygon pg = ChyfDataSource.getPolygon(aoi);
+				LineString ring = pg.getExteriorRing();
+				aoiedges.add(ring);
+			}
+		}
+		
+		if (geopkg.getEntry(Layer.COASTLINE) != null){
+			try(SimpleFeatureReader reader = geopkg.query(null, geopkg.getEntry(Layer.COASTLINE), null)){
+				while(reader.hasNext()){
+					SimpleFeature aoi = reader.next();
+					LineString ring = ChyfDataSource.getLineString(aoi);
+					ring.setUserData(aoi.getIdentifier());
+					coastlineedges.add(ring);
+				}
+			}
+		}
+
+
+		//intersect with waterbodies
+		List<Polygon> toupdate = new ArrayList<>();
+		List<LineString> cstoupdate = new ArrayList<>();
+		try(SimpleFeatureReader wbreader = geopkg.getWaterbodies()){
+			while(wbreader.hasNext()) {
+				SimpleFeature ww = wbreader.next();
+
+				Polygon wb = ChyfDataSource.getPolygon(ww);
+				Polygon workingwb = null;
+				
+				//aoi
+				for (LineString ring : aoiedges) {
+					if (!ring.getEnvelopeInternal().intersects(wb.getEnvelopeInternal())) continue;
+					Geometry t = ring.intersection(wb);
+					if (t.isEmpty()) continue;
+					if (t instanceof LineString) {
+						common.add((LineString)t);
+					}else if (t instanceof MultiLineString) {
+						for (int i = 0; i < ((MultiLineString)t).getNumGeometries(); i ++) {
+							common.add((LineString)t.getGeometryN(i));
+						}
+					}else if (t instanceof Point) {
+						//ignore
+					}else {
+						throw new RuntimeException("The intersection of aoi and waterbodies returns invalid geometry type ("+ t.getGeometryType() + ")");
+					}		
+				}
+				
+				//coastline
+				//we might need to make a point in the middle and 
+				//add it to both the coastline geometry and the waterbody geometry
+				for (LineString ring : coastlineedges) {
+					LineString updatedls = null;
+					if (!ring.getEnvelopeInternal().intersects(wb.getEnvelopeInternal())) continue;
+					Geometry t = ring.intersection(wb);
+					if (t.isEmpty()) continue;
+					if (t instanceof Point) continue;
+					
+					List<LineString> items = new ArrayList<>();
+					if (t instanceof LineString) {
+						items.add((LineString)t);
+					}else if (t instanceof MultiLineString) {
+						for (int i = 0; i < ((MultiLineString)t).getNumGeometries(); i ++) {
+							items.add((LineString)t.getGeometryN(i));
+						}					
+					}else {
+						throw new RuntimeException("The intersection of coastline and waterbodies returns invalid geometry type ("+ t.getGeometryType() + ")");
+					}		
+					if (items.isEmpty()) continue;
+					
+					LineMerger m = new LineMerger();
+					m.add(items);
+					Collection<?> ints = m.getMergedLineStrings();
+					for (Object x : ints) {
+						if (x instanceof LineString) {
+							LineString lls = (LineString)x;
+							List<Coordinate> cs = new ArrayList<>();
+							for (Coordinate z : lls.getCoordinates()) cs.add(z);
+							Coordinate[] mid = PointGenerator.findMidPoint(cs, properties.getProperty(Property.PNT_VERTEX_DISTANCE), true);
+							if (mid[1] != null) {
+								//insert this coordinate on the waterbody and the coastline edge
+								//coastline
+								if (updatedls == null) updatedls = ring;
+								updatedls = insertCoordinate(updatedls, mid[0], mid[1], mid[2]);
+								//add to intersection
+								lls = insertCoordinate(lls, mid[0], mid[1], mid[2]);
+								//update waterbody
+								if (workingwb == null) {
+									workingwb = wb;
+									workingwb.setUserData(null);
+								}
+								workingwb = PointGenerator.addVertex(workingwb, Collections.singleton( new Coordinate[] {mid[1], mid[2], mid[0]}) );
+							}
+							Point p = lls.getFactory().createPoint(mid[0]);
+							BoundaryEdge be = new BoundaryEdge(Direction.OUT,  lls, p);
+							edges.add(be);
+						}
+					}
+					
+					if (updatedls != null) {
+						updatedls.setUserData(ring.getUserData());
+						cstoupdate.add(updatedls);
+					}
+				}
+				if (workingwb != null) {
+					workingwb.setUserData(new PolygonInfo(ww.getIdentifier(), null));
+					toupdate.add(workingwb);
+				}
+			}
+		}
+		
+		//update coastline and waterbodies as required
+		geopkg.updateWaterbodyGeometries(toupdate);
+		for (LineString ls : cstoupdate) {
+			geopkg.updateCoastline((FeatureId)ls.getUserData(), ls);
+		}
+	
+		//find aoi points
+		List<Point> inoutpoints = geopkg.getBoundaries();
+		LineMerger m = new LineMerger();
+		m.add(common);
+		Collection<?> items = m.getMergedLineStrings();
+		
+		for (Object x : items) {
+			if (x instanceof LineString) {
+				//find the nearest point within 0.004 units
+				LineString ls = (LineString)x;
+				
+				Point found = null;
+				for (Coordinate c : ls.getCoordinates()) {
+					for (Point p : inoutpoints) {
+						if (c.equals2D(p.getCoordinate())) {
+							found = p;
+							break;
+						}
+					}
+					if (found != null) break;
+				}
+					
+				if (found != null) {
+					BoundaryEdge be = new BoundaryEdge((Direction)found.getUserData(),  (LineString)x, found);
+					edges.add(be);
+				}else {
+					BoundaryEdge be = new BoundaryEdge(Direction.UNKNOWN,  (LineString)x, null);
+					edges.add(be);
+					logger.warn("WARNING: The boundary edge has no in/out points: " + be.getLineString().toText());
+				}
+			}else {
+				throw new RuntimeException("The intersection of aoi and waterbodies linestring merger does not return linestring geometry");
+
+			}
+		}
+		return edges;
+	}
+	
+	/**
+	 * Creates a new linestring with the cordinate toinsert inserted between
+	 * the first and second coordinate
+	 * @param toinsert
+	 * @param first
+	 * @param second
+	 * @return
+	 */
+	private static LineString insertCoordinate(LineString ls, Coordinate toinsert, Coordinate first, Coordinate second) {
+		Coordinate[] newcs = new Coordinate[ls.getCoordinates().length + 1];
+		int j = 0;
+		for (int i = 0; i < ls.getCoordinates().length; i ++) {
+			newcs[j++] = ls.getCoordinateN(i);
+			if (ls.getCoordinateN(i).equals2D(first) &&
+					i != ls.getCoordinates().length - 1 && 
+					ls.getCoordinateN(i+1).equals2D(second)) {
+				newcs[j++] = toinsert;
+			}
+		}
+		return ls.getFactory().createLineString(newcs);
+	}
+	
 	
 	public static void main(String[] args) throws Exception {
 

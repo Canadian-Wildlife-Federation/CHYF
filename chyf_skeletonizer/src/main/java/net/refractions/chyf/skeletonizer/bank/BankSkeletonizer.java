@@ -39,10 +39,9 @@ import org.slf4j.LoggerFactory;
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.ChyfProperties.Property;
 import net.refractions.chyf.datasource.ChyfDataSource.EfType;
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource.FlowDirection;
-import net.refractions.chyf.skeletonizer.points.PointEngine;
-import net.refractions.chyf.skeletonizer.points.SkeletonPoint;
-import net.refractions.chyf.skeletonizer.points.SkeletonPoint.Type;
+import net.refractions.chyf.skeletonizer.points.ConstructionPoint;
+import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Direction;
+import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Type;
 import net.refractions.chyf.skeletonizer.voronoi.SkeletonGenerator;
 import net.refractions.chyf.skeletonizer.voronoi.SkeletonGraph;
 import net.refractions.chyf.skeletonizer.voronoi.SkeletonResult;
@@ -99,8 +98,8 @@ public class BankSkeletonizer {
 			WorkingPolygon p = toprocess.remove(0);
 			
 			//points for skeletonizing
-			List<SkeletonPoint> points = new ArrayList<>();
-			List<SkeletonPoint> breakpoints = new ArrayList<>();
+			List<ConstructionPoint> points = new ArrayList<>();
+			List<ConstructionPoint> breakpoints = new ArrayList<>();
 
 			if (p.getBankSkeletonEdges().isEmpty()) {
 				//first time seeing this polygon; processing the boundary edges of the polygon
@@ -137,8 +136,8 @@ public class BankSkeletonizer {
 						p.getSkeletonEdges().addAll(temp);
 						
 						//skeletonizer points
-						points.add(new SkeletonPoint(nearest[0], Type.BANK, FlowDirection.IN, null));
-						points.add(new SkeletonPoint(nearest[1], Type.BANK, FlowDirection.OUT, null));
+						points.add(new ConstructionPoint(nearest[0], Type.BANK, Direction.IN, null));
+						points.add(new ConstructionPoint(nearest[1], Type.BANK, Direction.OUT, null));
 					}
 					p.getBoundaryEdges().clear();
 					p.getBoundaryEdges().addAll(newboundaries);
@@ -167,8 +166,8 @@ public class BankSkeletonizer {
 					p.getInnerEdges().add(newb);
 					
 					//skeletonizer points
-					points.add(new SkeletonPoint(nearest[0], Type.BANK, FlowDirection.IN, null));
-					points.add(new SkeletonPoint(nearest[1], Type.BANK, FlowDirection.OUT, null));
+					points.add(new ConstructionPoint(nearest[0], Type.BANK, Direction.IN, null));
+					points.add(new ConstructionPoint(nearest[1], Type.BANK, Direction.OUT, null));
 				}
 			}else {
 				//this is the second time we are processing this polygon;
@@ -190,8 +189,8 @@ public class BankSkeletonizer {
 				p.getSkeletonEdges().clear();
 				p.getSkeletonEdges().addAll(temp);
 				
-				points.add(new SkeletonPoint(nearest[0], Type.BANK, FlowDirection.IN, null));
-				points.add(new SkeletonPoint(nearest[1], Type.BANK, FlowDirection.OUT, null));
+				points.add(new ConstructionPoint(nearest[0], Type.BANK, Direction.IN, null));
+				points.add(new ConstructionPoint(nearest[1], Type.BANK, Direction.OUT, null));
 				
 				p.getInnerEdges().remove(part);
 				p.getInnerEdges().add(newb);
@@ -204,8 +203,8 @@ public class BankSkeletonizer {
 				LineString newb2 = addVertex(bnk, nearest[1]);
 				
 				//this is the break on the otherside of the island
-				breakpoints.add(new SkeletonPoint(nearest[1], Type.BANK, FlowDirection.IN, null));
-				breakpoints.add(new SkeletonPoint(nearest[0], Type.BANK, FlowDirection.IN, null));
+				breakpoints.add(new ConstructionPoint(nearest[1], Type.BANK, Direction.IN, null));
+				breakpoints.add(new ConstructionPoint(nearest[0], Type.BANK, Direction.IN, null));
 				
 				p.getInnerEdges().remove(part);
 				p.getInnerEdges().add(newb);
@@ -406,7 +405,7 @@ public class BankSkeletonizer {
 	}
 	
 	
-	private LineString generateSkeleton(List<SkeletonPoint> points, WorkingPolygon p, SkeletonGenerator gen) throws Exception {
+	private LineString generateSkeleton(List<ConstructionPoint> points, WorkingPolygon p, SkeletonGenerator gen) throws Exception {
 		if (points.size() == 2) {
 			LineString ls = gf.createLineString(new Coordinate[] {points.get(0).getCoordinate(), points.get(1).getCoordinate()});
 			//good; use the straight line

@@ -6,10 +6,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import net.refractions.chyf.directionalize.DirectionType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
 
 public class PathDirectionalizer {
 
+	private static final Logger logger = LoggerFactory.getLogger(PathDirectionalizer.class.getCanonicalName());
+	
 	/**
 	 * Directionalizes a subgraph using paths.  Source and sink nodes
 	 * are determined by analyzing the nodes in the subgraph and the edges
@@ -53,17 +58,6 @@ public class PathDirectionalizer {
 			if (source) {
 				sources.add(n);
 			}
-			
-//			if (n.getCoordinate().equals2D(new Coordinate( -73.2528186, 45.4306362))) {
-//				sources.add(n);
-//			}
-//			if (n.getCoordinate().equals2D(new Coordinate( -73.2564727, 45.4367901))) {
-//				sources.add(n);
-//			}
-//			if (n.getCoordinate().equals2D(new Coordinate( -73.2580384, 45.4382871))) {
-//				sources.add(n);
-//			}
-
 
 		};
 		
@@ -95,7 +89,7 @@ public class PathDirectionalizer {
 				}
 				if (source != null) break;
 			}
-			//everything is unknow, just pick something
+			//everything is unknown, just pick something
 			if (source == null) {
 				for (DNode n : subGraph.nodes) {		
 					if (!donotuse.contains(n) && !sinks.contains(n)) {
@@ -116,9 +110,7 @@ public class PathDirectionalizer {
 					out.setKnown();
 				}
 			}
-			
-			System.out.println("WARNING: Loop case detected where a random source node will be created. Source node created at: " + src.toString());
-
+			logger.warn("Loop case detected where a random source node will be created. Source node created at: " + src.toString());
 		}
 		
 		dir(subGraph, sinks, sources);
@@ -181,7 +173,7 @@ public class PathDirectionalizer {
 				Collections.reverse(temp.nodes);
 				for (DEdge e : temp.edges) e.flip();
 				if (cycleCheck(temp, graph)) {
-					throw new Exception("Cannot add path as both directions create a cycle. Start Edge: " + temp.edges.get(0).toString());
+					throw new Exception("Cannot add path as both directions for this path creates a cycle. Start Edge: " + temp.edges.get(0).toString());
 				}
 			}
 			paths.add(0, temp);
@@ -192,7 +184,6 @@ public class PathDirectionalizer {
 		for (DEdge e : graph.edges) {
 			if (!e.pathedge) {
 				throw new Exception("Not all edges in the subgraph were directionalized: " + e.toString());
-				//System.out.println("Not all edges in the subgraph were directionalized: " + e.toString());
 			}
 		}
 	}

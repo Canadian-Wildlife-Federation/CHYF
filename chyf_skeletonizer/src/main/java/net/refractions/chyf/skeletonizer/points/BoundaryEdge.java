@@ -18,7 +18,7 @@ package net.refractions.chyf.skeletonizer.points;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Point;
 
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource.FlowDirection;
+import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Direction;
 
 /**
  * Represents an edge along the boundary of the aoi
@@ -29,17 +29,17 @@ import net.refractions.chyf.datasource.ChyfGeoPackageDataSource.FlowDirection;
  */
 public class BoundaryEdge {
 
-	private FlowDirection direction;
+	private Direction direction;
 	private LineString ls;
 	private Point inout;
 	
-	public BoundaryEdge(FlowDirection direction, LineString ls, Point inout) {
+	public BoundaryEdge(Direction direction, LineString ls, Point inout) {
 		this.ls = ls;
 		this.direction = direction;
 		this.inout = inout;
 	}
 	
-	public FlowDirection getDirection() {
+	public Direction getDirection() {
 		return this.direction;
 	}
 	

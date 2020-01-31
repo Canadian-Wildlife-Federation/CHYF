@@ -109,7 +109,7 @@ public class ChyfProperties {
 		}else if (units.equals(NonSI.DEGREE_ANGLE)) {
 			return loadDefaults(DEG_PROP_FILE);
 		}else {
-			throw new Exception("Default skeletonizer settings are not provided for the projection units of " + units.toString() + ".  Use the -settings parameter to supply them");
+			throw new Exception("Default skeletonizer properties do not exist for the projection with units of " + units.toString() + ".  Use the -p=properties parameter to supply them");
 		}
 	}
 	

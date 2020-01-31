@@ -7,9 +7,15 @@ import java.util.List;
 
 import org.geotools.data.simple.SimpleFeatureReader;
 import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Polygon;
 import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.type.Name;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.ChyfDataSource;
+import net.refractions.chyf.datasource.ChyfDataSource.Attribute;
+import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
 import net.refractions.chyf.datasource.ChyfDataSource.EfType;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.directionalize.graph.DEdge;
@@ -17,34 +23,50 @@ import net.refractions.chyf.directionalize.graph.DGraph;
 import net.refractions.chyf.directionalize.graph.EdgeInfo;
 
 /**
- * Simple cycle checker for chyf  flowpath dataset
+ * Simple cycle checker for CHyF flowpath dataset
  * 
  * @author Emily
  *
  */
 public class CycleChecker {
-
 	
+	private static final Logger logger = LoggerFactory.getLogger(CycleChecker.class.getCanonicalName());
+
+	/**
+	 * 
+	 * @param output link to geopackage containing CHyF data
+	 * @return
+	 * @throws Exception
+	 */
 	public boolean checkCycles(Path output) throws Exception{
 		List<EdgeInfo> edges = new ArrayList<>();
 
 		try(ChyfGeoPackageDataSource dataSource = new ChyfGeoPackageDataSource(output)){
 			
+			List<Polygon> aois = dataSource.getAoi();
+			
 			try(SimpleFeatureReader reader = dataSource.getFlowpaths(null)){
+				Name efatt = ChyfDataSource.findAttribute(reader.getFeatureType(), Attribute.EFTYPE);
+				Name diratt = ChyfDataSource.findAttribute(reader.getFeatureType(), Attribute.DIRECTION);
 				while(reader.hasNext()) {
 					SimpleFeature sf = reader.next();
 					
 					LineString ls = ChyfDataSource.getLineString(sf);
+					for (Polygon p : aois) {
+						if (ls.relate(p, "1********")) {
+							EfType eftype = EfType.parseType((Integer)sf.getAttribute(efatt));					
+							DirectionType dtype = DirectionType.parseType((Integer)sf.getAttribute(diratt));
+							if (dtype == DirectionType.UNKNOWN) throw new Exception("An unknown direction edge type found. Cannot check cycles when direction is unknown");					
+							EdgeInfo ei = new EdgeInfo(ls.getCoordinateN(0), ls.getCoordinateN(ls.getCoordinates().length - 1),
+									eftype,
+									sf.getIdentifier(), ls.getLength(), 
+									dtype);
+							
+							edges.add(ei);
+							break;
+						}
+					}
 					
-					EfType eftype = EfType.parseType((Integer)sf.getAttribute("ef_type"));					
-					DirectionType dtype = DirectionType.KNOWN;
-					
-					EdgeInfo ei = new EdgeInfo(ls.getCoordinateN(0), ls.getCoordinateN(ls.getCoordinates().length - 1),
-							eftype,
-							sf.getIdentifier(), ls.getLength(), 
-							dtype);
-					
-					edges.add(ei);
 				}
 			}
 		}
@@ -52,7 +74,6 @@ public class CycleChecker {
 		DGraph graph = DGraph.buildGraphLines(edges);
 		return findCycles(graph);
 	}
-	
 	
 	public boolean findCycles(DGraph graph) {
 		graph.getEdges().forEach(e->e.setVisited(false));
@@ -66,9 +87,8 @@ public class CycleChecker {
 	
 	private boolean findCycles(DEdge f, HashSet<DEdge> visited) {
 		if (f.isVisited()) return false;
-		
 		if(visited.contains(f)) {
-			System.out.println("Cycle found @" + f.toString());
+			logger.error("Cycle found at " + f.toString());
 			return true;
 		}
 		visited.add(f);

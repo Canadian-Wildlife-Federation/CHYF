@@ -27,6 +27,9 @@ import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.feature.type.AttributeDescriptor;
+import org.opengis.feature.type.Name;
 
 
 /**
@@ -41,7 +44,8 @@ public interface ChyfDataSource extends AutoCloseable {
 	public enum Attribute{
 		IOTYPE("io_type"),
 		ECTYPE("ec_type"),
-		EFTYPE("ef_type");
+		EFTYPE("ef_type"),
+		DIRECTION("direction");
 		
 		private String fieldName;
 		
@@ -150,7 +154,32 @@ public interface ChyfDataSource extends AutoCloseable {
 		}
 	}
 	
-	
+	/**
+	 * Values for direction attribute on eflowpaths
+	 * 
+	 * @author Emily
+	 *
+	 */
+	public enum DirectionType {
+
+		UNKNOWN(-1),
+		KNOWN(1);
+		
+		int type;
+		
+		DirectionType(int type) {
+			this.type =type;
+		}
+		
+		public static DirectionType parseType(Integer type) throws Exception {
+			if (type == null) return DirectionType.UNKNOWN;
+			for (DirectionType t : DirectionType.values()) {
+				if (t.type == type) return t;
+			}
+			throw new Exception(type + " is an invalid value for direction attribute");
+		}
+	}
+
 	/**
 	 * 
 	 * @param bounds if null then entire dataset should be returned
@@ -198,5 +227,12 @@ public interface ChyfDataSource extends AutoCloseable {
 		}else {
 			throw new Exception("Geometry type " + g.getGeometryType() + " not supported for point");
 		}
+	}
+	
+	public static Name findAttribute(SimpleFeatureType ft, Attribute attribute) {
+		for (AttributeDescriptor ad : ft.getAttributeDescriptors()) {
+			if (ad.getLocalName().equalsIgnoreCase(attribute.getFieldName())) return ad.getName();
+		}
+		return null;
 	}
 }
