@@ -77,9 +77,13 @@ public class Directionalizer {
 					sinkNodes[i] = n;
 					nosink = false;
 				}
-			}
+			}			
 		}
+		
 		if (nosink) throw new Exception("No sink points found for graph.");
+		for (int i = 0; i < sinkNodes.length; i ++) {
+			if (sinkNodes[i] == null) throw new Exception("no flowpath meets sink node defined at POINT(" + sinkpoints.get(i).x + " " + sinkpoints.get(i).y + ")");
+		}
 		
 		directionalizeGraph(graph, sinkNodes);
 		
@@ -103,7 +107,9 @@ public class Directionalizer {
 		
 		while(!toProcess.isEmpty()) {
 			DNode sink = toProcess.remove(0);
-			
+			if (sink == null) {
+				System.out.println("break");
+			}
 			//find connected components
 			DGraph sub = SubGraph.computeSubGraph(graph, sink);
 			

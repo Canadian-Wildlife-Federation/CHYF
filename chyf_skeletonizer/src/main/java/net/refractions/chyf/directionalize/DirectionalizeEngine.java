@@ -108,7 +108,7 @@ public class DirectionalizeEngine {
 			dataSource.flipFlowEdges(dd.getFeaturesToFlip(), dd.getProcessedFeatures());
 		}
 			
-		logger.info("checking output from cycles");
+		logger.info("checking output for cycles");
 		CycleChecker checker = new CycleChecker();
 		if (checker.checkCycles(output)) {
 			logger.error("Output network contains cycles");

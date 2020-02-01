@@ -262,11 +262,7 @@ public class SkeletonGraph {
 	public void mergedegree2() {
 
 		Set<Node> d2 = nodes.stream().filter(e->e.getDegree() == 2).collect(Collectors.toSet());
-		while (!d2.isEmpty()) {
-			// find a degree 2 node
-			Node node = d2.iterator().next();
-			d2.remove(node);
-
+		for (Node node : d2) {
 			Edge e1 = node.getEdges().get(0);
 			Edge e2 = node.getEdges().get(1);
 

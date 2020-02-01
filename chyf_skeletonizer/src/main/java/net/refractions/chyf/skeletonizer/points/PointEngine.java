@@ -25,6 +25,7 @@ import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiLineString;
 import org.locationtech.jts.geom.Point;
@@ -42,6 +43,7 @@ import net.refractions.chyf.ChyfProperties.Property;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfDataSource.Attribute;
 import net.refractions.chyf.datasource.ChyfDataSource.EfType;
+import net.refractions.chyf.datasource.ChyfDataSource.IoType;
 import net.refractions.chyf.datasource.ChyfDataSource.Layer;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Direction;
@@ -149,7 +151,6 @@ public class PointEngine {
 		try(SimpleFeatureReader reader = geopkg.query(null, geopkg.getEntry(Layer.AOI), null)){
 			while(reader.hasNext()){
 				SimpleFeature aoi = reader.next();
-				//TODO: aoi must be a simple polygon with no holes
 				Polygon pg = ChyfDataSource.getPolygon(aoi);
 				LineString ring = pg.getExteriorRing();
 				aoiedges.add(ring);
@@ -171,6 +172,8 @@ public class PointEngine {
 		//intersect with waterbodies
 		List<Polygon> toupdate = new ArrayList<>();
 		List<LineString> cstoupdate = new ArrayList<>();
+		//point intersections; these are potentially in/out construction points
+		List<Point> intersectionPoints = new ArrayList<>();
 		try(SimpleFeatureReader wbreader = geopkg.getWaterbodies()){
 			while(wbreader.hasNext()) {
 				SimpleFeature ww = wbreader.next();
@@ -181,19 +184,19 @@ public class PointEngine {
 				//aoi
 				for (LineString ring : aoiedges) {
 					if (!ring.getEnvelopeInternal().intersects(wb.getEnvelopeInternal())) continue;
-					Geometry t = ring.intersection(wb);
-					if (t.isEmpty()) continue;
-					if (t instanceof LineString) {
-						common.add((LineString)t);
-					}else if (t instanceof MultiLineString) {
-						for (int i = 0; i < ((MultiLineString)t).getNumGeometries(); i ++) {
-							common.add((LineString)t.getGeometryN(i));
+					Geometry gintersect = ring.intersection(wb);
+					if (gintersect.isEmpty()) continue;
+					
+					for (int j = 0; j < gintersect.getNumGeometries(); j ++) {
+						Geometry t = gintersect.getGeometryN(j);
+						if (t instanceof LineString) {
+							common.add((LineString)t);
+						}else if (t instanceof Point) {
+							intersectionPoints.add((Point)t);
+						}else {
+							throw new RuntimeException("The intersection of aoi and waterbodies returns invalid geometry type ("+ t.getGeometryType() + ")");
 						}
-					}else if (t instanceof Point) {
-						//ignore
-					}else {
-						throw new RuntimeException("The intersection of aoi and waterbodies returns invalid geometry type ("+ t.getGeometryType() + ")");
-					}		
+					}
 				}
 				
 				//coastline
@@ -287,17 +290,44 @@ public class PointEngine {
 					if (found != null) break;
 				}
 					
+				Direction d = Direction.UNKNOWN;
 				if (found != null) {
-					BoundaryEdge be = new BoundaryEdge((Direction)found.getUserData(),  (LineString)x, found);
+					if (found.getUserData() != null) {
+						IoType t  = (IoType) found.getUserData();
+						if (t == IoType.INPUT) d = Direction.IN;
+						if (t == IoType.OUTPUT) d = Direction.OUT;
+					}
+					BoundaryEdge be = new BoundaryEdge(d,  (LineString)x, found);
 					edges.add(be);
 				}else {
-					BoundaryEdge be = new BoundaryEdge(Direction.UNKNOWN,  (LineString)x, null);
+					BoundaryEdge be = new BoundaryEdge(d,  (LineString)x, null);
 					edges.add(be);
 					logger.warn("WARNING: The boundary edge has no in/out points: " + be.getLineString().toText());
 				}
 			}else {
 				throw new RuntimeException("The intersection of aoi and waterbodies linestring merger does not return linestring geometry");
 
+			}
+		}
+		
+		for (Point p : intersectionPoints) {
+			boolean found = false;
+			for (Point inout : inoutpoints) {
+				if (p.getCoordinate().equals2D(inout.getCoordinate())) {
+					Direction d = Direction.UNKNOWN;
+					if (inout.getUserData() != null) {
+						IoType t  = (IoType) inout.getUserData();
+						if (t == IoType.INPUT) d = Direction.IN;
+						if (t == IoType.OUTPUT) d = Direction.OUT;
+					}
+					BoundaryEdge be = new BoundaryEdge(d, null, inout);
+					edges.add(be);
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				logger.warn("WARNING: The waterbody intersects the aoi at a single point, but this point is not defined as a in/out point: " + p.toText());
 			}
 		}
 		return edges;

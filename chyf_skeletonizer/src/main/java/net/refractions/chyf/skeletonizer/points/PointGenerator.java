@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.geotools.xml.gml.GMLComplexTypes.LineStringMemberType;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -84,6 +85,18 @@ public class PointGenerator {
 		workingPolygons.addAll(touches);
 		insertCoordinates.clear();
 				
+		//boundary points
+		//make points out of all boundary points
+		for (BoundaryEdge be: boundaries) {
+			if (be.getLineString() == null) {
+				if (be.getInOut().getEnvelopeInternal().intersects(waterbodya.getEnvelopeInternal()) &&
+						be.getInOut().intersects(waterbodya)) {
+					ConstructionPoint cp = new ConstructionPoint(be.getInOut().getCoordinate(), Type.FLOWPATH, be.getDirection(), (PolygonInfo) workingWaterbody.getUserData());
+					wbpoints.add(cp);
+				}
+			}
+		}
+		
 		if (flowpaths.isEmpty() && touches.isEmpty()) {
 			wbpoints.addAll( processIsolated(workingWaterbody) );
 			
@@ -115,6 +128,7 @@ public class PointGenerator {
 			}
 			
 			for (BoundaryEdge b : boundaries) {
+				if (b.getLineString() == null) continue;
 				if (b.getLineString().getEnvelopeInternal().intersects(workingWaterbody.getEnvelopeInternal()) &&
 						b.getLineString().intersects(workingWaterbody)) {
 					if (b.getInOut() != null) {
@@ -237,12 +251,22 @@ public class PointGenerator {
 			temp = temp.difference(p.getExteriorRing());
 		}
 		for (BoundaryEdge g : boundaries) {
+			if (g.getLineString() == null) continue;
 			if (!g.getLineString().getEnvelopeInternal().intersects(temp.getEnvelopeInternal())) continue;
 			temp = temp.difference(g.getLineString());
 		}
 		
+		if (temp instanceof MultiLineString) {
+			LineMerger lm = new LineMerger();
+			lm.add(temp);
+			Collection items = lm.getMergedLineStrings();
+			if (items.size() > 1) throw new RuntimeException("cannot find longest midpoint -> single linestring not generated for finding midpoint");
+			temp = (Geometry) items.iterator().next();
+		}
 		//if its a linestring
-		if (!(temp instanceof LineString)) throw new RuntimeException("not a linestring");
+		if (!(temp instanceof LineString)) {
+			throw new RuntimeException("cannot find longest midpoing -> intersection does not form a linestring");
+		}
 		
 		ls = (LineString)temp;
 
@@ -330,6 +354,7 @@ public class PointGenerator {
 				temp = temp.difference(p.getExteriorRing());
 			}
 			for (BoundaryEdge g : boundaries) {
+				if (g.getLineString() == null) continue;
 				if (!g.getLineString().getEnvelopeInternal().intersects(temp.getEnvelopeInternal())) continue;
 				temp = temp.difference(g.getLineString());
 			}

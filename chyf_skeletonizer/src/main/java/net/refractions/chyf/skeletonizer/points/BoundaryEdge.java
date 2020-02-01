@@ -21,7 +21,7 @@ import org.locationtech.jts.geom.Point;
 import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Direction;
 
 /**
- * Represents an edge along the boundary of the aoi
+ * Represents an edge or point along the boundary of the aoi
  * that is shared with a waterbody feature.
  * 
  * @author Emily
@@ -33,6 +33,12 @@ public class BoundaryEdge {
 	private LineString ls;
 	private Point inout;
 	
+	/**
+	 * 
+	 * @param direction the direction
+	 * @param ls the edge that intersects or null if its just a point
+	 * @param inout the "point on boundary" of intersection or null if non found
+	 */
 	public BoundaryEdge(Direction direction, LineString ls, Point inout) {
 		this.ls = ls;
 		this.direction = direction;
