@@ -15,6 +15,7 @@
  */
 package net.refractions.chyf.skeletonizer.voronoi;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -155,14 +156,14 @@ public class SkeletonGraph {
 			if (start != null && n.getDegree() == 1) end = n;
 		}
 	
-		List<Node> toVisit = new ArrayList<>();
+		ArrayDeque<Node> toVisit = new ArrayDeque<>();
 		toVisit.add(start);
 		
 		distances.put(start, 0.0);
 		paths.put(start, new ArrayList<>());
 		
 		while(!toVisit.isEmpty()) {
-			Node n = toVisit.remove(0);
+			Node n = toVisit.removeFirst();
 			for (Edge e : n.edges) {
 				Node next = null;
 				if (e.getNodeA() == n) next = e.getNodeB();
@@ -234,13 +235,13 @@ public class SkeletonGraph {
 	public void trim(List<ConstructionPoint> inout) {
 		
 		Set<Coordinate> keeppoints = inout.stream().map(e -> e.getCoordinate()).collect(Collectors.toSet());
-		List<Node> toremove = new ArrayList<>();
+		ArrayDeque<Node> toremove = new ArrayDeque<>();
 		for (Node n : nodes) {
 			if (n.getDegree() == 1 && !keeppoints.contains(n.c))
 				toremove.add(n);
 		}
 		while (!toremove.isEmpty()) {
-			Node n = toremove.remove(0);
+			Node n = toremove.removeFirst();
 
 			List<Edge> all = new ArrayList<>(n.edges);
 			for (Edge e : all) {
@@ -260,7 +261,6 @@ public class SkeletonGraph {
 	 * merge all degree 2 nodes
 	 */
 	public void mergedegree2() {
-
 		Set<Node> d2 = nodes.stream().filter(e->e.getDegree() == 2).collect(Collectors.toSet());
 		for (Node node : d2) {
 			Edge e1 = node.getEdges().get(0);
@@ -320,6 +320,8 @@ public class SkeletonGraph {
 			a2.getEdges().add(e);
 			edges.add(e);
 		}
+		
+
 	}
 
 	public void collapseShortEdges(double minlength) {

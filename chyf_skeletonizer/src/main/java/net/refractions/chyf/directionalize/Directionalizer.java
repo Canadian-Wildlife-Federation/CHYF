@@ -7,9 +7,11 @@ import java.util.Set;
 
 import org.locationtech.jts.geom.Coordinate;
 import org.opengis.filter.identity.FeatureId;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.datasource.ChyfAngle;
 import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
 import net.refractions.chyf.datasource.ChyfDataSource.EfType;
 import net.refractions.chyf.directionalize.graph.BridgeFinder;
@@ -22,7 +24,7 @@ import net.refractions.chyf.directionalize.graph.SubGraph;
 import net.refractions.chyf.directionalize.graph.TreeDirection;
 
 /**
- * Main class for directionalizing a flow network graph
+ * Engine for directionalizing a flow network graph
  * 
  * @author Emily
  *
@@ -31,8 +33,14 @@ public class Directionalizer {
 
 	private static final Logger logger = LoggerFactory.getLogger(Directionalizer.class.getCanonicalName());
 
-	private Set<FeatureId> toflip;
-	private Set<FeatureId> processed ;
+	private Set<FeatureId> toflip = new HashSet<>();
+	private Set<FeatureId> processed  = new HashSet<>();
+	
+	ChyfAngle angleComputer = null;
+	
+	public Directionalizer(CoordinateReferenceSystem sourceCRS) {
+		angleComputer = new ChyfAngle(sourceCRS);
+	}
 	
 	/**
 	 * features to flip
@@ -61,8 +69,8 @@ public class Directionalizer {
 	 */
 	public void directionalize(DGraph graph, List<Coordinate> sinkpoints) throws Exception{
 		
-		toflip = new HashSet<>();
-		processed = new HashSet<>();
+		toflip.clear();
+		processed.clear();
 
 		DNode[] sinkNodes = new DNode[sinkpoints.size()];
 		
@@ -89,6 +97,7 @@ public class Directionalizer {
 		
 		//process any non-directionalized edges here; generally these
 		//should be small isolated areas and sinks are picked at random
+		logger.info("Processing isloated areas");
 		for (DEdge e : graph.edges) {
 			if (e.getDType() == DirectionType.KNOWN) continue;
 			processNoSink(graph, e);
@@ -106,10 +115,10 @@ public class Directionalizer {
 		for (DNode n : sinkNodes) toProcess.add(n);
 		
 		while(!toProcess.isEmpty()) {
+			//logger.info("Processing sink.  Remaining: " + toProcess.size());
+			
 			DNode sink = toProcess.remove(0);
-			if (sink == null) {
-				System.out.println("break");
-			}
+			
 			//find connected components
 			DGraph sub = SubGraph.computeSubGraph(graph, sink);
 			
@@ -142,8 +151,12 @@ public class Directionalizer {
 			}
 
 			//directionalize each of the subgraphs
+			PathDirectionalizer pd = new PathDirectionalizer(angleComputer);
+			//int cnt = 1;
+			//int total = pp.getSubGraphs().size();
 			for (DGraph subg : pp.getSubGraphs()) {
-				PathDirectionalizer.directionalize(subg);
+				//logger.info("Processing subgraph " + (cnt++) + "/" + total);
+				pd.directionalize(subg);
 			}
 			
 			//figure out which edges need flipping
@@ -191,7 +204,7 @@ public class Directionalizer {
 			if (e.getType() != EfType.SKELETON ) cnt++;
 		}
 		if (cnt > 5) {
-			logger.warn("An (isolated) subgraph without any defined sinks is larger then 5 edges in size @ " + sub.nodes.get(0).toString());
+			logger.warn("An (isolated) subgraph without any defined sinks is larger then 5 edges in size (actual size: " + cnt + ") @ " + sub.nodes.get(0).toString() + ". These will be directionalized by computing a sink based on the network.");
 		}
 		
 
@@ -206,7 +219,7 @@ public class Directionalizer {
 		for (DEdge e : sub.edges) {
 			if (e.getDType() == DirectionType.UNKNOWN) continue;
 			e.setVisited(true);
-			
+
 			toprocess.add(e.getNodeB());
 			while(!toprocess.isEmpty()) {
 				DNode n = toprocess.remove(0);

@@ -293,11 +293,9 @@ public class BankEngine {
 
 	
 	public static void main(String[] args) throws Exception {		
-		Args runtime = Args.parseArguments(args);
-		if (runtime == null) {
-			Args.printUsage("BankEngine");
-			return;
-		}
+		Args runtime = Args.parseArguments(args, "BankEngine");
+		if (runtime == null) return;
+		
 		runtime.prepareOutput();
 		
 		long now = System.nanoTime();

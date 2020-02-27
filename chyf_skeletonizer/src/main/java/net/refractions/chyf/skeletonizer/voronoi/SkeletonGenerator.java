@@ -26,11 +26,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.locationtech.jts.algorithm.Angle;
+import org.locationtech.jts.algorithm.locate.IndexedPointInAreaLocator;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineSegment;
 import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Location;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.prep.PreparedPolygon;
 import org.locationtech.jts.triangulate.VoronoiDiagramBuilder;
@@ -38,8 +40,6 @@ import org.locationtech.jts.triangulate.VoronoiDiagramBuilder;
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.ChyfProperties.Property;
 import net.refractions.chyf.skeletonizer.points.ConstructionPoint;
-import net.refractions.fastPIP.FastPIP;
-import net.refractions.fastPIP.FastSegInPolygon;
 
 /**
  * Generates skeletons for a waterbody from a set of in/out points
@@ -47,9 +47,7 @@ import net.refractions.fastPIP.FastSegInPolygon;
  *
  */
 public class SkeletonGenerator {
-	
-	private static final double IN_OUT_PNT_DISTANCE_PERCENT = 0.9;
-	
+
 	private ChyfProperties properties;
 
 	public SkeletonGenerator(ChyfProperties prop) {
@@ -59,9 +57,9 @@ public class SkeletonGenerator {
 	
 	public SkeletonResult generateSkeleton(Polygon waterbody, List<ConstructionPoint> inoutPoints) throws Exception {
 		if (inoutPoints.size() < 2) throw new IOException("invalid number of input/output points");
+		List<Coordinate> points = preprocess2(waterbody, inoutPoints);
+//		points.forEach(c->System.out.println("POINT(" + c.x + " " + c.y + ")"));		
 		
-		ArrayList<Coordinate> points = preprocess(waterbody, inoutPoints);
-	
 		VoronoiDiagramBuilder builder = new VoronoiDiagramBuilder();
 		builder.setSites(points);
 		builder.setClipEnvelope(waterbody.getEnvelopeInternal());
@@ -172,8 +170,9 @@ public class SkeletonGenerator {
 		Set<LineSegment> segments = new HashSet<>();
 		Set<LineSegment> inoutsegments = new HashSet<>();
 		
-		FastPIP outer = new FastPIP(waterbody);
 		
+		IndexedPointInAreaLocator outer = new IndexedPointInAreaLocator(waterbody);
+//		FastPIP outer = new FastPIP(waterbody);
 		//this is for the cases where there are acute angle in the
 		//boundary of the polygons and the segment 
 		//crosses the boundary
@@ -182,20 +181,31 @@ public class SkeletonGenerator {
 		for (int i = 0; i < voronoi.getNumGeometries(); i ++) {
 			Polygon p = (Polygon) voronoi.getGeometryN(i);		
 			for (int j = 1; j < p.getCoordinates().length; j ++) {
-				Coordinate c = p.getCoordinates()[j-1];
+				Coordinate c1 = p.getCoordinates()[j-1];
 				Coordinate c2 = p.getCoordinates()[j];
 				
-				boolean in1 = outer.PIP(c);
-				boolean in2 = outer.PIP(c2);
+				int loc = outer.locate(c1);
+				boolean in1 = (loc == Location.INTERIOR || loc == Location.BOUNDARY);
+				loc = outer.locate(c2);
+				boolean in2 = (loc == Location.INTERIOR || loc == Location.BOUNDARY);
+				
+//				boolean in1 = outer.PIP(c);
+//				boolean in2 = outer.PIP(c2);
 				if (in1 && in2) {
-					if (segInPoly.testSegment(c, c2)) {
-						segments.add(createSegment(c, c2));
+					if (segInPoly.testSegment(c1, c2)) {
+						segments.add(createSegment(c1, c2));
+					}else {
+						inoutsegments.add(createSegment(c1, c2));	
 					}
 				}else if (in1 || in2) {
-					inoutsegments.add(createSegment(c, c2));
+					inoutsegments.add(createSegment(c1, c2));
 				}
 			}
 		}
+		
+//		inoutsegments.forEach(e->System.out.println(e.toString()));
+//		segments.forEach(e->System.out.println(e.toString()));
+		
 		//only keep the inout segments that are closest to input/output point
 		//and truncate to original inout point
 		for (ConstructionPoint spnt : inoutPoints) {
@@ -212,7 +222,8 @@ public class SkeletonGenerator {
 			if (nearest == null) {
 				throw new Exception("FAIL");
 			}else {
-				if (outer.PIP(nearest.p0)) {
+				int loc = outer.locate(nearest.p0);
+				if (loc == Location.INTERIOR || loc == Location.BOUNDARY) { //outer.PIP(nearest.p0)
 					segments.add(createSegment(c, nearest.p0));
 				}else {
 					segments.add(createSegment(c, nearest.p1));
@@ -221,6 +232,7 @@ public class SkeletonGenerator {
 		}
 		return segments;
 	}
+		
 	
 	/**
 	 * Preprocess the waterbody polygon, adding points to the left and
@@ -230,7 +242,7 @@ public class SkeletonGenerator {
 	 * @param inoutPoints
 	 * @return
 	 */
-	private ArrayList<Coordinate> preprocess(Polygon waterbody, List<ConstructionPoint> inoutPoints) {
+	private List<Coordinate> preprocess2(Polygon waterbody, List<ConstructionPoint> inoutPoints) {
 		//find all rings
 		List<LineString> outside = new ArrayList<>();
 		outside.add(waterbody.getExteriorRing());
@@ -239,72 +251,93 @@ public class SkeletonGenerator {
 		HashSet<Coordinate> inoutset = new HashSet<>();
 		for (ConstructionPoint p : inoutPoints) inoutset.add(p.getCoordinate());
 				
-		//for each linestring
-		//1. densify
-		//2. remove points at in/out point and add a point close by on either side
-		ArrayList<Coordinate> inputPoints = new ArrayList<>();
-
+		List<LineSegment> segments = new ArrayList<>();
+		
+		List<Coordinate> densifyMore = new ArrayList<>();
+		
 		double minAngle = properties.getProperty(Property.SKEL_ACUTE_ANGLE_RAD);
 		double maxAngle = 2*Math.PI - minAngle;
-		
+		double densify = properties.getProperty(Property.SKEL_DENSIFY_FACTOR);
+
 		for (LineString ls : outside) {		
 			Coordinate[] cs = ls.getCoordinates();
-			boolean skipnext = false;
-			boolean closed = false;
-			for (int i = 0; i < cs.length -1; i ++) {
-				Coordinate c = ls.getCoordinateN(i);
+			
+			List<Coordinate> all = new ArrayList<>();
+			all.add(cs[0]);
+			for (int i = 1; i < cs.length; i ++) {
+				if (inoutset.contains(cs[i]) && inoutset.contains(cs[i-1])) {
+					//break line segment in half
+					Coordinate c = (new LineSegment(cs[i-1], cs[i])).midPoint();
+					all.add(c);
+				}
+				all.add(cs[i]);
+			}
+			
+			
+			boolean last = false;
+			for (int i = 0; i < all.size() - 1; i ++) {
+				if (i == all.size() - 2 && last) continue;
+				
+				Coordinate c = all.get(i);
+				LineSegment seg2 = new LineSegment(c, all.get(i + 1));
+
 				if (inoutset.contains(c)) {
 					LineSegment seg1 = null;
 					if (i == 0) {
-						closed = true;
-						seg1 = new LineSegment(cs[cs.length - 2], c);
+						seg1 = new LineSegment(all.get(all.size() - 2), c);
+						last = true;
 					}else {
-						seg1 = new LineSegment(cs[i-1], c);
+						seg1 = segments.remove(segments.size() - 1);
 					}
-					LineSegment seg2 = new LineSegment(c, cs[i+1]);
 					
-					Coordinate c1 = seg1.pointAlong(IN_OUT_PNT_DISTANCE_PERCENT);
+					double angle = Angle.interiorAngle(seg1.p0, c, seg2.p1);
+					if(angle < minAngle || angle > maxAngle) {
+						densifyMore.add(c);
+					}
+					Coordinate c1 = null;
+					if (seg1.getLength() < densify) {
+						c1 = seg1.p0;
+					}else {
+						c1 = seg1.pointAlong((seg1.getLength() - densify) / seg1.getLength());
+					}
+					
 					double d1 = c1.distance(c);
-					if (d1 > properties.getProperty(Property.SKEL_DENSIFY_FACTOR)) {
-						c1 = seg1.pointAlong((seg1.getLength() - properties.getProperty(Property.SKEL_DENSIFY_FACTOR)) / seg1.getLength());
-						d1 = c1.distance(c);
+					Coordinate c2 = null;
+					if (seg2.getLength() < densify) {
+						c2 = seg2.p1;
+					}else {
+						c2 = seg2.pointAlong(1 - ((seg2.getLength() - densify) / seg2.getLength()));
 					}
-					Coordinate c2 = seg2.pointAlong(1-IN_OUT_PNT_DISTANCE_PERCENT);
 					double d2 = c2.distance(c);
-					if (d2 > properties.getProperty(Property.SKEL_DENSIFY_FACTOR)) {
-						c2 = seg2.pointAlong(1 - ((seg2.getLength() - properties.getProperty(Property.SKEL_DENSIFY_FACTOR)) / seg2.getLength()));
-						d2 = c2.distance(c);
-					}
 					
 					if (d1 < d2) {
 						c2 = seg2.pointAlong(d1/seg2.getLength());
 					}else {
 						c1 = seg1.pointAlong(1 - d2/seg1.getLength());
 					}
-									
-					double angle = Angle.interiorAngle(seg1.p0, c, seg2.p1);
-					if(angle < minAngle || angle > maxAngle) {
-						densify(seg1.p0, c1, properties.getProperty(Property.SKEL_DENSIFY_FACTOR) / 10.0, inputPoints);
-						inputPoints.add(c1);
-						densify(c2, seg2.p1, properties.getProperty(Property.SKEL_DENSIFY_FACTOR) / 10.0, inputPoints);
-					}else {
-						densify(seg1.p0, c1, properties.getProperty(Property.SKEL_DENSIFY_FACTOR), inputPoints);
-						inputPoints.add(c1);
-						densify(c2, seg2.p1, properties.getProperty(Property.SKEL_DENSIFY_FACTOR), inputPoints);
-						
-					}
-					skipnext = true;
-				}else if (i != 0 && !skipnext) {
-					densify(cs[i-1], cs[i], properties.getProperty(Property.SKEL_DENSIFY_FACTOR), inputPoints);
+					segments.add(new LineSegment(seg1.p0, c1));
+					segments.add(new LineSegment(c2, seg2.p1));
 				}else {
-					skipnext = false;
+					segments.add(seg2);
 				}
 			}
-			if (!closed) {
-				densify(cs[cs.length - 2], cs[0], properties.getProperty(Property.SKEL_DENSIFY_FACTOR), inputPoints);
-			}
 		}
-		return inputPoints;
+		
+		HashSet<Coordinate> inputPoints = new HashSet<>();
+
+		for (LineSegment s : segments) {
+			double df = densify;
+			for (Coordinate c : densifyMore) {
+				if (s.distance(c) < densify * 10) {
+					df = df / 10.0;
+					break;
+				}
+			}
+			densify(s.p0, s.p1, df, inputPoints);
+			inputPoints.add(s.p1);
+		}
+		return inputPoints.stream().collect(Collectors.toList());
+//		return segments;
 	}
 	
 	/**
@@ -314,7 +347,7 @@ public class SkeletonGenerator {
 	 * @param minSegmentDistance
 	 * @return
 	 */
-	private static void densify(Coordinate c1, Coordinate c2, double minSegmentDistance,  ArrayList<Coordinate> results) {		
+	private static void densify(Coordinate c1, Coordinate c2, double minSegmentDistance,  Set<Coordinate> results) {		
 		Coordinate last = c1;
 		results.add(c1);
 
@@ -322,7 +355,7 @@ public class SkeletonGenerator {
 		if (dist > minSegmentDistance) { // need to densify this segment
 			int ndivisions = (int) (dist / minSegmentDistance);
 			if (ndivisions < 1) ndivisions = 1;
-			// allways use the first point, never use the last
+			// always use the first point, never use the last
 			for (int u = 0; u < ndivisions; u++) {
 				double r = ((double) u + 1) / ((double) ndivisions + 1);
 				Coordinate c = new Coordinate(last.x + r * (c2.x - last.x), last.y + r * (c2.y - last.y));

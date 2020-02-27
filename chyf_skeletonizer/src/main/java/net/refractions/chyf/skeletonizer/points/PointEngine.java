@@ -25,11 +25,11 @@ import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiLineString;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.prep.PreparedLineString;
 import org.locationtech.jts.operation.linemerge.LineMerger;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.type.Name;
@@ -42,6 +42,7 @@ import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.ChyfProperties.Property;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfDataSource.Attribute;
+import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
 import net.refractions.chyf.datasource.ChyfDataSource.EfType;
 import net.refractions.chyf.datasource.ChyfDataSource.IoType;
 import net.refractions.chyf.datasource.ChyfDataSource.Layer;
@@ -82,18 +83,18 @@ public class PointEngine {
 			
 			while(true) {
 				//find next feature to process
-				int polyid = cnt;
-		
-				SimpleFeature toProcess = dataSource.getNextWaterbody(polyid);
+				SimpleFeature toProcess = dataSource.getNextWaterbody();
 				if (toProcess == null) break; //finished processing
 
 				logger.info("POINT GENERATOR: " + cnt);
 				cnt++;
-				
+
 				ftouch.clear();
 				ptouch.clear();
 				
 				Polygon workingPolygon = ChyfDataSource.getPolygon(toProcess);
+				if (!workingPolygon.isValid()) throw new Exception("Polygon not a valid geometry.  Centroid: " + workingPolygon.getCentroid().toText());
+				int polyid = (Integer)toProcess.getAttribute(ChyfGeoPackageDataSource.POLYID_ATTRIBUTE);
 				workingPolygon.setUserData(new PolygonInfo(toProcess.getIdentifier(), polyid));
 				
 				//get overlapping polygons
@@ -113,14 +114,20 @@ public class PointEngine {
 				//get overlapping flowpaths							
 				try(SimpleFeatureReader flowtouches = dataSource.getFlowpaths(env)){
 					Name eftypeatt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), Attribute.EFTYPE);
+					Name diratt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), Attribute.DIRECTION);
 					while(flowtouches.hasNext()) {
 						SimpleFeature t = flowtouches.next();
 						
 						EfType type = EfType.parseType( (Integer)t.getAttribute(eftypeatt) );
 						if (type == EfType.BANK || type == EfType.SKELETON) continue; //ignore existing skeletons
 						
+						
 						LineString temp = ChyfDataSource.getLineString(t);
-						if (workingPolygon.relate(temp, "FF*F0****"))ftouch.add(temp);
+						if (workingPolygon.relate(temp, "FF*F0****")) {
+							DirectionType dtype = DirectionType.parseType((Integer)t.getAttribute(diratt));
+							ftouch.add(temp);
+							temp.setUserData(dtype);
+						}
 					}
 				}
 
@@ -129,7 +136,6 @@ public class PointEngine {
 
 				//update polygons as required
 				dataSource.updateWaterbodyGeometries(generator.getUpdatedPolygons());
-
 			}
 						
 			//write point layers
@@ -145,7 +151,7 @@ public class PointEngine {
 		//intersect aoi with waterbodies
 		List<BoundaryEdge> edges = new ArrayList<>();	
 		List<LineString> common = new ArrayList<>();
-		List<LineString> aoiedges = new ArrayList<>();
+		List<PreparedLineString> aoiedges = new ArrayList<>();
 		List<LineString> coastlineedges = new ArrayList<>();
 
 		try(SimpleFeatureReader reader = geopkg.query(null, geopkg.getEntry(Layer.AOI), null)){
@@ -153,7 +159,7 @@ public class PointEngine {
 				SimpleFeature aoi = reader.next();
 				Polygon pg = ChyfDataSource.getPolygon(aoi);
 				LineString ring = pg.getExteriorRing();
-				aoiedges.add(ring);
+				aoiedges.add(new PreparedLineString(ring));
 			}
 		}
 		
@@ -182,9 +188,10 @@ public class PointEngine {
 				Polygon workingwb = null;
 				
 				//aoi
-				for (LineString ring : aoiedges) {
-					if (!ring.getEnvelopeInternal().intersects(wb.getEnvelopeInternal())) continue;
-					Geometry gintersect = ring.intersection(wb);
+				for (PreparedLineString ring : aoiedges) {
+					if (!ring.intersects(wb)) continue;
+					
+					Geometry gintersect = ring.getGeometry().intersection(wb);
 					if (gintersect.isEmpty()) continue;
 					
 					for (int j = 0; j < gintersect.getNumGeometries(); j ++) {
@@ -229,22 +236,22 @@ public class PointEngine {
 							LineString lls = (LineString)x;
 							List<Coordinate> cs = new ArrayList<>();
 							for (Coordinate z : lls.getCoordinates()) cs.add(z);
-							Coordinate[] mid = PointGenerator.findMidPoint(cs, properties.getProperty(Property.PNT_VERTEX_DISTANCE), true);
-							if (mid[1] != null) {
+							PointGenerator.InsertPoint ins = PointGenerator.findMidPoint(cs, properties.getProperty(Property.PNT_VERTEX_DISTANCE), true);
+							if (ins.before != null) {
 								//insert this coordinate on the waterbody and the coastline edge
 								//coastline
 								if (updatedls == null) updatedls = ring;
-								updatedls = insertCoordinate(updatedls, mid[0], mid[1], mid[2]);
+								updatedls = insertCoordinate(updatedls, ins);
 								//add to intersection
-								lls = insertCoordinate(lls, mid[0], mid[1], mid[2]);
+								lls = insertCoordinate(lls, ins);
 								//update waterbody
 								if (workingwb == null) {
 									workingwb = wb;
 									workingwb.setUserData(null);
 								}
-								workingwb = PointGenerator.addVertex(workingwb, Collections.singleton( new Coordinate[] {mid[1], mid[2], mid[0]}) );
+								workingwb = PointGenerator.addVertex(workingwb, Collections.singletonList(ins));
 							}
-							Point p = lls.getFactory().createPoint(mid[0]);
+							Point p = lls.getFactory().createPoint(ins.toinsert);
 							BoundaryEdge be = new BoundaryEdge(Direction.OUT,  lls, p);
 							edges.add(be);
 						}
@@ -341,15 +348,15 @@ public class PointEngine {
 	 * @param second
 	 * @return
 	 */
-	private static LineString insertCoordinate(LineString ls, Coordinate toinsert, Coordinate first, Coordinate second) {
+	private static LineString insertCoordinate(LineString ls,PointGenerator.InsertPoint pnt){
 		Coordinate[] newcs = new Coordinate[ls.getCoordinates().length + 1];
 		int j = 0;
 		for (int i = 0; i < ls.getCoordinates().length; i ++) {
 			newcs[j++] = ls.getCoordinateN(i);
-			if (ls.getCoordinateN(i).equals2D(first) &&
+			if (ls.getCoordinateN(i).equals2D(pnt.before) &&
 					i != ls.getCoordinates().length - 1 && 
-					ls.getCoordinateN(i+1).equals2D(second)) {
-				newcs[j++] = toinsert;
+					ls.getCoordinateN(i+1).equals2D(pnt.after)) {
+				newcs[j++] = pnt.toinsert;
 			}
 		}
 		return ls.getFactory().createLineString(newcs);
@@ -358,11 +365,9 @@ public class PointEngine {
 	
 	public static void main(String[] args) throws Exception {
 
-		Args runtime = Args.parseArguments(args);
-		if (runtime == null) {
-			Args.printUsage("Skeletonize");
-			return;
-		}
+		Args runtime = Args.parseArguments(args, "PointEngine");
+		if (runtime == null) return;
+		
 		runtime.prepareOutput();
 		
 		long now = System.nanoTime();

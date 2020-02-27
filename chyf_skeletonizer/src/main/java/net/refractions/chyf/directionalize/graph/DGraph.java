@@ -74,7 +74,7 @@ public class DGraph {
 				graph.nodes.add(a2);
 			}
 						
-			DEdge e = graph.createEdge(a1, a2, ls);
+			DEdge e = graph.createEdge(a1, a2,  ls.getStartNext(), ls.getEndPrev(), ls);
 			a1.getEdges().add(e);
 			a2.getEdges().add(e);
 			graph.edges.add(e);
@@ -103,8 +103,8 @@ public class DGraph {
 	private DNode createNode(Coordinate cc) {
 		return new DNode(cc);
 	}
-	private DEdge createEdge(DNode a1, DNode a2, EdgeInfo info) {
-		return new DEdge(a1, a2, info);
+	private DEdge createEdge(DNode a1, DNode a2, Coordinate c1, Coordinate c2, EdgeInfo info) {
+		return new DEdge(a1, a2, c1, c2, info);
 	}
 	
 	

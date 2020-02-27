@@ -1,7 +1,26 @@
+/*
+ * Copyright 2019 Government of Canada
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); 
+ * you may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an "AS IS" BASIS, 
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
+ * See the License for the specific language governing permissions and 
+ * limitations under the License.
+ */
 package net.refractions.chyf.directionalize.graph;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
 
@@ -18,6 +37,7 @@ import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
  *
  */
 public class TreeDirection {
+	private static final Logger logger = LoggerFactory.getLogger(TreeDirection.class.getCanonicalName());
 
 	/**
 	 * Order of the sinks matters, especially in cases where
@@ -33,39 +53,70 @@ public class TreeDirection {
 		DNode sink = localSinks.get(0);
 		visitUpstream(sink);
 		
-		//process remaining sinks; walking up until degree 3 node found
-		for (int i = 1; i < localSinks.size(); i ++) {
-			sink = localSinks.get(i);
-			//walk up until first degree 3 node
-			DNode prev = sink;
-			while(sink != null) {
-				if (sink.getDegree() > 2) break;
-				
-				DEdge e = null;
-				if (sink.getEdges().size() == 1) {
-					e = sink.getEdges().get(0);
-				}else {
-					e = sink.getEdges().get(0);
-					if (e.getOtherNode(sink) == prev) {
-						e = sink.getEdges().get(1);
+		if (localSinks.size() != 1) {
+			
+			
+			//process remaining sinks; walking up a source node is not created
+			HashSet<DEdge> temp = new HashSet<>();
+			
+			for (int i = 1; i < localSinks.size(); i ++) {
+				sink = localSinks.get(i);
+				//walk up until first degree 3 node
+				DNode prev = sink;
+				List<DNode> toVisit = new ArrayList<>();
+				while(sink != null) {
+					toVisit.add(sink);
+					if (sink.getDegree() > 2) {
+						//did I create a source node; if yes
+						boolean issrc = true;
+						for (DEdge e : sink.getEdges()) {
+							if (e.getNodeB() == sink) {
+								issrc = false;
+							}
+						}
+						if (!issrc) break;
 					}
+					
+					DEdge e = null;
+					if (sink.getEdges().size() == 1) {
+						e = sink.getEdges().get(0);
+					}else if (sink.getEdges().size() == 2){
+						e = sink.getEdges().get(0);
+						if (e.getOtherNode(sink) == prev) {
+							e = sink.getEdges().get(1);
+						}
+					}else {
+						//pick one that isn't in the hashset
+						for (DEdge g : sink.getEdges()) {
+							if (!temp.contains(g)) e= g;
+						}
+					}
+					if (e == null) {
+						logger.error("Could not find an edge to walk up from sink node: " + localSinks.get(i).toString() + ".  An internal source node will be created at " + sink.toString());
+						break;
+					}
+					if (e.getNodeB() != sink) {
+						e.flip();
+					}else {
+						e.setKnown();
+					}
+					e.visited = true;
+					temp.add(e);
+					prev = sink;
+					sink = e.getOtherNode(sink);
 				}
-				if (e.getNodeB() != sink) {
-					e.flip();
-				}else {
-					e.setKnown();
-				}
-				e.visited = true;
-				prev = sink;
-				sink = e.getOtherNode(sink);
+				
+				//walk up any unvisited edges that go into one of the nodes above
+				for (DNode d : toVisit) visitUpstream(d);
 			}
-			//now walk up any unvisited edges
-			visitUpstream(sink);
+			
+			
+			
 		}
-	
+		
 		for (DEdge d : graph.edges) {
 			if (!d.visited) {
-				throw new Exception("Not all edges visited when directionalizing tree.  At least one eddge missed: " + d.toString());
+				logger.error("Not all edges visited when directionalizing tree.  At least one eddge missed: " + d.toString());
 			}
 		}
 	}
@@ -99,6 +150,5 @@ public class TreeDirection {
 			}
 		}
 	}
-	
 	
 }

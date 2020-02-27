@@ -29,7 +29,6 @@ import org.slf4j.LoggerFactory;
 import net.refractions.chyf.Args;
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
-import net.refractions.chyf.skeletonizer.points.PointEngine;
 
 /**
  * Manages the running of the skeletonizer  
@@ -39,22 +38,21 @@ import net.refractions.chyf.skeletonizer.points.PointEngine;
  */
 public class SkeletonEngine {
 	
-	static final Logger logger = LoggerFactory.getLogger(PointEngine.class.getCanonicalName());
-
-	private static int NUM_JOBS = 4;
+	static final Logger logger = LoggerFactory.getLogger(SkeletonEngine.class.getCanonicalName());
 	
-	public static void doWork(Path output, ChyfProperties props ) throws Exception {
+	public static void doWork(Path output, ChyfProperties props, int cores ) throws Exception {
 		try(ChyfGeoPackageDataSource dataSource = new ChyfGeoPackageDataSource(output)){
+			if (props == null) props = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+
 			dataSource.addProcessedAttribute();
 			dataSource.removeExistingSkeletons(false);
 			
-			if (props == null) props = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			SkeletonGenerator generator = new SkeletonGenerator(props);
 		
 			//break up tasks
 			ExecutorService service = Executors.newFixedThreadPool(4);
 			List<SkeletonJob> tasks = new ArrayList<>();
-			for (int i = 0; i < NUM_JOBS; i ++) {
+			for (int i = 0; i < cores; i ++) {
 				SkeletonJob j1 = new SkeletonJob(dataSource, generator);
 				tasks.add(j1);
 			}
@@ -70,26 +68,24 @@ public class SkeletonEngine {
 			
 			//check for errors
 			for (SkeletonJob j : tasks) {
-				j.getExceptions().forEach(e->e.printStackTrace());
+				j.getExceptions().forEach(e->logger.error(e.getMessage(), e));
 			}
 			
 			for (SkeletonJob j : tasks) {
-				j.getErrors().forEach(e->System.out.println(e));
+				j.getErrors().forEach(e->logger.error(e));
 			}
 		}
 	}
 
 	
 	public static void main(String[] args) throws Exception {
-		Args runtime = Args.parseArguments(args);
-		if (runtime == null) {
-			Args.printUsage("Skeletonize");
-			return;
-		}
+		Args runtime = Args.parseArguments(args, "SkeletonEngine");
+		if (runtime == null) return;
+		
 		runtime.prepareOutput();
 		
 		long now = System.nanoTime();
-		SkeletonEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
+		SkeletonEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile(), runtime.getCores());
 		long then = System.nanoTime();
 		
 		System.out.println("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );

@@ -79,6 +79,9 @@ public class ConstructionPoint {
 	private PolygonInfo pinfo;
 	
 	public ConstructionPoint(Coordinate coordinate, Type type, Direction fd, PolygonInfo pinfo) {
+		if (coordinate == null) {
+			System.out.println("stop");
+		}
 		this.point = coordinate;
 		this.type = type;
 		this.fd = fd;

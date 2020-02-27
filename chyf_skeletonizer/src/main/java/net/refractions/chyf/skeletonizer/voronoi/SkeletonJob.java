@@ -67,7 +67,6 @@ public class SkeletonJob implements Runnable{
 				if (toProcess == null) break; //finished processing
 				logger.info(toProcess.getIdentifier().toString());
 				Integer polyid = (Integer) toProcess.getAttribute(ChyfGeoPackageDataSource.POLYID_ATTRIBUTE);
-
 				try {
 					Polygon workingPolygon = ChyfDataSource.getPolygon(toProcess);
 					SkeletonResult result = generator.generateSkeleton(workingPolygon, dataSource.getConstructionsPoints(polyid));

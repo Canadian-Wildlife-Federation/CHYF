@@ -28,16 +28,14 @@ import net.refractions.chyf.skeletonizer.points.PointEngine;
 public class Skeletonize {
 
 	public static void main(String[] args) throws Exception {
-		Args runtime = Args.parseArguments(args);
-		if (runtime == null) {
-			Args.printUsage("Skeletonize");
-			return;
-		}
+		Args runtime = Args.parseArguments(args, "Skeletonize");
+		if (runtime == null) return;
+		
 		runtime.prepareOutput();
 		
 		long now = System.nanoTime();
 		PointEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
-		SkeletonEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
+		SkeletonEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile(), runtime.getCores());
 		long then = System.nanoTime();
 		
 		System.out.println("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2019 Government of Canada
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); 
+ * you may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an "AS IS" BASIS, 
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
+ * See the License for the specific language governing permissions and 
+ * limitations under the License.
+ */
 package net.refractions.chyf.directionalize.graph;
 
 import java.util.ArrayList;
@@ -20,7 +35,10 @@ public class DEdge {
 	private static final Logger logger = LoggerFactory.getLogger(DEdge.class.getCanonicalName());
 	
 	private DNode n1;
+	private Coordinate n1NextTo;
+	
 	private DNode n2;
+	private Coordinate n2NextTo;
 	
 	private EdgeInfo info;
 	private boolean isbridge = false;
@@ -37,13 +55,18 @@ public class DEdge {
 	
 	private List<DEdge> components = new ArrayList<>();
 	
-	public DEdge(DNode n1, DNode n2, EdgeInfo info) {
+	public DEdge(DNode n1, DNode n2, Coordinate n1Next, Coordinate n2Next, EdgeInfo info) {
 		this.n1 = n1;
 		this.n2 = n2;
 		this.info = info;
 		rawdt = info.getDirectionType();
+		this.n1NextTo = n1Next;
+		this.n2NextTo = n2Next;
 	}
 	
+	public DirectionType getRawType() {
+		return this.rawdt;
+	}
 	public boolean isVisited() {
 		return this.visited;
 	}
@@ -129,6 +152,13 @@ public class DEdge {
 		return this.n2;
 	}
 	
+	public Coordinate getNextToA() {
+		return this.n1NextTo;
+	}
+	public Coordinate getNextToB() {
+		return this.n2NextTo;
+	}
+	
 	public void setNodeA(DNode node) {
 		this.n1 = node;
 	}
@@ -151,9 +181,14 @@ public class DEdge {
 		if (rawdt == DirectionType.KNOWN) {
 			logger.error("Flipping the direction of a known edge: " + toString());
 		}
+		Coordinate t1 = n1NextTo;
+		n1NextTo = n2NextTo;
+		n2NextTo = t1;
+		
 		DNode temp = n1;
 		n1 = n2;
 		n2 = temp;
+		
 		info.setDirectionType(DirectionType.KNOWN);
 		info.setFlipped();
 	}
@@ -168,6 +203,10 @@ public class DEdge {
 		sb.append("LINESTRING( ");
 		Coordinate c = n1.getCoordinate();
 		sb.append(c.x + " " + c.y);
+		c = n1NextTo;
+		sb.append("," + c.x + " " + c.y);
+		c = n2NextTo;
+		sb.append("," + c.x + " " + c.y);
 		c = n2.getCoordinate();
 		sb.append("," + c.x + " " + c.y);
 		sb.append(")");

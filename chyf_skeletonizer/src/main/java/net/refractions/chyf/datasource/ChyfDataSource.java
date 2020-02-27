@@ -45,7 +45,8 @@ public interface ChyfDataSource extends AutoCloseable {
 		IOTYPE("io_type"),
 		ECTYPE("ec_type"),
 		EFTYPE("ef_type"),
-		DIRECTION("direction");
+		DIRECTION("direction"),
+		RANK("rank");
 		
 		private String fieldName;
 		
@@ -76,6 +77,27 @@ public interface ChyfDataSource extends AutoCloseable {
 		}		
 	}
 
+	public enum RankType{
+		PRIMARY(1),
+		SECONDARY(2);
+		
+		private int type;
+		RankType(int type){
+			this.type = type;
+		}
+		
+		public int getType() {
+			return this.type;
+		}
+		
+		public static RankType parseType(int type) {
+			for (RankType t : RankType.values()) {
+				if (t.getType() == type) return t;
+			}
+			throw new RuntimeException("The value of " + type + " is not supported for the Rank attribute.");
+		}
+	}
+	
 	public enum IoType{
 		INPUT(1),
 		OUTPUT(2);
