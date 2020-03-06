@@ -313,6 +313,12 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		return ff.equals(ff.property(Attribute.ECTYPE.getFieldName()), ff.literal(EcType.WATER.getType()));
 	}
 	
+	public SimpleFeatureReader getCoastlines(ReferencedEnvelope bounds) throws IOException{
+		FeatureEntry cs = geopkg.feature(Layer.COASTLINE.getLayerName());
+		if (cs == null) return null;
+		return query(bounds, cs, null);
+	}
+	
 	public SimpleFeatureReader getWaterbodies(ReferencedEnvelope bounds) throws IOException{
 		return query(bounds, getCatchments(), getWbTypeFilter());
 	}

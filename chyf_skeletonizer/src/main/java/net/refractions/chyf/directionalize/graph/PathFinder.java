@@ -36,6 +36,13 @@ public class PathFinder {
 	
 
 	//the subgraph nodes can contain references to edges that are not
+	/**
+	 * Finds the shorest path from source to sink.  
+	 * @param source source node
+	 * @param sink sink nodes 
+	 * @param graph graph
+	 * @return
+	 */
 	public static DPath findPath(DNode source, Set<DNode> sink, DGraph graph) {
 		
 		HashMap<DNode, Object[]> prev = new HashMap<>();
@@ -58,7 +65,7 @@ public class PathFinder {
 				}
 			}
 
-			if (sink.contains(max)) {
+			if (sink.contains(max) ) {
 				//stop
 				//follow prev to source to get path
 				DPath p = new DPath();
@@ -82,8 +89,6 @@ public class PathFinder {
 						p.edges = p.edges.subList(0, i);
 					}
 				}
-				//flag nodes as pathnodes
-				p.nodes.forEach(n->n.pathnode = true);
 				return p;
 			}
 			

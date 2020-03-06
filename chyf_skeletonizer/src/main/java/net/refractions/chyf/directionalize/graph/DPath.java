@@ -29,8 +29,36 @@ public class DPath {
 	protected List<DNode> nodes;
 	protected List<DEdge> edges;
 	
+	
 	public DPath() {
 		nodes = new ArrayList<>();
 		edges = new ArrayList<>();
+	}
+	
+	public List<DEdge> getEdges(){
+		return this.edges;
+	}
+	
+	public List<DNode> getNodes(){
+		return this.nodes;
+	}
+	
+	public String toString() {
+		if (edges.isEmpty()) return "EMPTY";
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("LINESTRING(");
+		sb.append(edges.get(0).getNodeA().getCoordinate().x);
+		sb.append(" ");
+		sb.append(edges.get(0).getNodeA().getCoordinate().y);
+		
+		for (DEdge e : edges) {
+			sb.append(",");
+			sb.append(e.getNodeB().getCoordinate().x);
+			sb.append(" ");
+			sb.append(e.getNodeB().getCoordinate().y);
+		}
+		sb.append(")");
+		return sb.toString();
 	}
 }

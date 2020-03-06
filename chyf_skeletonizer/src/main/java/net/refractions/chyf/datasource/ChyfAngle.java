@@ -37,31 +37,41 @@ public class ChyfAngle {
 	private MathTransform transform;
 	
 	public ChyfAngle(CoordinateReferenceSystem sourceCRS) {
-		try {
-			Hints hints = new Hints(Hints.FORCE_LONGITUDE_FIRST_AXIS_ORDER, Boolean.TRUE);
-			CRSAuthorityFactory factory = ReferencingFactoryFinder.getCRSAuthorityFactory("EPSG", hints);
-			CoordinateReferenceSystem target = factory.createCoordinateReferenceSystem("EPSG:4326");
-			transform = CRS.findMathTransform(sourceCRS, target);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
+		if (sourceCRS != null) {
+			try {
+				Hints hints = new Hints(Hints.FORCE_LONGITUDE_FIRST_AXIS_ORDER, Boolean.TRUE);
+				CRSAuthorityFactory factory = ReferencingFactoryFinder.getCRSAuthorityFactory("EPSG", hints);
+				CoordinateReferenceSystem target = factory.createCoordinateReferenceSystem("EPSG:4326");
+				transform = CRS.findMathTransform(sourceCRS, target);
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
 		}
 				
 	}
+	
 	
 	public double angle(Coordinate c1, Coordinate c2, Coordinate c3) throws Exception{
 		c1 = JTS.transform(c1, null, transform);
 		c2 = JTS.transform(c2, null, transform);
 		c3 = JTS.transform(c3, null, transform);
-
-		double b1 = computeBearing(c2,  c1);
-		double b2 = computeBearing(c2,  c3);
+	
+		double b1 = computeBearingInternal(c2,  c1);
+		double b2 = computeBearingInternal(c2,  c3);
 		double b = Math.abs(b2 - b1);
 		if (b > Math.PI ) b = Math.PI*2 - b;
 
 		return b;
 	}
 	
-	private double computeBearing(Coordinate c1, Coordinate c2) throws Exception{
+	public double computeBearing(Coordinate c1, Coordinate c2) throws Exception{
+		c1 = JTS.transform(c1, null, transform);
+		c2 = JTS.transform(c2, null, transform);
+		
+		return computeBearingInternal(c1,  c2);
+	}
+	
+	private double computeBearingInternal(Coordinate c1, Coordinate c2) throws Exception{
 		c1 = new Coordinate(Math.toRadians(c1.x), Math.toRadians(c1.y));
 		c2 = new Coordinate(Math.toRadians(c2.x), Math.toRadians(c2.y));
 		

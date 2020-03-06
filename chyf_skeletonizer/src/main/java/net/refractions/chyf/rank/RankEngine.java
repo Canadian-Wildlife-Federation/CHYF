@@ -68,7 +68,7 @@ public class RankEngine {
 			}
 		
 			logger.info("computing ranks");
-			RankComputer engine = new RankComputer(crs);
+			RankComputer engine = new RankComputer(crs, dataSource);
 			engine.computeRank(graph);
 
 			logger.info("saving results");

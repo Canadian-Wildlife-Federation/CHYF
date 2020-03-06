@@ -39,7 +39,7 @@ public class DNode {
 
 	//used for computing shortest paths
 	protected double pathdistance = 0;
-	//true if not is on an existing created path
+	//true if is on an existing created path
 	protected boolean pathnode;
 	//visited flag used by shortest path finder
 	protected boolean pathvisited;
@@ -58,7 +58,9 @@ public class DNode {
 	public void setSink(boolean issink) {
 		this.isSink = issink;
 	}
-	
+	public void setCoordinate(Coordinate c) {
+		this.c = c;
+	}
 	public Coordinate getCoordinate() {
 		return this.c;
 	}

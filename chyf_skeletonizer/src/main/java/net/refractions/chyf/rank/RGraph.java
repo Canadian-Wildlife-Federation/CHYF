@@ -77,8 +77,7 @@ public class RGraph {
 	public void addEdge(SimpleFeature sf, Name typeAtt) throws Exception {
 
 		EfType eftype = EfType.parseType((Integer)sf.getAttribute(typeAtt));
-		if (eftype == EfType.BANK) return; //skip bank
-		
+
 		LineString ls = ChyfDataSource.getLineString(sf);
 		
 		Coordinate c0 = ls.getCoordinateN(0);

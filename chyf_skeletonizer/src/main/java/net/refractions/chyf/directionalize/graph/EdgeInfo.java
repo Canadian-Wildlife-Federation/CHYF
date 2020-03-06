@@ -30,9 +30,11 @@ import net.refractions.chyf.datasource.ChyfDataSource.EfType;
  */
 public class EdgeInfo {
 
+	
 	private EfType type = null;
 	private FeatureId fid;
 	private Double length;
+	private Double rawlength;
 	private DirectionType dtype;
 	private Coordinate c0, c1;
 	private Coordinate startNext, endPrev;
@@ -48,6 +50,7 @@ public class EdgeInfo {
 		this.startNext = startNext;
 		this.endPrev = endPrev;
 		
+		this.rawlength = length;
 		if (type == EfType.INFRASTRUCTURE || type == EfType.REACH) {
 			this.length = 10*length;  //weight these to encourage staying in double-line rivers
 		}
@@ -97,6 +100,11 @@ public class EdgeInfo {
 		return length;
 	}
 
+	public double getRawLength() {
+		return rawlength;
+	}
+
+	
 	public FeatureId getFeatureId() {
 		return this.fid;
 	}

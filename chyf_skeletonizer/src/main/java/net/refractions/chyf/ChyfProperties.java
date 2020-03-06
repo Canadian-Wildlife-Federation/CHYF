@@ -49,7 +49,11 @@ public class ChyfProperties {
 		SKEL_MINSIZE("minimum_skeleton_length"),
 		SKEL_ACUTE_ANGLE_RAD("acute_angle_rad"),
 		BANK_NODE_DISTANCE_OFFSET("bank_node_distance_offset"),
-		BANK_MIN_VERTEX_DISTANCE("bank_min_vertex_distance");
+		BANK_MIN_VERTEX_DISTANCE("bank_min_vertex_distance"),
+		
+		DIR_SHORT_SEGMENT("dir_short_segement_length"),
+		DIR_ANGLE_DIFF("dir_angle_diff");
+		
 		String key;
 		
 		Property(String key){

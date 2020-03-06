@@ -17,10 +17,14 @@ package net.refractions.chyf.directionalize.graph;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 
 import org.locationtech.jts.geom.Coordinate;
+
+import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
 
 /**
  * Graph used for directionanlizing flow edges
@@ -141,5 +145,57 @@ public class DGraph {
 			e.getNodeA().getEdges().remove(e);
 			e.getNodeB().getEdges().remove(e);
 		}
+	}
+	
+	
+	
+	public List<DEdge> collapseShortEdges(double minlength) {
+		if (minlength < 0) return Collections.emptyList();
+		
+		List<DEdge> shorts = new ArrayList<>();
+		
+		for (Iterator<DEdge> iterator = edges.iterator(); iterator.hasNext();) {
+			DEdge e =  iterator.next();
+			if (e.getRawLength() > minlength) continue;
+			if (e.getDType() == DirectionType.KNOWN) continue;
+			//if one of the nodes is degree 1 never collapse
+			if (e.getNodeA().getDegree() == 1 || e.getNodeB().getDegree() == 1 ) continue;
+			
+			
+			if (e.getNodeA().getDegree() == 2 || e.getNodeB().getDegree() == 2 ) continue;
+
+//			e.print();
+			
+//			double d = 0;
+//			for (int i = 1; i < e.coordinates.size(); i ++) {
+//				d += e.coordinates.get(i-1).distance(e.getCoordinates().get(i));
+//				if (d > minlength) break;
+//			}
+//			if (d > minlength) continue;
+//			
+			//directionalize the edge based on angles
+			
+			//collapse edge
+			DNode n1 = e.getNodeA();
+			DNode n2 = e.getNodeB();
+			
+			n1.getEdges().remove(e);
+			n2.getEdges().remove(e);
+			for (DEdge t : n1.getEdges()) {
+				if (t.getNodeA() == n1) {
+					t.setNodeA(n2);
+				}
+				if (t.getNodeB() == n1) {
+					t.setNodeB(n2);
+				}
+			}
+			
+			n2.getEdges().addAll(n1.getEdges());
+			
+			nodes.remove(n1);
+			iterator.remove();
+			shorts.add(e);
+		}
+		return shorts;
 	}
 }

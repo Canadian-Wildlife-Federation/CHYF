@@ -217,6 +217,14 @@ public interface ChyfDataSource extends AutoCloseable {
 	 * @throws IOException
 	 */
 	SimpleFeatureReader getFlowpaths(ReferencedEnvelope bounds) throws IOException;
+
+	/**
+	 * 
+	 * @param bounds if null then entire dataset should be returned
+	 * @return null if no coastline layer in dataset
+	 * @throws IOException
+	 */
+	SimpleFeatureReader getCoastlines(ReferencedEnvelope bounds) throws IOException;
 	
 	public static LineString getLineString(SimpleFeature feature) throws Exception{
 		Geometry g = (Geometry)feature.getDefaultGeometry();

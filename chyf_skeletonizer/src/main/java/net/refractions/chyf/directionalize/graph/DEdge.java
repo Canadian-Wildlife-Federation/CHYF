@@ -64,6 +64,11 @@ public class DEdge {
 		this.n2NextTo = n2Next;
 	}
 	
+	public void setCoordinates(Coordinate n1Next, Coordinate n2Next) {
+		this.n1NextTo = n1Next;
+		this.n2NextTo = n2Next;
+	}
+	
 	public DirectionType getRawType() {
 		return this.rawdt;
 	}
@@ -134,6 +139,11 @@ public class DEdge {
 	public double getLength() {
 		return info.getLength();
 	}
+	
+	public double getRawLength() {
+		return info.getRawLength();
+	}
+	
 	
 	public EfType getType() {
 		return info.getType();

@@ -27,6 +27,7 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.MultiPoint;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.prep.PreparedLineString;
@@ -222,7 +223,9 @@ public class PointEngine {
 					}else if (t instanceof MultiLineString) {
 						for (int i = 0; i < ((MultiLineString)t).getNumGeometries(); i ++) {
 							items.add((LineString)t.getGeometryN(i));
-						}					
+						}				
+					}else if (t instanceof MultiPoint) {
+						//we don't care - touches two points of waterbody 
 					}else {
 						throw new RuntimeException("The intersection of coastline and waterbodies returns invalid geometry type ("+ t.getGeometryType() + ")");
 					}		

@@ -25,8 +25,11 @@ import org.locationtech.jts.geom.Coordinate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfProperties;
+import net.refractions.chyf.ChyfProperties.Property;
 import net.refractions.chyf.datasource.ChyfAngle;
 import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
+import net.refractions.chyf.directionalize.Directionalizer;
 
 /**
  * Directionalizing a graph by finding paths between input and output nodes
@@ -40,8 +43,11 @@ public class PathDirectionalizer {
 	private static final Logger logger = LoggerFactory.getLogger(PathDirectionalizer.class.getCanonicalName());
 	
 	private ChyfAngle angle;
-	public PathDirectionalizer(ChyfAngle angle) {
+	private ChyfProperties prop;
+	
+	public PathDirectionalizer(ChyfAngle angle, ChyfProperties prop) {
 		this.angle = angle;
+		this.prop = prop;
 	}
 	
 	/**
@@ -51,7 +57,6 @@ public class PathDirectionalizer {
 	 * provide a reference to the bigger graph.
 	 */
 	public void directionalize(DGraph subGraph) throws Exception {
-		
 		Set<DNode> sinks = new HashSet<>();
 		Set<DNode> sources = new HashSet<>();
 		
@@ -149,7 +154,6 @@ public class PathDirectionalizer {
 			}
 			logger.warn("Loop case detected where a random source node will be created. Source node created at: " + src.toString());
 		}
-		
 		dir(subGraph, sinks, sources);
 	}
 	
@@ -172,17 +176,17 @@ public class PathDirectionalizer {
 		//find shortest path from every source to every sink
 		for (DNode sourcenode : ordered) {
 			DPath path = PathFinder.findPath(sourcenode,  sinks, graph);
-			
-
 			//directionalize path
 			if (path != null) {
-				directionalizePath(path);				
-				paths.add(path);
+				path.nodes.forEach(n->n.pathnode = true);
+				if (!path.edges.isEmpty()) {
+					directionalizePath(path);				
+					paths.add(path);
+				}
 			}else {
 				logger.error("Path shouldn't be null @ " + sourcenode.toString());
 			}
-		}
-
+		}		
 		//for remaining edges; find shortest path from that edge to sink
 		//lets process known edges before unknown
 		
@@ -190,15 +194,19 @@ public class PathDirectionalizer {
 		//find a path for (only happens when some edges) are already
 		//directionalized, we don't want to retry them
 		Set<DEdge> fail = new HashSet<>();
-		
+
 		while(true) {
 			//find edge to visit next
 			DEdge toprocess = findUnvisitedEdge(graph, paths, sinks, fail);
 			if (toprocess == null) break;
-			
-			
+
+
 			//create a path
-			DPath temp = PathFinder.findPath(toprocess.getNodeB(), sinks, graph);
+			DPath temp = findStraightestPath(toprocess, sinks, graph);
+			if (temp == null ) {
+				temp = PathFinder.findPath(toprocess.getNodeB(), sinks, graph);
+			}
+//			DPath temp = PathFinder.findPath(toprocess.getNodeB(), sinks, graph);
 			
 			if (temp == null) {
 				//not path found
@@ -206,25 +214,29 @@ public class PathDirectionalizer {
 				fail.add(toprocess);
 				continue;
 			}
+			//flag nodes as pathnodes
+			temp.nodes.forEach(n->n.pathnode = true);
+			
 			//add start node/edge to path
 			temp.nodes.add(0, toprocess.getNodeA());
 			temp.edges.add(0, toprocess);
 			directionalizePath(temp);
-			
+	
 			boolean canflip = true;
 			//check for cycle and flip is necessary
-			if (cycleCheck(temp, graph)) {
+			if (Directionalizer.cycleCheck(temp, graph)) {
 				canflip = false;
 				//flip
 				Collections.reverse(temp.edges);
 				Collections.reverse(temp.nodes);
 				for (DEdge e : temp.edges) e.flip();
-				if (cycleCheck(temp, graph)) {
-					throw new Exception("Cannot add path as both directions for this path creates a cycle. Start Edge: " + temp.edges.get(0).toString());
+				if (Directionalizer.cycleCheck(temp, graph)) {
+					throw new Exception("Cannot add path as both directions for this path creates a cycle. " + temp.toString());
 				}
 			}
 			
 			if (canflip) {
+				
 				//can go either way without cycle
 				//lets look at angles (both start and end) and see if other way might be better
 				for (DEdge e : temp.edges) {
@@ -288,30 +300,30 @@ public class PathDirectionalizer {
 							if (outangle == null || a > outangle) outangle = a;
 						}
 					}
-				  if ((outangle != null && inangle != null &&
-						  Math.abs(outangle - inangle) > 30 * Math.PI / 180 &&
-						  Math.abs(Math.PI*2 - outangle) < Math.abs(Math.PI*2 - inangle) ) 
-						  ) {
-						Collections.reverse(temp.edges);
-						Collections.reverse(temp.nodes);
-						for (DEdge e : temp.edges) e.flip();
-						
-						if (cycleCheck(temp, graph)) {
+					
+					if (outangle != null && inangle != null) {
+						double diff = Math.abs(outangle - inangle);
+						if ((diff > prop.getProperty(Property.DIR_ANGLE_DIFF) * Math.PI / 180.0) &&
+							  Math.abs(Math.PI*2 - outangle) < Math.abs(Math.PI*2 - inangle) ) {
+							
 							Collections.reverse(temp.edges);
 							Collections.reverse(temp.nodes);
 							for (DEdge e : temp.edges) e.flip();
-						}else {
-							System.out.println("flipped based on END angle:" + temp.nodes.get(0).toString());
-							System.out.println(Math.toDegrees(inangle) + ":" + Math.toDegrees(outangle));
-
+							
+							if (Directionalizer.cycleCheck(temp, graph)) {
+								Collections.reverse(temp.edges);
+								Collections.reverse(temp.nodes);
+								for (DEdge e : temp.edges) e.flip();
+							}else {
+								//System.out.println("flipped based on END angle:" + temp.nodes.get(0).toString());
+	
+							}
 						}
 					}
 				}
 			}
-
 			paths.add(0, temp);
 		}
-			
 		
 		//check all edges in graph are part of path 
 		for (DEdge e : graph.edges) {
@@ -322,10 +334,7 @@ public class PathDirectionalizer {
 	}
 	
 	private Double findAngle(Coordinate c1, Coordinate c2, Coordinate c3) throws Exception {
-		double a = angle.angle(c1,  c2,  c3);
-//		if (a < 0) a+=Math.PI;
-//		if (a > Math.PI) a=a-Math.PI;
-		return a;
+		return angle.angle(c1,  c2,  c3);
 	}
 	
 	/**
@@ -408,42 +417,83 @@ public class PathDirectionalizer {
 		}
 	}
 	
+	
 	/**
-	 * Checks to see if adding this path to the graph
-	 * results in a cycle added to the graph.  Starts
-	 * at the end of the path, follows edges downstream
-	 * and see if we visit the start node in the path 
-	 * 
-	 * @param path
+	 * Finds the straightest path from the inEdge node b to a sink 
+	 * or end of graph.  Returns null if cannot compute a path.
+	 * @param inEdge
+	 * @param start
+	 * @param sinks
 	 * @param graph
 	 * @return
+	 * @throws Exception
 	 */
-	private boolean cycleCheck(DPath path, DGraph graph) {
-		DNode start = path.nodes.get(0);
-		DNode end = path.nodes.get(1);
+	public DPath findStraightestPath(DEdge inEdge, Set<DNode> sinks, DGraph graph) throws Exception {
+
+		DPath path = new DPath();
+		DEdge nextEdge = inEdge;
+		DNode nextNode = inEdge.getNodeB();
 		
-		HashSet<DNode> visited = new HashSet<>();
-		
-		List<DNode> tocheck = new ArrayList<>();
-		tocheck.add(end);
-		while(!tocheck.isEmpty()) {
-			DNode c = tocheck.remove(0);
-			if (c == start) return true;
-			if (visited.contains(c)) continue;
-			
-			visited.add(c);
-			for (DEdge d : c.getEdges()) {
-				if (!graph.edges.contains(d)) continue;
-				if (d.getDType() == DirectionType.KNOWN) {
-					if (d.getNodeA() == c) {
-						tocheck.add(d.getNodeB());
-					}
+		path.nodes.add(inEdge.getNodeB());
+		for (DNode n : graph.nodes) {
+			n.pathvisited = false;
+		}
+		while(true) {
+			double mangle = Double.MAX_VALUE;
+			DEdge lnextEdge = null;
+			DNode lnextNode = null;
+			nextNode.pathvisited = true;
+			for (DEdge out : nextNode.getEdges()) {
+				if (out.getDType() == DirectionType.KNOWN) {
+					if (out.getNodeA() != nextNode) continue;
+				}
+
+				if (out.pathedge) continue;
+				if (out == nextEdge) continue;
+				
+				
+				DNode next = null;
+				Coordinate c2 = null;
+				if (out.getNodeA() == nextNode) {
+					next = out.getNodeB();
+					c2 = out.getNextToA();
+				}else {
+					next = out.getNodeA();
+					c2 = out.getNextToB();
+				}
+				if (next.pathvisited || next == inEdge.getNodeA()) {
+					//could not compute a path
+					return null;
+				}
+				Coordinate c1 = null;
+				if (nextEdge.getNodeA() == nextNode) {
+					c1 = nextEdge.getNextToA();
+				}else {
+					c1 = nextEdge.getNextToB();
+				}
+				
+				double bb = angle.angle(c1, nextNode.getCoordinate(), c2);
+				double diff = Math.abs(Math.PI - bb);
+				if (diff < mangle) {
+					mangle = diff;
+					lnextNode = next;
+					lnextEdge = out;
 				}
 			}
+			if (lnextNode == null) break;
+			
+			path.nodes.add(lnextNode);
+			path.edges.add(lnextEdge);
+			
+			if (sinks.contains(lnextNode)) break;
+			
+			nextEdge = lnextEdge;
+			nextNode = lnextNode;
 		}
-		return false;
-		
+		if (!path.edges.isEmpty() && inEdge.getOtherNode(inEdge.getNodeB()) == nextNode) {
+			return null;
+		}
+		return path;
 	}
-	
-	
+		
 }

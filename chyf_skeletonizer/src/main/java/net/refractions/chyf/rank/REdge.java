@@ -39,6 +39,8 @@ public class REdge {
 	
 	private RankType rank;
 	
+	private LineString ls;
+	
 	public REdge(RNode from, RNode to, EfType type, double length, FeatureId fid, LineString ls) {
 		this.fromNode = from;
 		this.toNode = to;
@@ -47,10 +49,13 @@ public class REdge {
 		this.fid = fid;
 		fromC = ls.getCoordinateN(1);
 		toC = ls.getCoordinateN(ls.getCoordinates().length - 2);
-		
+	
+		this.ls = ls;
 		rank = RankType.PRIMARY;
 	}
-	
+	public LineString getLineString() {
+		return this.ls;
+	}
 	public void setRank(RankType rank) {
 		this.rank = rank;
 	}

@@ -36,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.Args;
+import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfDataSource.Attribute;
 import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
@@ -56,11 +57,13 @@ public class DirectionalizeEngine {
 	
 	static final Logger logger = LoggerFactory.getLogger(DirectionalizeEngine.class.getCanonicalName());
 
-	public static void doWork(Path output) throws Exception {
+	public static void doWork(Path output, ChyfProperties properties) throws Exception {
 
 		CoordinateReferenceSystem sourceCRS = null;
 		
 		try(ChyfGeoPackageDataSource dataSource = new ChyfGeoPackageDataSource(output)){
+			if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+
 			List<EdgeInfo> edges = new ArrayList<>();
 			List<EdgeInfo> banks = new ArrayList<>();
 
@@ -132,10 +135,9 @@ public class DirectionalizeEngine {
 
 			//directionalize dataset
 			logger.info("directionalizing network");
-			Directionalizer dd = new Directionalizer(sourceCRS);
+			Directionalizer dd = new Directionalizer(sourceCRS, properties);
 			dd.directionalize(graph, sinks);
-			
-			
+
 			//flip edges
 			logger.info("saving results");
 			dataSource.flipFlowEdges(dd.getFeaturesToFlip(), dd.getProcessedFeatures());
@@ -210,7 +212,7 @@ public class DirectionalizeEngine {
 		
 		
 		long now = System.nanoTime();
-		DirectionalizeEngine.doWork(runtime.getOutput());
+		DirectionalizeEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
 		long then = System.nanoTime();
 		
 		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );
