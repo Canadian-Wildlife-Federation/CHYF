@@ -79,9 +79,6 @@ public class RankComputer {
 		HashMap<REdge, Double> angles = new HashMap<>();
 
 		boolean inwb = true;
-//		if (node.getCoordinate().equals2D(new Coordinate(635579.88930474047083408, 4997718.46288649551570415))) {
-//			System.out.println("??");
-//		}
 		for (REdge out : node.getOutEdges()) {
 			if (out.getType() != EfType.SKELETON) inwb = false;
 			
@@ -91,24 +88,14 @@ public class RankComputer {
 				if (a > angle) {
 					angle = a;
 				}
-//				if (Math.PI - a < Math.PI - angle) {
-//					angle = (Math.PI-a);
-//				}
 			}
 			angles.put(out,  angle/ Math.PI);
 		}
 		
 		//if all angles are within 10degrees of each other then look for another way of computing rank
-//		Double minValue = angles.entrySet().stream().min(Map.Entry.comparingByValue()).get().getValue();
-//		Double maxValue = angles.entrySet().stream().max(Map.Entry.comparingByValue()).get().getValue();
-		
-//		if (inwb) {
-//			System.out.println( node.toString() + "," +  Math.toDegrees( (maxValue - minValue)) );
-//		}
+
 		if ( inwb ) { //&& (maxValue - minValue < 30*(Math.PI / 180.0))) {
 			//compute channel width
-			
-
 			//find waterbody that contains the node
 			Polygon wb = null;
 			FeatureId wbfid = null;
@@ -228,8 +215,6 @@ public class RankComputer {
 				if (f1 == null || f2 == null) {
 					//single lake case
 					break;
-//					angles2.put(out,angles.get(out));
-//					continue;
 				}
 				Coordinate[] closest =  DistanceOp.nearestPoints(f1,  ls);
 				Coordinate[] closest2 =  DistanceOp.nearestPoints(f2,  ls);
@@ -240,15 +225,12 @@ public class RankComputer {
 					
 				Geometry g1 = item.difference(wb);
 				if (g1.getLength() > item.getLength() * 0.1) {
-//					angles2.put(out,angles.get(out));
-//					continue;
 					break;
 				}
 				
-				System.out.println(item.toString());
-					
-				double width = -1*p1.distance(p2);
-					
+//				System.out.println(item.toString());
+				
+				double width = -1*p1.distance(p2);					
 				widths.put(out, width);	
 			}
 			if (widths.size() == angles.size()) {
@@ -351,7 +333,6 @@ public class RankComputer {
 			}
 		}
 		LineString lls = e.getLineString().getFactory().createLineString(cs.toArray(new Coordinate[cs.size()]));
-//		System.out.println(lls.toText());
 		return lls;
 	}
 	
@@ -363,96 +344,24 @@ public class RankComputer {
 	}
 	
 	
-	public static void main(String[] args) {
-
-
-		LineSegment seg = new LineSegment(0.0, 0.0, 1.0, 1.0);
-		
-		Coordinate c1 = seg.pointAlongOffset(0.5, 15);
-		Coordinate c2 = seg.pointAlongOffset(0.5, -15);
-		System.out.println("LINESTRING(" + seg.p0.x + " " +seg.p0.y + "," + seg.p1.x + " " +seg.p1.y + ")");
-		System.out.println("POINT(" + c1.x + " " + c1.y + ")");
-		System.out.println("POINT(" + c2.x + " " + c2.y + ")");
-		
-		LineSegment seg1 = new LineSegment(seg.pointAlong(0.5), c1);
-		LineSegment seg2 = new LineSegment(seg.pointAlong(0.5), c2);
-		
-		for (LineSegment ls : new LineSegment[] {seg, seg1, seg2}) {
-			System.out.println("LINESTRING(" + ls.p0.x + " " +ls.p0.y + "," + ls.p1.x + " " +ls.p1.y + ")");
-		}
-	}
+//	public static void main(String[] args) {
+//
+//
+//		LineSegment seg = new LineSegment(0.0, 0.0, 1.0, 1.0);
+//		
+//		Coordinate c1 = seg.pointAlongOffset(0.5, 15);
+//		Coordinate c2 = seg.pointAlongOffset(0.5, -15);
+//		System.out.println("LINESTRING(" + seg.p0.x + " " +seg.p0.y + "," + seg.p1.x + " " +seg.p1.y + ")");
+//		System.out.println("POINT(" + c1.x + " " + c1.y + ")");
+//		System.out.println("POINT(" + c2.x + " " + c2.y + ")");
+//		
+//		LineSegment seg1 = new LineSegment(seg.pointAlong(0.5), c1);
+//		LineSegment seg2 = new LineSegment(seg.pointAlong(0.5), c2);
+//		
+//		for (LineSegment ls : new LineSegment[] {seg, seg1, seg2}) {
+//			System.out.println("LINESTRING(" + ls.p0.x + " " +ls.p0.y + "," + ls.p1.x + " " +ls.p1.y + ")");
+//		}
+//	}
 }
 
 
-//
-//perpendicular linestring
-//					Coordinate p0 = null;
-//					Coordinate p1 = null;
-//					
-//					double d = 0;
-//					double target = ls.getLength() / 2.0;
-//					for (int i = 0; i < ls.getCoordinates().length-1; i++) {
-//						double dis = ls.getCoordinateN(i+1).distance(ls.getCoordinateN(i));
-//						
-//						if ( d < target && dis + d > target ) {
-//							p0 = ls.getCoordinateN(i);
-//							p1 = ls.getCoordinateN(i+1);
-//							break;
-//						}
-//						d += dis;
-//					}
-//					if (p0 == null || p1 == null) throw new IllegalStateException();
-//					
-//					LineSegment seg = new LineSegment(p0, p1);
-//					
-//					double mwidth = Math.sqrt(wb.getEnvelopeInternal().getWidth() * wb.getEnvelopeInternal().getWidth()  + wb.getEnvelopeInternal().getHeight() * wb.getEnvelopeInternal().getHeight() );
-//					Coordinate c0 = seg.pointAlong(0.5);
-//					Coordinate c1 = seg.pointAlongOffset(0.5, mwidth);
-//					Coordinate c2 = seg.pointAlongOffset(0.5, -mwidth);
-//
-//					LineString seg1 = wb.getFactory().createLineString(new Coordinate[] {c0, c1});
-//					LineString seg2 = wb.getFactory().createLineString(new Coordinate[] {c0, c2});
-//					
-//					List<LineString> items = new ArrayList<>();
-//					items.add(wb.getExteriorRing());
-//					for (int i = 0; i < wb.getNumInteriorRing();i ++) items.add(wb.getInteriorRingN(i));
-//					
-//					Double d2 = Double.MAX_VALUE;
-//					Coordinate cout = null;
-//					for (LineString ring : items) {
-//						Geometry g = ring.intersection(seg1);
-//						if (g.isEmpty()) continue;
-//						for (int i = 0; i < g.getNumGeometries(); i ++) {
-//							if (g.getGeometryN(i) instanceof Point) {
-//								Point p = (Point) g.getGeometryN(i);
-//								if (p.getCoordinate().distance(c0) < d2) {
-//									d2 = p.getCoordinate().distance(c0);
-//									cout = p.getCoordinate();
-//								}
-//							}
-//						}
-//						
-//					}
-//					d2 = Double.MAX_VALUE;
-//					Coordinate cin = null;
-//					for (LineString ring : items) {
-//						Geometry g = ring.intersection(seg2);
-//						if (g.isEmpty()) continue;
-//						for (int i = 0; i < g.getNumGeometries(); i ++) {
-//							if (g.getGeometryN(i) instanceof Point) {
-//								Point p = (Point) g.getGeometryN(i);
-//								if (p.getCoordinate().distance(c0) < d2) {
-//									d2 = p.getCoordinate().distance(c0);
-//									cin = p.getCoordinate();
-//								}
-//							}
-//						}
-//						
-//					}
-//					
-//					System.out.println("LINESTRING(" + cin.x + " " + cin.y + "," + c0.x + " " + c0.y + ")");
-//					System.out.println("LINESTRING(" + cout.x + " " + cout.y + "," + c0.x + " " + c0.y + ")");
-//					
-//					if (cin == null || cout == null) throw new IllegalStateException();
-//					double width = cin.distance(c0) + cout.distance(c0);
-//					angles.put(out, width);
