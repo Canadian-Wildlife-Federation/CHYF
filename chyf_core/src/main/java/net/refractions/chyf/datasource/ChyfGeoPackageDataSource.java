@@ -78,6 +78,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		
 		for (Layer l : Layer.values()) {
 			SimpleFeatureType ft = getFeatureType(l);
+			if (ft == null) continue;
 			if (crs == null) {
 				crs = ft.getCoordinateReferenceSystem();
 			}else if (!CRS.equalsIgnoreMetadata(crs,  ft.getCoordinateReferenceSystem())) {
@@ -114,7 +115,9 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	 * @return a feature reader for the given layer
 	 */
     public SimpleFeatureReader getFeatureReader(Layer layer, Filter filter, Transaction tx) throws IOException {
-    	return geopkg.reader(getEntry(layer), filter, tx);
+    	FeatureEntry fe = getEntry(layer);
+    	if (fe == null) return null;
+    	return geopkg.reader(fe, filter, tx);
     }
    
 	

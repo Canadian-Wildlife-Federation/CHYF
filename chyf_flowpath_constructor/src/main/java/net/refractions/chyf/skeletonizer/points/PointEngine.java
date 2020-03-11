@@ -70,84 +70,84 @@ public class PointEngine {
 	 * @throws Exception
 	 */
 	public static void doWork(Path output, ChyfProperties properties) throws Exception {
-		//copy input to output
-
-		int cnt = 1;
-		
-		List<Polygon> ptouch = new ArrayList<>();
-		List<LineString> ftouch = new ArrayList<>();
-
 		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
-			
-			if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
-			
-			PointGenerator generator = new PointGenerator(getBoundary(dataSource, properties),  properties);
-			
-			Name idAttribute = ChyfDataSource.findAttribute(dataSource.getFeatureType(Layer.ECATCHMENTS), ChyfAttribute.INTERNAL_ID);
-			
-			WaterbodyIterator iterator = new WaterbodyIterator(dataSource);
-			SimpleFeature toProcess = null;
-			while((toProcess = iterator.getNextWaterbody()) != null) {
-
-				logger.info("POINT GENERATOR: " + cnt);
-				cnt++;
-
-				ftouch.clear();
-				ptouch.clear();
-				
-				Polygon workingPolygon = ChyfDataSource.getPolygon(toProcess);
-				if (!workingPolygon.isValid()) throw new Exception("Polygon not a valid geometry.  Centroid: " + workingPolygon.getCentroid().toText());
-				
-				String internalId = (String)toProcess.getAttribute(idAttribute);
-				workingPolygon.setUserData(new PolygonInfo(toProcess.getIdentifier(), internalId));
-				
-				//get overlapping polygons
-				ReferencedEnvelope env = new ReferencedEnvelope(workingPolygon.getEnvelopeInternal(), toProcess.getType().getCoordinateReferenceSystem());
-				try(SimpleFeatureReader wbtouches = dataSource.query(env, Layer.ECATCHMENTS, dataSource.getWbTypeFilter())){
-					while(wbtouches.hasNext()) {
-						SimpleFeature t = wbtouches.next();
-						if (t.getIdentifier().equals(toProcess.getIdentifier())) continue;
-						Polygon temp = ChyfDataSource.getPolygon(t);
-						
-						if (workingPolygon.intersects(temp)) {
-							ptouch.add(temp);
-							temp.setUserData(new PolygonInfo(t.getIdentifier(), (String)t.getAttribute(idAttribute)));
-						}
-					}
-				}
-				//get overlapping flowpaths							
-				try(SimpleFeatureReader flowtouches = dataSource.query(env, Layer.EFLOWPATHS, null)){
-					Name eftypeatt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), ChyfAttribute.EFTYPE);
-					Name diratt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), ChyfAttribute.DIRECTION);
-					while(flowtouches.hasNext()) {
-						SimpleFeature t = flowtouches.next();
-						
-						EfType type = EfType.parseValue( (Integer)t.getAttribute(eftypeatt) );
-						if (type == EfType.BANK || type == EfType.SKELETON) continue; //ignore existing skeletons
-						
-						
-						LineString temp = ChyfDataSource.getLineString(t);
-						if (workingPolygon.relate(temp, "FF*F0****")) {
-							DirectionType dtype = DirectionType.parseValue((Integer)t.getAttribute(diratt));
-							ftouch.add(temp);
-							temp.setUserData(dtype);
-						}
-					}
-				}
-
-				//generate points
-				generator.processPolygon(workingPolygon, ptouch, ftouch);
-
-				//update polygons as required
-				dataSource.updateWaterbodyGeometries(generator.getUpdatedPolygons());
-			}
-						
-			//write point layers
-			dataSource.createConstructionsPoints(generator.getPoints());
+			doWork(dataSource, properties);
 		}
 
 	}
 
+	public static void doWork(FlowpathGeoPackageDataSource dataSource, ChyfProperties properties) throws Exception{
+		if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+		
+		int cnt = 1;
+		
+		List<Polygon> ptouch = new ArrayList<>();
+		List<LineString> ftouch = new ArrayList<>();
+		
+		PointGenerator generator = new PointGenerator(getBoundary(dataSource, properties),  properties);
+		
+		Name idAttribute = ChyfDataSource.findAttribute(dataSource.getFeatureType(Layer.ECATCHMENTS), ChyfAttribute.INTERNAL_ID);
+		
+		WaterbodyIterator iterator = new WaterbodyIterator(dataSource);
+		SimpleFeature toProcess = null;
+		while((toProcess = iterator.getNextWaterbody()) != null) {
+
+			logger.info("POINT GENERATOR: " + cnt);
+			cnt++;
+
+			ftouch.clear();
+			ptouch.clear();
+			
+			Polygon workingPolygon = ChyfDataSource.getPolygon(toProcess);
+			if (!workingPolygon.isValid()) throw new Exception("Polygon not a valid geometry.  Centroid: " + workingPolygon.getCentroid().toText());
+			
+			String internalId = (String)toProcess.getAttribute(idAttribute);
+			workingPolygon.setUserData(new PolygonInfo(toProcess.getIdentifier(), internalId));
+			
+			//get overlapping polygons
+			ReferencedEnvelope env = new ReferencedEnvelope(workingPolygon.getEnvelopeInternal(), toProcess.getType().getCoordinateReferenceSystem());
+			try(SimpleFeatureReader wbtouches = dataSource.query(env, Layer.ECATCHMENTS, dataSource.getWbTypeFilter())){
+				while(wbtouches.hasNext()) {
+					SimpleFeature t = wbtouches.next();
+					if (t.getIdentifier().equals(toProcess.getIdentifier())) continue;
+					Polygon temp = ChyfDataSource.getPolygon(t);
+					
+					if (workingPolygon.intersects(temp)) {
+						ptouch.add(temp);
+						temp.setUserData(new PolygonInfo(t.getIdentifier(), (String)t.getAttribute(idAttribute)));
+					}
+				}
+			}
+			//get overlapping flowpaths							
+			try(SimpleFeatureReader flowtouches = dataSource.query(env, Layer.EFLOWPATHS, null)){
+				Name eftypeatt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), ChyfAttribute.EFTYPE);
+				Name diratt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), ChyfAttribute.DIRECTION);
+				while(flowtouches.hasNext()) {
+					SimpleFeature t = flowtouches.next();
+					
+					EfType type = EfType.parseValue( (Integer)t.getAttribute(eftypeatt) );
+					if (type == EfType.BANK || type == EfType.SKELETON) continue; //ignore existing skeletons
+					
+					
+					LineString temp = ChyfDataSource.getLineString(t);
+					if (workingPolygon.relate(temp, "FF*F0****")) {
+						DirectionType dtype = DirectionType.parseValue((Integer)t.getAttribute(diratt));
+						ftouch.add(temp);
+						temp.setUserData(dtype);
+					}
+				}
+			}
+
+			//generate points
+			generator.processPolygon(workingPolygon, ptouch, ftouch);
+
+			//update polygons as required
+			dataSource.updateWaterbodyGeometries(generator.getUpdatedPolygons());
+		}
+					
+		//write point layers
+		dataSource.createConstructionsPoints(generator.getPoints());
+	}
 	private static List<BoundaryEdge> getBoundary(FlowpathGeoPackageDataSource geopkg, ChyfProperties properties) throws Exception{
 
 		logger.info("computing boundary points");

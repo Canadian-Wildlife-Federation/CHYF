@@ -43,42 +43,45 @@ public class SkeletonEngine {
 	
 	public static void doWork(Path output, ChyfProperties props, int cores ) throws Exception {
 		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
-			if (props == null) props = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
-
-			dataSource.removeExistingSkeletons(false);
-			
-			SkeletonGenerator generator = new SkeletonGenerator(props);
-		
-			//break up tasks
-			ExecutorService service = Executors.newFixedThreadPool(4);
-			List<SkeletonJob> tasks = new ArrayList<>();
-			WaterbodyIterator iterator = new WaterbodyIterator(dataSource);
-			
-			for (int i = 0; i < cores; i ++) {
-				SkeletonJob j1 = new SkeletonJob(dataSource, iterator, generator);
-				tasks.add(j1);
-			}
-			CompletableFuture<?>[] futures = tasks.stream()
-			                               .map(task -> CompletableFuture.runAsync(task, service))
-			                               .toArray(CompletableFuture[]::new);
-			CompletableFuture.allOf(futures).join();    
-			service.shutdown();
-			
-			//ensure all skeletons are written
-			dataSource.writeSkeletons(Collections.emptyList());
-			
-			
-			//check for errors
-			for (SkeletonJob j : tasks) {
-				j.getExceptions().forEach(e->logger.error(e.getMessage(), e));
-			}
-			
-			for (SkeletonJob j : tasks) {
-				j.getErrors().forEach(e->logger.error(e));
-			}
+			doWork(dataSource, props, cores);
 		}
 	}
 
+	public static void doWork(FlowpathGeoPackageDataSource dataSource, ChyfProperties properties, int cores) throws Exception {
+		if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+
+		dataSource.removeExistingSkeletons(false);
+		
+		SkeletonGenerator generator = new SkeletonGenerator(properties);
+	
+		//break up tasks
+		ExecutorService service = Executors.newFixedThreadPool(4);
+		List<SkeletonJob> tasks = new ArrayList<>();
+		WaterbodyIterator iterator = new WaterbodyIterator(dataSource);
+		
+		for (int i = 0; i < cores; i ++) {
+			SkeletonJob j1 = new SkeletonJob(dataSource, iterator, generator);
+			tasks.add(j1);
+		}
+		CompletableFuture<?>[] futures = tasks.stream()
+		                               .map(task -> CompletableFuture.runAsync(task, service))
+		                               .toArray(CompletableFuture[]::new);
+		CompletableFuture.allOf(futures).join();    
+		service.shutdown();
+		
+		//ensure all skeletons are written
+		dataSource.writeSkeletons(Collections.emptyList());
+		
+		
+		//check for errors
+		for (SkeletonJob j : tasks) {
+			j.getExceptions().forEach(e->logger.error(e.getMessage(), e));
+		}
+		
+		for (SkeletonJob j : tasks) {
+			j.getErrors().forEach(e->logger.error(e));
+		}
+	}
 	
 	public static void main(String[] args) throws Exception {
 		FlowpathArgs runtime = new FlowpathArgs("SkeletonEngine");

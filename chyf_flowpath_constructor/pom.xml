@@ -27,7 +27,10 @@
 		<resources> 
         	<resource>
                 <directory>src/main/java</directory>
-                <includes><include>**/*.java</include></includes>
+                <includes>
+                	<include>**/*.java</include>
+                	<include>**/*.properties</include>
+                </includes>
         	</resource>
     	</resources>
     		  

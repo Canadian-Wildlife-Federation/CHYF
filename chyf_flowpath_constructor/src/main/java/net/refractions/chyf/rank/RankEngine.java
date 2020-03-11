@@ -45,43 +45,44 @@ public class RankEngine {
 	static final Logger logger = LoggerFactory.getLogger(RankEngine.class.getCanonicalName());
 
 	public static void doWork(Path output, ChyfProperties properties) throws Exception {
-
-		
+		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
+			doWork(dataSource, properties);
+		}
+	}
+	
+	public static void doWork(FlowpathGeoPackageDataSource dataSource, ChyfProperties properties) throws Exception {
 		logger.info("build graph");
 		RGraph graph = new RGraph();
 		CoordinateReferenceSystem crs;
-		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
-			
-			if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+		
+		if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 
-			logger.info("adding attribute");
-			try {
-				dataSource.addRankAttribute();
-			}catch (Exception ex) {
-				logger.error("Rank attribute cannot be added to dataset.  It likely already exists.  Please remove it from the dataset before proceeding.");
-				throw ex;
-			}
-			
-			logger.info("loading flowpaths");
-			try(SimpleFeatureReader reader = dataSource.getFeatureReader(Layer.EFLOWPATHS, null, null)){
-				
-				Name eftypeatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.EFTYPE);
-				crs = reader.getFeatureType().getCoordinateReferenceSystem();
-				while(reader.hasNext()) {
-					SimpleFeature sf = reader.next();
-					graph.addEdge(sf, eftypeatt);	
-				}
-			}
-			
-			logger.info("computing ranks");
-			RankComputer engine = new RankComputer(crs, dataSource, properties);
-			engine.computeRank(graph);
-
-			logger.info("saving results");
-			Map<FeatureId, RankType> data = graph.getEdges().stream().collect(Collectors.toMap(REdge::getID, REdge::getRank));
-			dataSource.writeRanks(data);
-			
+		logger.info("adding attribute");
+		try {
+			dataSource.addRankAttribute();
+		}catch (Exception ex) {
+			logger.error("Rank attribute cannot be added to dataset.  It likely already exists.  Please remove it from the dataset before proceeding.");
+			throw ex;
 		}
+		
+		logger.info("loading flowpaths");
+		try(SimpleFeatureReader reader = dataSource.getFeatureReader(Layer.EFLOWPATHS, null, null)){
+			
+			Name eftypeatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.EFTYPE);
+			crs = reader.getFeatureType().getCoordinateReferenceSystem();
+			while(reader.hasNext()) {
+				SimpleFeature sf = reader.next();
+				graph.addEdge(sf, eftypeatt);	
+			}
+		}
+		
+		logger.info("computing ranks");
+		RankComputer engine = new RankComputer(crs, dataSource, properties);
+		engine.computeRank(graph);
+
+		logger.info("saving results");
+		Map<FeatureId, RankType> data = graph.getEdges().stream().collect(Collectors.toMap(REdge::getID, REdge::getRank));
+		dataSource.writeRanks(data);
 	}
 	
 	public static void main(String[] args) throws Exception {		

@@ -101,20 +101,17 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource{
 	
 	private List<LineString> skeletonWriteCache;
 	
-	
 	public FlowpathGeoPackageDataSource(Path geopackageFile) throws Exception {
 		super(geopackageFile);
 		this.geopackageFile = geopackageFile;
 		read();
-	}
-	
-	protected void read() throws Exception{
-		super.read();
+		
 		addInternalIdAttribute();
 		if (ChyfDataSource.findAttribute(getFeatureType(Layer.EFLOWPATHS), ChyfAttribute.DIRECTION) == null) {
 			addDirectionAttribute();
 		}
 	}
+
 	
 	public void updateCoastline(FeatureId fid, LineString newls, Transaction tx) throws IOException {
 		try(SimpleFeatureWriter writer = geopkg.writer(getEntry(Layer.SHORELINES), false, ff.id(fid), tx)){
@@ -354,6 +351,14 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource{
 					}
 					
 				}
+				tx.commit();
+			}catch (Exception ex) {
+				tx.rollback();
+				throw ex;
+			}
+		}
+		try(DefaultTransaction tx = new DefaultTransaction()){
+			try {
 				//do everything else
 				try(SimpleFeatureWriter writer = geopkg.writer(getEntry(Layer.EFLOWPATHS), false, Filter.INCLUDE, tx)){
 

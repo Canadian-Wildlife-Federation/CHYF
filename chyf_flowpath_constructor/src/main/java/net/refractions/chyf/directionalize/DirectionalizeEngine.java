@@ -59,100 +59,101 @@ public class DirectionalizeEngine {
 	static final Logger logger = LoggerFactory.getLogger(DirectionalizeEngine.class.getCanonicalName());
 
 	public static void doWork(Path output, ChyfProperties properties) throws Exception {
-
-		CoordinateReferenceSystem sourceCRS = null;
-		
 		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
-			if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+			doWork(dataSource, properties);			
+		}
+		
+		
+	}
+	
+	public static void doWork(FlowpathGeoPackageDataSource dataSource, ChyfProperties properties) throws Exception {
+		CoordinateReferenceSystem sourceCRS = null;	
 
-			List<EdgeInfo> edges = new ArrayList<>();
-			List<EdgeInfo> banks = new ArrayList<>();
+		List<EdgeInfo> edges = new ArrayList<>();
+		List<EdgeInfo> banks = new ArrayList<>();
 
-			List<PreparedPolygon> aois = new ArrayList<>();
-			for (Polygon p : dataSource.getAoi()) {
-				aois.add(new PreparedPolygon(p));
-			}
+		List<PreparedPolygon> aois = new ArrayList<>();
+		for (Polygon p : dataSource.getAoi()) {
+			aois.add(new PreparedPolygon(p));
+		}
 
-			logger.info("loading flowpaths");
+		logger.info("loading flowpaths");
+		
+		try(SimpleFeatureReader reader = dataSource.getFeatureReader(Layer.EFLOWPATHS,null, null)){
+			sourceCRS = reader.getFeatureType().getCoordinateReferenceSystem();
+			Name eftypeatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.EFTYPE);
+			Name direatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.DIRECTION);
 			
-			try(SimpleFeatureReader reader = dataSource.getFeatureReader(Layer.EFLOWPATHS,null, null)){
-				sourceCRS = reader.getFeatureType().getCoordinateReferenceSystem();
-				Name eftypeatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.EFTYPE);
-				Name direatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.DIRECTION);
+			while(reader.hasNext()) {
+				SimpleFeature sf = reader.next();
+				LineString ls = ChyfDataSource.getLineString(sf);
 				
-				while(reader.hasNext()) {
-					SimpleFeature sf = reader.next();
-					LineString ls = ChyfDataSource.getLineString(sf);
-					
-					for (PreparedPolygon p : aois) {
-						if (p.contains(ls) || p.getGeometry().relate(ls, "1********")) {
-							EfType eftype = EfType.parseValue((Integer)sf.getAttribute(eftypeatt));
-							DirectionType dtype = DirectionType.parseValue((Integer)sf.getAttribute(direatt));
-							
-							EdgeInfo ei = new EdgeInfo(ls.getCoordinateN(0),
-									ls.getCoordinateN(1),
-									ls.getCoordinateN(ls.getCoordinates().length - 2),
-									ls.getCoordinateN(ls.getCoordinates().length - 1),
-									eftype,
-									sf.getIdentifier(), ls.getLength(), 
-									dtype);
+				for (PreparedPolygon p : aois) {
+					if (p.contains(ls) || p.getGeometry().relate(ls, "1********")) {
+						EfType eftype = EfType.parseValue((Integer)sf.getAttribute(eftypeatt));
+						DirectionType dtype = DirectionType.parseValue((Integer)sf.getAttribute(direatt));
+						
+						EdgeInfo ei = new EdgeInfo(ls.getCoordinateN(0),
+								ls.getCoordinateN(1),
+								ls.getCoordinateN(ls.getCoordinates().length - 2),
+								ls.getCoordinateN(ls.getCoordinates().length - 1),
+								eftype,
+								sf.getIdentifier(), ls.getLength(), 
+								dtype);
 
-							
-							if (eftype == EfType.BANK) {
-								banks.add(ei); //exclude these from the main graph
-							}else {
-								edges.add(ei);	
-							}		
-							break;
-						}
+						
+						if (eftype == EfType.BANK) {
+							banks.add(ei); //exclude these from the main graph
+						}else {
+							edges.add(ei);	
+						}		
+						break;
 					}
 				}
 			}
-			
-			//create graph
-			logger.info("build graph");
-			DGraph graph = DGraph.buildGraphLines(edges);
-			
-			//directionalized bank edges
-			logger.info("processing bank edges");
-			HashSet<Coordinate> nodec = new HashSet<>();
-			for(DNode d : graph.nodes) nodec.add(d.getCoordinate());
-			Set<FeatureId> bankstoflip = new HashSet<>();
-			for (EdgeInfo b : banks) {
-				if (nodec.contains(b.getEnd())) {
-				}else if (nodec.contains(b.getStart())) {
-					//flip
-					bankstoflip.add(b.getFeatureId());
-				}else {
-					throw new Exception("Bank flowpath does not intersect flow network: " + b.getStart());
-				}
-			}
-			
-			dataSource.flipFlowEdges(bankstoflip, banks.stream().map(e->e.getFeatureId()).collect(Collectors.toList()));
-			
-			//find sink nodes
-			logger.info("locating sink nodes");
-			List<Coordinate> sinks = getSinkPoints(dataSource, graph);
-
-			//directionalize dataset
-			logger.info("directionalizing network");
-			Directionalizer dd = new Directionalizer(sourceCRS, properties);
-			dd.directionalize(graph, sinks);
-
-			//flip edges
-			logger.info("saving results");
-			dataSource.flipFlowEdges(dd.getFeaturesToFlip(), dd.getProcessedFeatures());
-		}
-			
-		logger.info("checking output for cycles");
-		CycleChecker checker = new CycleChecker();
-		if (checker.checkCycles(output)) {
-			logger.error("Output network contains cycles");
 		}
 		
+		//create graph
+		logger.info("build graph");
+		DGraph graph = DGraph.buildGraphLines(edges);
+		
+		//directionalized bank edges
+		logger.info("processing bank edges");
+		HashSet<Coordinate> nodec = new HashSet<>();
+		for(DNode d : graph.nodes) nodec.add(d.getCoordinate());
+		Set<FeatureId> bankstoflip = new HashSet<>();
+		for (EdgeInfo b : banks) {
+			if (nodec.contains(b.getEnd())) {
+			}else if (nodec.contains(b.getStart())) {
+				//flip
+				bankstoflip.add(b.getFeatureId());
+			}else {
+				throw new Exception("Bank flowpath does not intersect flow network: " + b.getStart());
+			}
+		}
+		
+		dataSource.flipFlowEdges(bankstoflip, banks.stream().map(e->e.getFeatureId()).collect(Collectors.toList()));
+		
+		//find sink nodes
+		logger.info("locating sink nodes");
+		List<Coordinate> sinks = getSinkPoints(dataSource, graph);
 
+		//directionalize dataset
+		logger.info("directionalizing network");
+		Directionalizer dd = new Directionalizer(sourceCRS, properties);
+		dd.directionalize(graph, sinks);
+
+		//flip edges
+		logger.info("saving results");
+		dataSource.flipFlowEdges(dd.getFeaturesToFlip(), dd.getProcessedFeatures());
+		
+		
+		logger.info("checking output for cycles");
+		CycleChecker checker = new CycleChecker();
+		if (checker.checkCycles(dataSource)) {
+			throw new Exception("Dataset contains cycles after directionalization.");
+		}
 	}
-	
 
 	/*
 	 * Compute sinks points as :
@@ -218,6 +219,7 @@ public class DirectionalizeEngine {
 		
 		long now = System.nanoTime();
 		DirectionalizeEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
+		
 		long then = System.nanoTime();
 		
 		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );
