@@ -36,7 +36,7 @@ import tec.uom.se.unit.Units;
  * @author Emily
  *
  */
-public class ChyfProperties {
+public class ChyfProperties implements IChyfProperties{
 
 	public static final String M_PROP_FILE = "chyf.meter.properties";
 	public static final String DEG_PROP_FILE = "chyf.degree.properties";
@@ -52,7 +52,9 @@ public class ChyfProperties {
 		BANK_MIN_VERTEX_DISTANCE("bank_min_vertex_distance"),
 		
 		DIR_SHORT_SEGMENT("dir_short_segement_length"),
-		DIR_ANGLE_DIFF("dir_angle_diff");
+		DIR_ANGLE_DIFF("dir_angle_diff"),
+		
+		RANK_CHANNEL_WEIGHT("rank_channel_weight");
 		
 		String key;
 		

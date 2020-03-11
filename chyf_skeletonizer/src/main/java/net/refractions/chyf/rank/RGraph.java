@@ -25,7 +25,7 @@ import org.opengis.feature.type.Name;
 import org.opengis.filter.identity.FeatureId;
 
 import net.refractions.chyf.datasource.ChyfDataSource;
-import net.refractions.chyf.datasource.ChyfDataSource.EfType;
+import net.refractions.chyf.datasource.EfType;
 
 /**
  * Graph used for computing rank flow edges
@@ -76,7 +76,7 @@ public class RGraph {
 	
 	public void addEdge(SimpleFeature sf, Name typeAtt) throws Exception {
 
-		EfType eftype = EfType.parseType((Integer)sf.getAttribute(typeAtt));
+		EfType eftype = EfType.parseValue((Integer)sf.getAttribute(typeAtt));
 
 		LineString ls = ChyfDataSource.getLineString(sf);
 		

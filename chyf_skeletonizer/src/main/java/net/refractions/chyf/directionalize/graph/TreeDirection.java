@@ -22,7 +22,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
+import net.refractions.chyf.datasource.DirectionType;
 
 /**
  * Directionalizes a non-directionalized tree structured

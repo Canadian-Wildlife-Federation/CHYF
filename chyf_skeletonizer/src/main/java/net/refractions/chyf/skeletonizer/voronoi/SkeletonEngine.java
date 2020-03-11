@@ -26,9 +26,10 @@ import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.refractions.chyf.Args;
+import net.refractions.chyf.FlowpathArgs;
 import net.refractions.chyf.ChyfProperties;
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
+import net.refractions.chyf.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.datasource.WaterbodyIterator;
 
 /**
  * Manages the running of the skeletonizer  
@@ -41,10 +42,9 @@ public class SkeletonEngine {
 	static final Logger logger = LoggerFactory.getLogger(SkeletonEngine.class.getCanonicalName());
 	
 	public static void doWork(Path output, ChyfProperties props, int cores ) throws Exception {
-		try(ChyfGeoPackageDataSource dataSource = new ChyfGeoPackageDataSource(output)){
+		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
 			if (props == null) props = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 
-			dataSource.addProcessedAttribute();
 			dataSource.removeExistingSkeletons(false);
 			
 			SkeletonGenerator generator = new SkeletonGenerator(props);
@@ -52,8 +52,10 @@ public class SkeletonEngine {
 			//break up tasks
 			ExecutorService service = Executors.newFixedThreadPool(4);
 			List<SkeletonJob> tasks = new ArrayList<>();
+			WaterbodyIterator iterator = new WaterbodyIterator(dataSource);
+			
 			for (int i = 0; i < cores; i ++) {
-				SkeletonJob j1 = new SkeletonJob(dataSource, generator);
+				SkeletonJob j1 = new SkeletonJob(dataSource, iterator, generator);
 				tasks.add(j1);
 			}
 			CompletableFuture<?>[] futures = tasks.stream()
@@ -79,8 +81,8 @@ public class SkeletonEngine {
 
 	
 	public static void main(String[] args) throws Exception {
-		Args runtime = Args.parseArguments(args, "SkeletonEngine");
-		if (runtime == null) return;
+		FlowpathArgs runtime = new FlowpathArgs("SkeletonEngine");
+		if (!runtime.parseArguments(args)) return;
 		
 		runtime.prepareOutput();
 		

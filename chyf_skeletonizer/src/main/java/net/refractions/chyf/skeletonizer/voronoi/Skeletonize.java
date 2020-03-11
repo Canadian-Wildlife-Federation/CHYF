@@ -15,7 +15,7 @@
  */
 package net.refractions.chyf.skeletonizer.voronoi;
 
-import net.refractions.chyf.Args;
+import net.refractions.chyf.FlowpathArgs;
 import net.refractions.chyf.skeletonizer.points.PointEngine;
 
 /**
@@ -28,8 +28,9 @@ import net.refractions.chyf.skeletonizer.points.PointEngine;
 public class Skeletonize {
 
 	public static void main(String[] args) throws Exception {
-		Args runtime = Args.parseArguments(args, "Skeletonize");
-		if (runtime == null) return;
+		FlowpathArgs runtime = new FlowpathArgs("Skeletonize");
+		if (!runtime.parseArguments(args)) return;
+		
 		
 		runtime.prepareOutput();
 		

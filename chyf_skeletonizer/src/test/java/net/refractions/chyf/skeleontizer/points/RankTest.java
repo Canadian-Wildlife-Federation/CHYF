@@ -30,8 +30,9 @@ import org.opengis.filter.identity.FeatureId;
 import org.opengis.referencing.crs.CRSAuthorityFactory;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
-import net.refractions.chyf.datasource.ChyfDataSource.EfType;
-import net.refractions.chyf.datasource.ChyfDataSource.RankType;
+import net.refractions.chyf.ChyfProperties;
+import net.refractions.chyf.datasource.EfType;
+import net.refractions.chyf.datasource.RankType;
 import net.refractions.chyf.rank.REdge;
 import net.refractions.chyf.rank.RGraph;
 import net.refractions.chyf.rank.RankComputer;
@@ -135,7 +136,8 @@ public class RankTest {
 			graph.addEdgeTesting(EfType.REACH, ls, ffid);
 		}
 		
-		RankComputer engine = new RankComputer(crs);
+		ChyfProperties properties = ChyfProperties.getProperties(crs);
+		RankComputer engine = new RankComputer(crs, null, properties);
 		engine.computeRank(graph);
 		
 		for (REdge e : graph.getEdges()) {

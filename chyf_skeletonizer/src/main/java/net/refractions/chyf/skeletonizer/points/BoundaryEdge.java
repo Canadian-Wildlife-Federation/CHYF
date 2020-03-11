@@ -18,7 +18,7 @@ package net.refractions.chyf.skeletonizer.points;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Point;
 
-import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Direction;
+import net.refractions.chyf.datasource.FlowDirection;
 
 /**
  * Represents an edge or point along the boundary of the aoi
@@ -29,7 +29,7 @@ import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Direction;
  */
 public class BoundaryEdge {
 
-	private Direction direction;
+	private FlowDirection direction;
 	private LineString ls;
 	private Point inout;
 	
@@ -39,13 +39,13 @@ public class BoundaryEdge {
 	 * @param ls the edge that intersects or null if its just a point
 	 * @param inout the "point on boundary" of intersection or null if non found
 	 */
-	public BoundaryEdge(Direction direction, LineString ls, Point inout) {
+	public BoundaryEdge(FlowDirection direction, LineString ls, Point inout) {
 		this.ls = ls;
 		this.direction = direction;
 		this.inout = inout;
 	}
 	
-	public Direction getDirection() {
+	public FlowDirection getDirection() {
 		return this.direction;
 	}
 	

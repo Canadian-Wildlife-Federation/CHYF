@@ -25,17 +25,19 @@ import org.opengis.filter.identity.FeatureId;
  */
 public class PolygonInfo {
 
-	private Integer polyId;
+	
 	private FeatureId featureId;
 	private boolean isModified;
 	
-	public PolygonInfo(FeatureId fid, Integer polyId) {
+	private String catchmentInternalID;
+	 
+	public PolygonInfo(FeatureId fid, String catchmentInternalId) {
 		this.featureId = fid;
-		this.polyId = polyId;
+		this.catchmentInternalID = catchmentInternalId;
 	}
 	
-	public Integer getPolygonId() {
-		return this.polyId;
+	public String getCatchmentId(){
+		return this.catchmentInternalID;
 	}
 	public FeatureId getFeatureId() {
 		return this.featureId;
@@ -62,7 +64,7 @@ public class PolygonInfo {
 		return ((PolygonInfo)p.getUserData()).getFeatureId();
 	}
 	
-	public static Integer getPolygonId(Polygon p) {
-		return ((PolygonInfo)p.getUserData()).getPolygonId();
+	public static String getCatchmentId(Polygon p) {
+		return ((PolygonInfo)p.getUserData()).getCatchmentId();
 	}
 }

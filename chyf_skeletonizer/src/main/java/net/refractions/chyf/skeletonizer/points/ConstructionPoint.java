@@ -15,9 +15,10 @@
  */
 package net.refractions.chyf.skeletonizer.points;
 
-import java.io.IOException;
-
 import org.locationtech.jts.geom.Coordinate;
+
+import net.refractions.chyf.datasource.FlowDirection;
+import net.refractions.chyf.datasource.FlowpathGeoPackageDataSource.NodeType;
 
 /**
  * Represents a skeleton input/ouput point
@@ -25,60 +26,13 @@ import org.locationtech.jts.geom.Coordinate;
  *
  */
 public class ConstructionPoint {
-
-	public enum Direction{
-		IN(1),
-		OUT(2),
-		UNKNOWN(3);
 		
-		private int modelValue;
-		
-		private Direction(int modelValue) {
-			this.modelValue = modelValue;
-		}
-		
-		public int modelValue() {
-			return this.modelValue;
-		}
-		
-		public static Direction getDirection(int value) throws IOException{
-			for (Direction d : Direction.values()) {
-				if (d.modelValue == value) return d;
-			}
-			throw new IOException("Construction point direction of " + value + " is invalid");
-		}
-	}
-	
-	public enum Type{
-		BANK(1),
-		FLOWPATH(2),
-		WATER(3),
-		HEADWATER(4),
-		TERMINAL(5);
-		
-		private int modelValue;
-		
-		private Type(int modelValue) {
-			this.modelValue = modelValue;
-		}
-		
-		public int modelValue() {
-			return this.modelValue;
-		}
-		public static Type getType(int value) throws IOException{
-			for (Type d : Type.values()) {
-				if (d.modelValue == value) return d;
-			}
-			throw new IOException("Type value of " + value + " is invalid");
-		}
-	}
-	
 	private Coordinate point;
-	private Type type;
-	private Direction fd;
+	private NodeType type;
+	private FlowDirection fd;
 	private PolygonInfo pinfo;
 	
-	public ConstructionPoint(Coordinate coordinate, Type type, Direction fd, PolygonInfo pinfo) {
+	public ConstructionPoint(Coordinate coordinate, NodeType type, FlowDirection fd, PolygonInfo pinfo) {
 		if (coordinate == null) {
 			System.out.println("stop");
 		}
@@ -96,11 +50,11 @@ public class ConstructionPoint {
 		return this.point;
 	}
 	
-	public Type getType() {
+	public NodeType getType() {
 		return this.type;
 	}
 	
-	public Direction getDirection() {
+	public FlowDirection getDirection() {
 		return this.fd;
 	}
 	

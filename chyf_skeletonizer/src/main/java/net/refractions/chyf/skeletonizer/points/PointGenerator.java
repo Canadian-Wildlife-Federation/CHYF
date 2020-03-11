@@ -38,9 +38,9 @@ import org.locationtech.jts.operation.linemerge.LineMerger;
 
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.ChyfProperties.Property;
-import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
-import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Direction;
-import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Type;
+import net.refractions.chyf.datasource.DirectionType;
+import net.refractions.chyf.datasource.FlowDirection;
+import net.refractions.chyf.datasource.FlowpathGeoPackageDataSource.NodeType;
 
 /**
  * Generates input/output points for skeletonizer
@@ -104,7 +104,7 @@ public class PointGenerator {
 			if (be.getLineString() == null) {
 				if (be.getInOut().getEnvelopeInternal().intersects(waterbodya.getEnvelopeInternal()) &&
 						be.getInOut().intersects(waterbodya)) {
-					ConstructionPoint cp = new ConstructionPoint(be.getInOut().getCoordinate(), Type.FLOWPATH, be.getDirection(), (PolygonInfo) workingWaterbody.getUserData());
+					ConstructionPoint cp = new ConstructionPoint(be.getInOut().getCoordinate(), NodeType.FLOWPATH, be.getDirection(), (PolygonInfo) workingWaterbody.getUserData());
 					addPoint(wbpoints, cp);
 				}
 			}
@@ -143,11 +143,11 @@ public class PointGenerator {
 				if (intersections == null) continue;
 				for (Geometry g : intersections) {
 					if (g instanceof Point) {
-						addPoint(wbpoints, new ConstructionPoint(((Point)g).getCoordinate(), Type.WATER, Direction.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
+						addPoint(wbpoints, new ConstructionPoint(((Point)g).getCoordinate(), NodeType.WATER, FlowDirection.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
 					}else {
 						List<Coordinate> items = new ArrayList<>();
 						for (Coordinate n : ((LineString)g).getCoordinates()) items.add(n);
-						addPoint(wbpoints, new ConstructionPoint(findMidpoint(items, true), Type.WATER, Direction.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
+						addPoint(wbpoints, new ConstructionPoint(findMidpoint(items, true), NodeType.WATER, FlowDirection.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
 					}
 				}
 			}
@@ -158,7 +158,7 @@ public class PointGenerator {
 				if (b.getLineString().getEnvelopeInternal().intersects(workingWaterbody.getEnvelopeInternal()) &&
 						b.getLineString().intersects(workingWaterbody) && b.getInOut().intersects(workingWaterbody)) {
 					//use the b.getinout point
-					addPoint(wbpoints, new ConstructionPoint(b.getInOut().getCoordinate(), Type.WATER, b.getDirection(), (PolygonInfo) workingWaterbody.getUserData()));
+					addPoint(wbpoints, new ConstructionPoint(b.getInOut().getCoordinate(), NodeType.WATER, b.getDirection(), (PolygonInfo) workingWaterbody.getUserData()));
 					
 				}
 			}
@@ -169,24 +169,24 @@ public class PointGenerator {
 		int outcount = 0;
 		int unknowncount = 0;
 		for (ConstructionPoint p : wbpoints) {
-			if (p.getDirection() == Direction.IN) incount ++;
-			if (p.getDirection() == Direction.OUT) outcount ++;
-			if (p.getDirection() == Direction.UNKNOWN) unknowncount ++;
+			if (p.getDirection() == FlowDirection.INPUT) incount ++;
+			if (p.getDirection() == FlowDirection.OUTPUT) outcount ++;
+			if (p.getDirection() == FlowDirection.UNKNOWN) unknowncount ++;
 		}
 		if (outcount == 0 && incount > 0 && unknowncount == 0) {
 			//list all the points from the  
 			Coordinate c = findLongestMidPoint(workingWaterbody.getExteriorRing(), touches, wbpoints.stream().map(a->a.getCoordinate()).collect(Collectors.toSet()));
-			addPoint(wbpoints, new ConstructionPoint(c, Type.TERMINAL, Direction.OUT, (PolygonInfo) workingWaterbody.getUserData()));
+			addPoint(wbpoints, new ConstructionPoint(c, NodeType.TERMINAL, FlowDirection.OUTPUT, (PolygonInfo) workingWaterbody.getUserData()));
 		}
 		//if there are only outnodes then we need to add an in node
 		if (incount == 0 && outcount > 0 && unknowncount == 0) {
 			Coordinate c = findLongestMidPoint(workingWaterbody.getExteriorRing(), touches, wbpoints.stream().map(a->a.getCoordinate()).collect(Collectors.toSet()));
-			addPoint(wbpoints, new ConstructionPoint(c, Type.HEADWATER, Direction.IN, (PolygonInfo) workingWaterbody.getUserData()));
+			addPoint(wbpoints, new ConstructionPoint(c, NodeType.HEADWATER, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
 		}
 		if (unknowncount == 1 && incount == 0 && outcount == 0) {
 			Coordinate c = findLongestMidPoint(workingWaterbody.getExteriorRing(), touches, wbpoints.stream().map(a->a.getCoordinate()).collect(Collectors.toSet()));
 			//TODO: incorrect classification; thought could be either headwater or terminal, but it is a degree1 node
-			addPoint(wbpoints, new ConstructionPoint(c, Type.HEADWATER, Direction.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
+			addPoint(wbpoints, new ConstructionPoint(c, NodeType.HEADWATER, FlowDirection.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
 		}
 		
 		//add bank points, ensuring they are not added
@@ -226,28 +226,28 @@ public class PointGenerator {
 		//if they are of similar types
 		if (found.getType() == point.getType()) {
 			if (found.getDirection() == point.getDirection()) return;
-			if (found.getDirection() == Direction.UNKNOWN) {
+			if (found.getDirection() == FlowDirection.UNKNOWN) {
 				points.remove(found);
 				addto.add(point);
 				return;
 			}
-			if ( (found.getDirection() == Direction.IN && point.getDirection() == Direction.OUT) ||
-					 (found.getDirection() == Direction.OUT && point.getDirection() == Direction.IN) ) {
+			if ( (found.getDirection() == FlowDirection.INPUT && point.getDirection() == FlowDirection.OUTPUT) ||
+					 (found.getDirection() == FlowDirection.OUTPUT && point.getDirection() == FlowDirection.INPUT) ) {
 				throw new Exception("Cannot create both an inflow and outflow construction point at the same coordinate: " + point.getCoordinate());
 			}
 		}else {
-			if (found.getType() == Type.BANK || point.getType() == Type.BANK) {
+			if (found.getType() == NodeType.BANK || point.getType() == NodeType.BANK) {
 				//throw and exception cannot create bank and flowpath node at the same coordinate
 				throw new Exception("Cannot create bank and flow construction point at the same coordinate: " + point.getCoordinate().toString());
 			}
 			if (found.getDirection() == point.getDirection()) return;
-			if (found.getDirection() == Direction.UNKNOWN) {
+			if (found.getDirection() == FlowDirection.UNKNOWN) {
 				points.remove(found);
 				addto.add(point);
 				return;
 			}
-			if ( (found.getDirection() == Direction.IN && point.getDirection() == Direction.OUT) ||
-					 (found.getDirection() == Direction.OUT && point.getDirection() == Direction.IN) ) {
+			if ( (found.getDirection() == FlowDirection.INPUT && point.getDirection() == FlowDirection.OUTPUT) ||
+					 (found.getDirection() == FlowDirection.OUTPUT && point.getDirection() == FlowDirection.INPUT) ) {
 				throw new Exception("Cannot create both an inflow and outflow construction point at the same coordinate: " + point.getCoordinate());
 			}
 		}
@@ -401,11 +401,11 @@ public class PointGenerator {
 		for (int i = 0; i < ls.getCoordinates().length-1; i ++) {
 			Coordinate c = ls.getCoordinateN(i);
 			if (outpoints.contains(c)) {
-				addPoint(points, new ConstructionPoint(c, Type.FLOWPATH, Direction.OUT, (PolygonInfo) workingWaterbody.getUserData()));
+				addPoint(points, new ConstructionPoint(c, NodeType.FLOWPATH, FlowDirection.OUTPUT, (PolygonInfo) workingWaterbody.getUserData()));
 			}else if (inpoints.contains(c)) {
-				addPoint(points, new ConstructionPoint(c, Type.FLOWPATH, Direction.IN, (PolygonInfo) workingWaterbody.getUserData()));
+				addPoint(points, new ConstructionPoint(c, NodeType.FLOWPATH, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
 			}else if (unknown.contains(c)) {
-				addPoint(points, new ConstructionPoint(c, Type.FLOWPATH, Direction.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
+				addPoint(points, new ConstructionPoint(c, NodeType.FLOWPATH, FlowDirection.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
 			}
 		}
 	}
@@ -429,8 +429,8 @@ public class PointGenerator {
 		boolean hasheadwater = false;
 		for(ConstructionPoint p : flowpoints) {
 			flows.add(p.getCoordinate());
-			if (p.getType() == Type.HEADWATER) hasheadwater = true;
-			if (p.getType() == Type.TERMINAL) hasheadwater = true;
+			if (p.getType() == NodeType.HEADWATER) hasheadwater = true;
+			if (p.getType() == NodeType.TERMINAL) hasheadwater = true;
 		}
 				
 		List<LineString> toprocess = new ArrayList<>();
@@ -510,7 +510,7 @@ public class PointGenerator {
 					//find the midpoint between first and cnt and create node
 					Coordinate bankPnt = findMidpoint(coords, false);
 					bankPnt = findCoordinate(coords, bankPnt);
-					banks.add(new ConstructionPoint(bankPnt,Type.BANK, Direction.IN, (PolygonInfo) workingWaterbody.getUserData()));
+					banks.add(new ConstructionPoint(bankPnt,NodeType.BANK, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
 					coords = new ArrayList<>();
 					coords.add(n);
 				}
@@ -518,7 +518,7 @@ public class PointGenerator {
 			}
 			//find midpoint between first and cnt and create node
 			coords.add(cs[start]);
-			if (coords.size() > 1 && !hasheadwater) banks.add(new ConstructionPoint(findMidpoint(coords, false),Type.BANK, Direction.IN, (PolygonInfo) workingWaterbody.getUserData()));
+			if (coords.size() > 1 && !hasheadwater) banks.add(new ConstructionPoint(findMidpoint(coords, false),NodeType.BANK, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
 		}else {
 			List<Coordinate> coords = new ArrayList<>();
 			for (int i = 0; i < cs.length; i ++) {
@@ -526,13 +526,13 @@ public class PointGenerator {
 				if (flows.contains(cs[i]) && i != 0) {
 					Coordinate bankPnt = findMidpoint(coords, false);
 					bankPnt = findCoordinate(coords, bankPnt);
-					banks.add(new ConstructionPoint(bankPnt,Type.BANK, Direction.IN, (PolygonInfo) workingWaterbody.getUserData()));
+					banks.add(new ConstructionPoint(bankPnt,NodeType.BANK, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
 					coords.clear();
 					coords.add(cs[i]);	
 					
 				}
 			}
-			if (!hasheadwater && coords.size() > 1) banks.add(new ConstructionPoint(findMidpoint(coords, false),Type.BANK, Direction.IN, (PolygonInfo) workingWaterbody.getUserData()));
+			if (!hasheadwater && coords.size() > 1) banks.add(new ConstructionPoint(findMidpoint(coords, false),NodeType.BANK, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
 		}
 	}
 	
@@ -706,8 +706,8 @@ public class PointGenerator {
 		if (end.equals2D(start)) throw new Exception("Cannot generated constructions points for isolated waterbody: " + workingWaterbody.getCentroid().toText());
 		
 		List<ConstructionPoint> points = new ArrayList<>();
-		points.add(new ConstructionPoint(start, Type.HEADWATER, Direction.IN, (PolygonInfo) workingWaterbody.getUserData()));
-		points.add(new ConstructionPoint(end, Type.TERMINAL, Direction.OUT, (PolygonInfo) workingWaterbody.getUserData()));
+		points.add(new ConstructionPoint(start, NodeType.HEADWATER, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
+		points.add(new ConstructionPoint(end, NodeType.TERMINAL, FlowDirection.OUTPUT, (PolygonInfo) workingWaterbody.getUserData()));
 		return points;
 	}
 	

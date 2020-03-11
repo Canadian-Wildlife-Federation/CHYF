@@ -24,7 +24,7 @@ import java.util.List;
 
 import org.locationtech.jts.geom.Coordinate;
 
-import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
+import net.refractions.chyf.datasource.DirectionType;
 
 /**
  * Graph used for directionanlizing flow edges

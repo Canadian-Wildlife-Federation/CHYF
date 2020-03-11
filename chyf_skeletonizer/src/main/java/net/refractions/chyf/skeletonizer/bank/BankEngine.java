@@ -37,13 +37,14 @@ import org.opengis.feature.type.Name;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.refractions.chyf.Args;
+import net.refractions.chyf.FlowpathArgs;
 import net.refractions.chyf.ChyfProperties;
+import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
-import net.refractions.chyf.datasource.ChyfDataSource.Attribute;
-import net.refractions.chyf.datasource.ChyfDataSource.EfType;
-import net.refractions.chyf.datasource.ChyfDataSource.Layer;
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
+import net.refractions.chyf.datasource.EfType;
+import net.refractions.chyf.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.datasource.Layer;
+import net.refractions.chyf.datasource.WaterbodyIterator;
 import net.refractions.chyf.skeletonizer.points.PolygonInfo;
 import net.refractions.chyf.skeletonizer.voronoi.SkeletonResult;
 
@@ -58,11 +59,10 @@ public class BankEngine {
 		List<Polygon> ptouch = new ArrayList<>();
 		List<LineString> ftouch = new ArrayList<>();
 
-		try(ChyfGeoPackageDataSource dataSource = new ChyfGeoPackageDataSource(output)){
-
-			dataSource.addProcessedAttribute();
+		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
+			
 			dataSource.removeExistingSkeletons(true);
-
+			
 			if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			
 			BankSkeletonizer generator = new BankSkeletonizer(properties);
@@ -70,11 +70,10 @@ public class BankEngine {
 
 			List<LineString> newSkeletons = new ArrayList<>();
 			
-			while(true) {
-				//find next feature to process				
-				SimpleFeature toProcess = dataSource.getNextWaterbody();
-				if (toProcess == null) break; //finished processing
-				
+			WaterbodyIterator iterator = new WaterbodyIterator(dataSource);
+			
+			SimpleFeature toProcess = null;
+			while((toProcess = iterator.getNextWaterbody()) != null) {;
 				logger.info("Generating Banks: " + cnt);
 				cnt++;
 				
@@ -86,7 +85,7 @@ public class BankEngine {
 				//get overlapping polygons
 				List<LineString> wateredges = new ArrayList<>();
 				ReferencedEnvelope env = new ReferencedEnvelope(workingPolygon.getEnvelopeInternal(), toProcess.getType().getCoordinateReferenceSystem());
-				try(SimpleFeatureReader wbtouches = dataSource.getWaterbodies(env)){
+				try(SimpleFeatureReader wbtouches = dataSource.query(env, Layer.ECATCHMENTS, dataSource.getWbTypeFilter())){
 					while(wbtouches.hasNext()) {
 						SimpleFeature t = wbtouches.next();
 						if (t.getIdentifier().equals(toProcess.getIdentifier())) continue;
@@ -120,12 +119,12 @@ public class BankEngine {
 				//get overlapping flowpaths
 				HashMap<Coordinate, Integer> nodes = new HashMap<>();
 				HashMap<Coordinate, Integer> ctype = new HashMap<>();
-				try(SimpleFeatureReader flowtouches = dataSource.getFlowpaths(env)){
-					Name efatt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), Attribute.EFTYPE);
+				try(SimpleFeatureReader flowtouches = dataSource.query(env, Layer.EFLOWPATHS, null)){
+					Name efatt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), ChyfAttribute.EFTYPE);
 					while(flowtouches.hasNext()) {
 						SimpleFeature t = flowtouches.next();
 						if (! (((Geometry)t.getDefaultGeometry()).getEnvelopeInternal().intersects(workingPolygon.getEnvelopeInternal()))) continue; 
-						EfType type = EfType.parseType( (Integer)t.getAttribute(efatt) );
+						EfType type = EfType.parseValue( (Integer)t.getAttribute(efatt) );
 						if (type == EfType.BANK) continue;
 						
 						boolean isskel = false;
@@ -215,7 +214,7 @@ public class BankEngine {
 
 	}
 	
-	private static List<LineString> getBoundary(ChyfGeoPackageDataSource geopkg) throws Exception{
+	private static List<LineString> getBoundary(FlowpathGeoPackageDataSource geopkg) throws Exception{
 
 		logger.info("computing boundary edges");
 		
@@ -225,17 +224,14 @@ public class BankEngine {
 		
 		List<LineString> aoiedges = new ArrayList<>();
 		
-		try(SimpleFeatureReader reader = geopkg.query(null, geopkg.getEntry(Layer.AOI), null)){
-			while(reader.hasNext()){
-				SimpleFeature aoi = reader.next();
-				Polygon pg = ChyfDataSource.getPolygon(aoi);
-				LineString ring = pg.getExteriorRing();
-				aoiedges.add(ring);
-			}
+		for (Polygon p : geopkg.getAoi()) {	
+			LineString ring = p.getExteriorRing();
+			aoiedges.add(ring);
 		}
 		
-		if (geopkg.getEntry(Layer.COASTLINE) != null){
-			try(SimpleFeatureReader reader = geopkg.query(null, geopkg.getEntry(Layer.COASTLINE), null)){
+		
+		try(SimpleFeatureReader reader = geopkg.query(null, Layer.SHORELINES, null)){
+			if (reader != null) {
 				while(reader.hasNext()){
 					SimpleFeature aoi = reader.next();
 					LineString ring = ChyfDataSource.getLineString(aoi);
@@ -244,6 +240,7 @@ public class BankEngine {
 				}
 			}
 		}
+		
 
 
 		//intersect with waterbodies
@@ -293,8 +290,8 @@ public class BankEngine {
 
 	
 	public static void main(String[] args) throws Exception {		
-		Args runtime = Args.parseArguments(args, "BankEngine");
-		if (runtime == null) return;
+		FlowpathArgs runtime = new FlowpathArgs("BankEngine");
+		if (!runtime.parseArguments(args)) return;
 		
 		runtime.prepareOutput();
 		

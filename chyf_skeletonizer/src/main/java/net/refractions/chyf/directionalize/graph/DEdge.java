@@ -23,8 +23,8 @@ import org.opengis.filter.identity.FeatureId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
-import net.refractions.chyf.datasource.ChyfDataSource.EfType;
+import net.refractions.chyf.datasource.DirectionType;
+import net.refractions.chyf.datasource.EfType;
 
 /**
  * Represents an edge in our direction graph

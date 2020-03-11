@@ -35,14 +35,15 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.refractions.chyf.Args;
+import net.refractions.chyf.FlowpathArgs;
 import net.refractions.chyf.ChyfProperties;
+import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
-import net.refractions.chyf.datasource.ChyfDataSource.Attribute;
-import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
-import net.refractions.chyf.datasource.ChyfDataSource.EfType;
-import net.refractions.chyf.datasource.ChyfDataSource.IoType;
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
+import net.refractions.chyf.datasource.DirectionType;
+import net.refractions.chyf.datasource.EfType;
+import net.refractions.chyf.datasource.FlowDirection;
+import net.refractions.chyf.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.datasource.Layer;
 import net.refractions.chyf.directionalize.graph.DEdge;
 import net.refractions.chyf.directionalize.graph.DGraph;
 import net.refractions.chyf.directionalize.graph.DNode;
@@ -61,7 +62,7 @@ public class DirectionalizeEngine {
 
 		CoordinateReferenceSystem sourceCRS = null;
 		
-		try(ChyfGeoPackageDataSource dataSource = new ChyfGeoPackageDataSource(output)){
+		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
 			if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 
 			List<EdgeInfo> edges = new ArrayList<>();
@@ -74,10 +75,10 @@ public class DirectionalizeEngine {
 
 			logger.info("loading flowpaths");
 			
-			try(SimpleFeatureReader reader = dataSource.getFlowpaths(null)){
+			try(SimpleFeatureReader reader = dataSource.getFeatureReader(Layer.EFLOWPATHS,null, null)){
 				sourceCRS = reader.getFeatureType().getCoordinateReferenceSystem();
-				Name eftypeatt = ChyfDataSource.findAttribute(reader.getFeatureType(), Attribute.EFTYPE);
-				Name direatt = ChyfDataSource.findAttribute(reader.getFeatureType(), Attribute.DIRECTION);
+				Name eftypeatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.EFTYPE);
+				Name direatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.DIRECTION);
 				
 				while(reader.hasNext()) {
 					SimpleFeature sf = reader.next();
@@ -85,8 +86,8 @@ public class DirectionalizeEngine {
 					
 					for (PreparedPolygon p : aois) {
 						if (p.contains(ls) || p.getGeometry().relate(ls, "1********")) {
-							EfType eftype = EfType.parseType((Integer)sf.getAttribute(eftypeatt));
-							DirectionType dtype = DirectionType.parseType((Integer)sf.getAttribute(direatt));
+							EfType eftype = EfType.parseValue((Integer)sf.getAttribute(eftypeatt));
+							DirectionType dtype = DirectionType.parseValue((Integer)sf.getAttribute(direatt));
 							
 							EdgeInfo ei = new EdgeInfo(ls.getCoordinateN(0),
 									ls.getCoordinateN(1),
@@ -160,19 +161,24 @@ public class DirectionalizeEngine {
 	 * - and flow edge that intersects the coastline
 	 * 
 	 */
-	private static List<Coordinate> getSinkPoints(ChyfGeoPackageDataSource source, DGraph graph) throws Exception {
+	private static List<Coordinate> getSinkPoints(FlowpathGeoPackageDataSource source, DGraph graph) throws Exception {
 		List<Coordinate> sinks = new ArrayList<>();
-		for (Point p : source.getBoundaries()) {
-			if ( ((IoType)p.getUserData()) == IoType.OUTPUT ) {
+		for (Point p : source.getTerminalNodes()) {
+			if ( ((FlowDirection)p.getUserData()) == FlowDirection.OUTPUT ) {
 				if (!sinks.contains(p.getCoordinate())) sinks.add(p.getCoordinate());
 			}
 		}
 		
 		//add coastline sinks
 		Set<Coordinate> clc = new HashSet<>();
-		for (LineString ls : source.getCoastline()) {
-			for (Coordinate c : ls.getCoordinates()) clc.add(c);
-		
+		try(SimpleFeatureReader reader = source.getFeatureReader(Layer.SHORELINES, null, null)){
+			if (reader != null) {
+				while(reader.hasNext()) {
+					SimpleFeature sf = reader.next();
+					LineString ls = ChyfDataSource.getLineString(sf);
+					for (Coordinate c : ls.getCoordinates()) clc.add(c);
+				}
+			}
 		}
 		
 		//now lets search the graph for sink points based on known direction
@@ -205,11 +211,10 @@ public class DirectionalizeEngine {
 	}
 	
 	public static void main(String[] args) throws Exception {		
-		Args runtime = Args.parseArguments(args, "DirectionalizeEngine");
-		if (runtime == null) return;
+		FlowpathArgs runtime = new FlowpathArgs("DirectionalizeEngine");
+		if (!runtime.parseArguments(args)) return;
 		
 		runtime.prepareOutput();
-		
 		
 		long now = System.nanoTime();
 		DirectionalizeEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());

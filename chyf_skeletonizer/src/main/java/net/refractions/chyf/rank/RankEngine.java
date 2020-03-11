@@ -27,11 +27,13 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.refractions.chyf.Args;
+import net.refractions.chyf.ChyfProperties;
+import net.refractions.chyf.FlowpathArgs;
+import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
-import net.refractions.chyf.datasource.ChyfDataSource.Attribute;
-import net.refractions.chyf.datasource.ChyfDataSource.RankType;
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
+import net.refractions.chyf.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.datasource.Layer;
+import net.refractions.chyf.datasource.RankType;
 
 /**
  * Main class for computing Rank in dataset
@@ -42,12 +44,16 @@ public class RankEngine {
 	
 	static final Logger logger = LoggerFactory.getLogger(RankEngine.class.getCanonicalName());
 
-	public static void doWork(Path output) throws Exception {
+	public static void doWork(Path output, ChyfProperties properties) throws Exception {
 
+		
 		logger.info("build graph");
 		RGraph graph = new RGraph();
 		CoordinateReferenceSystem crs;
-		try(ChyfGeoPackageDataSource dataSource = new ChyfGeoPackageDataSource(output)){
+		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
+			
+			if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+
 			logger.info("adding attribute");
 			try {
 				dataSource.addRankAttribute();
@@ -57,18 +63,18 @@ public class RankEngine {
 			}
 			
 			logger.info("loading flowpaths");
-			try(SimpleFeatureReader reader = dataSource.getFlowpaths(null)){
+			try(SimpleFeatureReader reader = dataSource.getFeatureReader(Layer.EFLOWPATHS, null, null)){
 				
-				Name eftypeatt = ChyfDataSource.findAttribute(reader.getFeatureType(), Attribute.EFTYPE);
+				Name eftypeatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.EFTYPE);
 				crs = reader.getFeatureType().getCoordinateReferenceSystem();
 				while(reader.hasNext()) {
 					SimpleFeature sf = reader.next();
 					graph.addEdge(sf, eftypeatt);	
 				}
 			}
-		
+			
 			logger.info("computing ranks");
-			RankComputer engine = new RankComputer(crs, dataSource);
+			RankComputer engine = new RankComputer(crs, dataSource, properties);
 			engine.computeRank(graph);
 
 			logger.info("saving results");
@@ -79,13 +85,13 @@ public class RankEngine {
 	}
 	
 	public static void main(String[] args) throws Exception {		
-		Args runtime = Args.parseArguments(args, "RankEngine");
-		if (runtime == null) return;
+		FlowpathArgs runtime = new FlowpathArgs("RankEngine");
+		if (!runtime.parseArguments(args)) return;
 		
 		runtime.prepareOutput();
 		
 		long now = System.nanoTime();
-		RankEngine.doWork(runtime.getOutput());
+		RankEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
 		long then = System.nanoTime();
 		
 		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );

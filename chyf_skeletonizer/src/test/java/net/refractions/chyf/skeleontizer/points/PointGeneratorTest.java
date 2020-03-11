@@ -33,9 +33,9 @@ import org.locationtech.jts.io.WKTReader;
 
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.ChyfProperties.Property;
+import net.refractions.chyf.datasource.FlowDirection;
+import net.refractions.chyf.datasource.FlowpathGeoPackageDataSource.NodeType;
 import net.refractions.chyf.skeletonizer.points.ConstructionPoint;
-import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Direction;
-import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Type;
 import net.refractions.chyf.skeletonizer.points.PointGenerator;
 import net.refractions.chyf.skeletonizer.points.PolygonInfo;
 
@@ -59,7 +59,7 @@ public class PointGeneratorTest {
 	public void testIsolatedSelfIntersecting() throws Exception{
 		String waterbody = "Polygon ((-91.34740490000000079 47.64300370000000129 0, -91.34742690000000209 47.64268030000000209 0, -91.34745859999999595 47.64243820000000085 0, -91.3476272999999992 47.64222389999999763 0, -91.34780379999999411 47.64209900000000175 0, -91.34800429999999949 47.64200569999999857 0, -91.34822250000000565 47.64199380000000161 0, -91.34845669999999984 47.6420533000000006 0, -91.34862529999999481 47.64214659999999668 0, -91.34885149999999499 47.6422339000000008 0, -91.34917489999999418 47.64231920000000287 0, -91.34951420000000155 47.64245609999999687 0, -91.34970859999999959 47.64262070000000193 0, -91.34996850000000279 47.6428212000000002 0, -91.35015500000000088 47.64305130000000332 0, -91.35028599999999699 47.64345610000000164 0, -91.35047240000000102 47.64363660000000067 0, -91.35071449999999516 47.64381720000000087 0, -91.35082950000000324 47.6440076000000019 0, -91.35094259999999622 47.64409100000000308 0, -91.35124020000000655 47.64414450000000301 0, -91.35159529999999961 47.64426960000000122 0, -91.35173430000000394 47.64448780000000028 0, -91.35175220000000706 47.64478940000000051 0, -91.35191480000000297 47.64496400000000165 0, -91.35208339999999794 47.64510680000000065 0, -91.35219050000000607 47.64523179999999769 0, -91.35219850000000008 47.64532510000000087 0, -91.35218270000000018 47.64543019999999984 0, -91.35209340000000111 47.64544610000000091 0, -91.35189300000000401 47.6454956999999979 0, -91.35170050000000685 47.64559489999999897 0, -91.35162699999999347 47.64576950000000011 0, -91.3517242000000067 47.64587470000000025 0, -91.35194239999999866 47.6459501000000003 0, -91.3520476000000059 47.6460095999999993 0, -91.3520575000000008 47.64622390000000252 0, -91.35197019999999668 47.6464162999999985 0, -91.35168840000000046 47.64678930000000179 0, -91.35144040000000132 47.64699770000000001 0, -91.3512797000000063 47.64709679999999992 0, -91.3510454999999979 47.64708100000000002 0, -91.35102179999999805 47.64710879999999804 0, -91.35104560000000617 47.64726149999999905 0, -91.35095819999999378 47.64740429999999805 0, -91.35067650000000583 47.64742220000000117 0, -91.35034520000000668 47.64742220000000117 0, -91.35008729999999844 47.64736270000000218 0, -91.349747899999997 47.64742809999999906 0, -91.34937089999999671 47.64757300000000129 0, -91.34895819999999844 47.6476602999999983 0, -91.34839470000000006 47.64770000000000039 0, -91.34796810000000278 47.64774560000000037 0, -91.34750789999999654 47.64780700000000024 0, -91.34711299999999312 47.6478468000000035 0, -91.34677369999999996 47.6478188999999972 0, -91.34645820000000072 47.64774950000000331 0, -91.34601569999999526 47.64767210000000119 0, -91.34562689999999918 47.64754709999999704 0, -91.34539279999999906 47.64742220000000117 0, -91.34515860000000487 47.64729119999999796 0, -91.34495630000000688 47.6470729999999989 0, -91.34478369999999359 47.64672170000000051 0, -91.34465470000000664 47.64649359999999945 0, -91.34449999999999648 47.6462416000000033 0, -91.34445039999999949 47.64599549999999795 0, -91.34448209999999335 47.64572569999999985 0, -91.34458539999999971 47.64536470000000179 0, -91.34464690000000076 47.64509089999999958 0, -91.34465480000000071 47.64477939999999734 0, -91.34460520000000372 47.64454920000000016 0, -91.34453179999999861 47.64432500000000203 0, -91.34451400000000376 47.64417619999999687 0, -91.34453779999999767 47.64392420000000072 0, -91.34453589999999679 47.64365039999999851 0, -91.34451009999999371 47.64338860000000153 0, -91.3445497999999958 47.64307500000000317 0, -91.34470059999999592 47.64246800000000093 0, -91.34465899999999294 47.64212669999999861 0, -91.34460939999999596 47.64189259999999848 0, -91.34454200000000412 47.64164060000000234 0, -91.34458960000000616 47.64142040000000122 0, -91.34462929999999403 47.64123390000000313 0, -91.34453999999999496 47.64105330000000293 0, -91.34422460000000399 47.64083500000000271 0, -91.34411740000000179 47.64057309999999745 0, -91.34405200000000491 47.64026170000000349 0, -91.34381000000000483 47.64000370000000117 0, -91.34355800000000158 47.63980130000000202 0, -91.34348450000000241 47.63957709999999679 0, -91.34353219999999851 47.63931519999999864 0, -91.3434587999999934 47.63911689999999766 0, -91.34328019999999526 47.63902949999999947 0, -91.34301440000000127 47.6389204000000035 0, -91.34273860000000411 47.63875769999999932 0, -91.34251240000000394 47.63851760000000013 0, -91.34234179999999981 47.6383371000000011 0, -91.3419946000000067 47.63817240000000197 0, -91.34177630000000647 47.63809109999999691 0, -91.34156600000000026 47.63800969999999779 0, -91.34141920000000425 47.63792829999999867 0, -91.34144299999999816 47.63777950000000061 0, -91.34163560000000359 47.63760489999999947 0, -91.34186959999999544 47.63741250000000349 0, -91.34208599999999478 47.63726369999999832 0, -91.34239940000000502 47.63715260000000029 0, -91.34271490000000426 47.63707120000000117 0, -91.34301250000000039 47.63703749999999815 0, -91.34323879999999463 47.6370355000000032 0, -91.34327840000000265 47.63705730000000216 0, -91.34420699999999727 47.63702359999999913 0, -91.3447625999999957 47.6370773000000014 0, -91.34521499999999605 47.63720219999999728 0, -91.34549869999999316 47.63740860000000055 0, -91.34575859999999636 47.63774790000000081 0, -91.34596089999999435 47.63809899999999686 0, -91.34610770000000457 47.63833910000000316 0, -91.34610960000000546 47.63872800000000041 0, -91.34629019999999855 47.63929149999999879 0, -91.34654020000000685 47.63952760000000097 0, -91.34704209999999591 47.63975570000000204 0, -91.34751830000000439 47.64003350000000125 0, -91.34760959999999841 47.64033510000000149 0, -91.34753809999999419 47.64063670000000172 0, -91.34723259999999811 47.64088869999999787 0, -91.34695069999999362 47.64112080000000304 0, -91.34675230000000568 47.64143829999999724 0, -91.34671269999999765 47.64182710000000043 0, -91.3467959000000036 47.64224769999999864 0, -91.34692680000000564 47.64252749999999992 0, -91.34702409999999873 47.64270210000000105 0, -91.34712129999999775 47.64282910000000015 0, -91.3472026000000028 47.64292230000000217 0, -91.34733149999999569 47.64297590000000326 0, -91.34740490000000079 47.64300370000000129 0),(-91.34766299999999717 47.64296999999999827 0, -91.34740490000000079 47.64300370000000129 0, -91.347462500000006 47.64318420000000032 0, -91.34759139999999888 47.64337069999999841 0, -91.34774430000000223 47.64339650000000148 0, -91.34789109999999823 47.64340250000000054 0, -91.34805179999999325 47.64336870000000346 0, -91.34812320000000341 47.64334089999999833 0, -91.34848639999999875 47.64320409999999839 0, -91.34868679999999586 47.64304340000000337 0, -91.34871859999999799 47.64282510000000315 0, -91.34871660000000304 47.642567200000002 0, -91.34866689999999778 47.64231519999999875 0, -91.3486015000000009 47.6422339000000008 0, -91.34840900000000374 47.64226159999999766 0, -91.34816890000000456 47.64244810000000285 0, -91.34801620000000355 47.64274369999999692 0, -91.34792880000000537 47.64293030000000329 0, -91.34787120000000016 47.64301960000000236 0, -91.34766299999999717 47.64296999999999827 0))";
 		Polygon polygon = (Polygon)reader.read(waterbody);
-		polygon.setUserData(new PolygonInfo(null, 1));
+		polygon.setUserData(new PolygonInfo(null, "1"));
 		
 		PointGenerator pg = createPointGenerator();
 		pg.processPolygon(polygon, Collections.emptyList(), Collections.emptyList());
@@ -67,10 +67,10 @@ public class PointGeneratorTest {
 	
 		
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-91.3474269, 47.6426803),Type.HEADWATER,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-91.344514, 47.6441762),Type.TERMINAL,Direction.OUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-91.3487186, 47.6428251),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-91.3510455, 47.647081),Type.BANK,Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-91.3474269, 47.6426803),NodeType.HEADWATER,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-91.344514, 47.6441762),NodeType.TERMINAL,FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-91.3487186, 47.6428251),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-91.3510455, 47.647081),NodeType.BANK,FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -80,7 +80,7 @@ public class PointGeneratorTest {
 	public void testSelfIntersecting() throws Exception{
 		String waterbody = "POLYGON (( 505 391, 427 428, 371 526, 408 618, 495 677, 631 690, 830 672, 983 590, 1024 464, 770 318, 597 357, 505 391 ), ( 830 672, 677 608, 663 571, 677 498, 762 488, 876 534, 876 587, 830 672 ))";
 		Polygon polygon = (Polygon)reader.read(waterbody);
-		polygon.setUserData(new PolygonInfo(null, 1));
+		polygon.setUserData(new PolygonInfo(null, "1"));
 		
 		String ls1 = "LINESTRING ( 243 794, 408 618 )";
 		String ls2 = "LINESTRING ( 770 318, 987 189 )";
@@ -96,11 +96,11 @@ public class PointGeneratorTest {
 		pnts.forEach(e->e.toText());
 		
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(408.0, 618.0),Type.FLOWPATH,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(770.0, 318.0),Type.FLOWPATH,Direction.OUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(505.0, 391.0),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(677.0, 498.0),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(730.5, 681.0),Type.BANK,Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(408.0, 618.0),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(770.0, 318.0),NodeType.FLOWPATH,FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(505.0, 391.0),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(677.0, 498.0),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(730.5, 681.0),NodeType.BANK,FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -117,20 +117,20 @@ public class PointGeneratorTest {
 	public void wbTouchAtPoint() throws Exception{
 		String waterbody = "POLYGON ((676.3 950, 923.1 983, 1125.2 865.4, 1154.6 715, 778.6 744.4, 615.2 888.9, 676.3 950))";
 		Polygon polygon = (Polygon)reader.read(waterbody);
-		polygon.setUserData(new PolygonInfo(null, 1));
+		polygon.setUserData(new PolygonInfo(null, "1"));
 
 		String other = "POLYGON ((1376.7 750.3, 1154.6 715, 1139.3 629.2, 1181.7 474.1, 1350.9 417.7, 1464.9 410.7, 1576.5 519.9, 1517.7 712.7, 1376.7 750.3))";
 		Polygon otherp = (Polygon)reader.read(other);
-		otherp.setUserData(new PolygonInfo(null, 2));
+		otherp.setUserData(new PolygonInfo(null, "2"));
 		
 		PointGenerator pg = createPointGenerator();
 		pg.processPolygon(polygon, Collections.singletonList(otherp), Collections.emptyList());
 		List<ConstructionPoint> pnts = pg.getPoints();
 		
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(1154.6, 715.0),Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(615.2, 888.9),Type.HEADWATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(778.6, 744.4),Type.BANK,Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(1154.6, 715.0),NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(615.2, 888.9),NodeType.HEADWATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(778.6, 744.4),NodeType.BANK,FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -159,11 +159,11 @@ public class PointGeneratorTest {
 		List<ConstructionPoint> pnts = pg.getPoints();
 	
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(46.5, 571.7),Type.FLOWPATH,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(326.1409795038991, 296.8306061508542),Type.FLOWPATH,Direction.OUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-46.349999999999994, 498.25),Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(373.2, 380.1),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(275.6, 207.4),Type.BANK,Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(46.5, 571.7),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(326.1409795038991, 296.8306061508542),NodeType.FLOWPATH,FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-46.349999999999994, 498.25),NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(373.2, 380.1),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(275.6, 207.4),NodeType.BANK,FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -171,11 +171,11 @@ public class PointGeneratorTest {
 		pg.processPolygon(otherp, Collections.singletonList(polygon), fps);
 		pnts = pg.getPoints();
 	
-		expected.add(new ConstructionPoint(new Coordinate(46.5, 571.7),Type.FLOWPATH,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate( -449.0938715776263, 709.594356266409),Type.FLOWPATH,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-46.349999999999994, 498.25),Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-389.5, 777.3),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-518.8, 630.4),Type.BANK,Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(46.5, 571.7),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate( -449.0938715776263, 709.594356266409),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-46.349999999999994, 498.25),NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-389.5, 777.3),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-518.8, 630.4),NodeType.BANK,FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -185,11 +185,11 @@ public class PointGeneratorTest {
 	public void wbTouchAtPointWithFlowth() throws Exception{
 		String waterbody = "POLYGON ((676.3 950, 923.1 983, 1125.2 865.4, 1154.6 715, 778.6 744.4, 615.2 888.9, 676.3 950))";
 		Polygon polygon = (Polygon)reader.read(waterbody);
-		polygon.setUserData(new PolygonInfo(null, 1));
+		polygon.setUserData(new PolygonInfo(null, "1"));
 
 		String other = "POLYGON ((1376.7 750.3, 1154.6 715, 1139.3 629.2, 1181.7 474.1, 1350.9 417.7, 1464.9 410.7, 1576.5 519.9, 1517.7 712.7, 1376.7 750.3))";
 		Polygon otherp = (Polygon)reader.read(other);
-		otherp.setUserData(new PolygonInfo(null, 2));
+		otherp.setUserData(new PolygonInfo(null, "2"));
 
 		LineString ls = (LineString)reader.read("LINESTRING ( 1293.3 981.8, 1232.2 831.4, 1154.6 715 )");
 		
@@ -198,9 +198,9 @@ public class PointGeneratorTest {
 		List<ConstructionPoint> pnts = pg.getPoints();
 	
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(1154.6, 715.0),Type.FLOWPATH,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(615.2, 888.9),Type.TERMINAL,Direction.OUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(778.6, 744.4),Type.BANK,Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(1154.6, 715.0),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(615.2, 888.9),NodeType.TERMINAL,FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(778.6, 744.4),NodeType.BANK,FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -210,7 +210,7 @@ public class PointGeneratorTest {
 	public void wbMultiLineSamePoint() throws Exception{
 		String waterbody = "POLYGON ((676.3 950, 923.1 983, 1125.2 865.4, 1154.6 715, 778.6 744.4, 615.2 888.9, 676.3 950))";
 		Polygon polygon = (Polygon)reader.read(waterbody);
-		polygon.setUserData(new PolygonInfo(null, 2));
+		polygon.setUserData(new PolygonInfo(null, "2"));
 
 		LineString ls1 = (LineString)reader.read("LINESTRING ( 355.5 994.7, 615.2 888.9 )");
 		LineString ls2 = (LineString)reader.read("LINESTRING ( 379 783.2, 615.2 888.9 )");
@@ -223,9 +223,9 @@ public class PointGeneratorTest {
 		List<ConstructionPoint> pnts = pg.getPoints();
 	
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(1125.2, 865.4),Type.TERMINAL,Direction.OUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(615.2, 888.9),Type.FLOWPATH,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(778.6, 744.4),Type.BANK,Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(1125.2, 865.4),NodeType.TERMINAL,FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(615.2, 888.9),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(778.6, 744.4),NodeType.BANK,FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -252,17 +252,17 @@ public class PointGeneratorTest {
 		List<ConstructionPoint> pnts = pg.getPoints();
 
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-63.6539508,44.4984472),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6581147,44.5024271),Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6597182,44.5039285),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6576111,44.5083969),Type.FLOWPATH,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6458395,44.4975827),Type.FLOWPATH,Direction.OUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6582808,44.5078029),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.659667431432965,44.50628250568177),Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6489549,44.4982796),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6514205,44.5036843),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6500406,44.4995182),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6502071,44.4963872),Type.FLOWPATH,Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6539508,44.4984472),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6581147,44.5024271),NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6597182,44.5039285),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6576111,44.5083969),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6458395,44.4975827),NodeType.FLOWPATH,FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6582808,44.5078029),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.659667431432965,44.50628250568177),NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6489549,44.4982796),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6514205,44.5036843),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6500406,44.4995182),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6502071,44.4963872),NodeType.FLOWPATH,FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -274,17 +274,17 @@ public class PointGeneratorTest {
 		pnts = pg.getPoints();
 
 		expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-63.65994925,44.50401225),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6539508,44.4984472),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6458395,44.4975827),Type.FLOWPATH,Direction.OUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6581147,44.5024271),Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6582808,44.5078029),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.659667431432965,44.50628250568177),Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6502071,44.4963872),Type.FLOWPATH,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6500406,44.4995182),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6576111,44.5083969),Type.FLOWPATH,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6514205,44.5036843),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-63.6489549,44.4982796),Type.BANK,Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.65994925,44.50401225),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6539508,44.4984472),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6458395,44.4975827),NodeType.FLOWPATH,FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6581147,44.5024271),NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6582808,44.5078029),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.659667431432965,44.50628250568177),NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6502071,44.4963872),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6500406,44.4995182),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6576111,44.5083969),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6514205,44.5036843),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-63.6489549,44.4982796),NodeType.BANK,FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -339,17 +339,17 @@ public class PointGeneratorTest {
 		pnts.forEach(e->e.toText());
 		
 //		Set<SkeletonPoint> expected = new HashSet<>();
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6539508,44.4984472),Type.BANK,FlowDirection.IN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6581147,44.5024271),Type.WATER,FlowDirection.UNKNOWN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6597182,44.5039285),Type.BANK,FlowDirection.IN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6576111,44.5083969),Type.FLOWPATH,FlowDirection.IN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6458395,44.4975827),Type.FLOWPATH,FlowDirection.OUT, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6582808,44.5078029),Type.BANK,FlowDirection.IN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.659667431432965,44.50628250568177),Type.WATER,FlowDirection.UNKNOWN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6489549,44.4982796),Type.BANK,FlowDirection.IN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6514205,44.5036843),Type.BANK,FlowDirection.IN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6500406,44.4995182),Type.BANK,FlowDirection.IN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6502071,44.4963872),Type.FLOWPATH,FlowDirection.IN, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6539508,44.4984472),NodeType.BANK,FlowFlowDirection.INPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6581147,44.5024271),NodeType.WATER,FlowFlowDirection.UNKNOWN, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6597182,44.5039285),NodeType.BANK,FlowFlowDirection.INPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6576111,44.5083969),NodeType.FLOWPATH,FlowFlowDirection.INPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6458395,44.4975827),NodeType.FLOWPATH,FlowFlowDirection.OUTPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6582808,44.5078029),NodeType.BANK,FlowFlowDirection.INPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.659667431432965,44.50628250568177),NodeType.WATER,FlowFlowDirection.UNKNOWN, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6489549,44.4982796),NodeType.BANK,FlowFlowDirection.INPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6514205,44.5036843),NodeType.BANK,FlowFlowDirection.INPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6500406,44.4995182),NodeType.BANK,FlowFlowDirection.INPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6502071,44.4963872),NodeType.FLOWPATH,FlowFlowDirection.INPUT, null));
 //		
 //		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 //		setEquals(expected, pnts);
@@ -361,17 +361,17 @@ public class PointGeneratorTest {
 //		pnts = pg.getPoints();
 //
 //		expected = new HashSet<>();
-//		expected.add(new SkeletonPoint(new Coordinate(-63.65994925,44.50401225),Type.BANK,FlowDirection.IN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6539508,44.4984472),Type.BANK,FlowDirection.IN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6458395,44.4975827),Type.FLOWPATH,FlowDirection.OUT, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6581147,44.5024271),Type.WATER,FlowDirection.UNKNOWN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6582808,44.5078029),Type.BANK,FlowDirection.IN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.659667431432965,44.50628250568177),Type.WATER,FlowDirection.UNKNOWN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6502071,44.4963872),Type.FLOWPATH,FlowDirection.IN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6500406,44.4995182),Type.BANK,FlowDirection.IN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6576111,44.5083969),Type.FLOWPATH,FlowDirection.IN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6514205,44.5036843),Type.BANK,FlowDirection.IN, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-63.6489549,44.4982796),Type.BANK,FlowDirection.IN, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.65994925,44.50401225),NodeType.BANK,FlowFlowDirection.INPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6539508,44.4984472),NodeType.BANK,FlowFlowDirection.INPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6458395,44.4975827),NodeType.FLOWPATH,FlowFlowDirection.OUTPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6581147,44.5024271),NodeType.WATER,FlowFlowDirection.UNKNOWN, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6582808,44.5078029),NodeType.BANK,FlowFlowDirection.INPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.659667431432965,44.50628250568177),NodeType.WATER,FlowFlowDirection.UNKNOWN, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6502071,44.4963872),NodeType.FLOWPATH,FlowFlowDirection.INPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6500406,44.4995182),NodeType.BANK,FlowFlowDirection.INPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6576111,44.5083969),NodeType.FLOWPATH,FlowFlowDirection.INPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6514205,44.5036843),NodeType.BANK,FlowFlowDirection.INPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-63.6489549,44.4982796),NodeType.BANK,FlowFlowDirection.INPUT, null));
 //		
 //		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 //		setEquals(expected, pnts);
@@ -416,10 +416,10 @@ public class PointGeneratorTest {
 		List<ConstructionPoint> pnts = pg.getPoints();
 		
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-1476959.4605345314, 254477.5392407775), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1476963.5111487831, 254448.1702455664), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1476975.768834597, 254458.79883857816), Type.FLOWPATH, Direction.OUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1476949.2850184224, 254452.5802165158), Type.FLOWPATH, Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1476959.4605345314, 254477.5392407775), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1476963.5111487831, 254448.1702455664), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1476975.768834597, 254458.79883857816), NodeType.FLOWPATH, FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1476949.2850184224, 254452.5802165158), NodeType.FLOWPATH, FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -445,16 +445,16 @@ public class PointGeneratorTest {
 		List<ConstructionPoint> pnts = pg.getPoints();
 		
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-73.1451472, 45.6766104), Type.FLOWPATH, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.142855, 45.6757485), Type.FLOWPATH, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1410658, 45.6765346), Type.FLOWPATH, Direction.OUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1451472, 45.6766104), NodeType.FLOWPATH, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.142855, 45.6757485), NodeType.FLOWPATH, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1410658, 45.6765346), NodeType.FLOWPATH, FlowDirection.OUTPUT, null));
 		
-		expected.add(new ConstructionPoint(new Coordinate(-73.1431991, 45.6781611), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1432731, 45.674589), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1441996, 45.6762655), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.141928, 45.6761954), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1437354, 45.676579), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1435231, 45.6756606), Type.BANK, Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1431991, 45.6781611), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1432731, 45.674589), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1441996, 45.6762655), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.141928, 45.6761954), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1437354, 45.676579), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1435231, 45.6756606), NodeType.BANK, FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -469,17 +469,17 @@ public class PointGeneratorTest {
 		pnts = pg.getPoints();
 		
 		expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-73.1451472, 45.6766104), Type.FLOWPATH, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.142855, 45.6757485), Type.FLOWPATH, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1435234, 45.6755976), Type.FLOWPATH, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1410658, 45.6765346), Type.FLOWPATH, Direction.OUT, null));
-		expected.add(new ConstructionPoint( new Coordinate(-73.1431991, 45.6781611), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint( new Coordinate(-73.1437354, 45.676579) , Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint( new Coordinate(-73.1432731, 45.674589) , Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint( new Coordinate(-73.1427302, 45.6751812), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint( new Coordinate(-73.1439693, 45.6761389), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint( new Coordinate(-73.141928, 45.6761954) , Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint( new Coordinate(-73.1441996, 45.6762655), Type.BANK, Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1451472, 45.6766104), NodeType.FLOWPATH, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.142855, 45.6757485), NodeType.FLOWPATH, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1435234, 45.6755976), NodeType.FLOWPATH, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1410658, 45.6765346), NodeType.FLOWPATH, FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint( new Coordinate(-73.1431991, 45.6781611), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint( new Coordinate(-73.1437354, 45.676579) , NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint( new Coordinate(-73.1432731, 45.674589) , NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint( new Coordinate(-73.1427302, 45.6751812), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint( new Coordinate(-73.1439693, 45.6761389), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint( new Coordinate(-73.141928, 45.6761954) , NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint( new Coordinate(-73.1441996, 45.6762655), NodeType.BANK, FlowDirection.INPUT, null));
 
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -502,14 +502,14 @@ public class PointGeneratorTest {
 		List<ConstructionPoint> pnts = pg.getPoints();
 		
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-73.1451472, 45.6766104), Type.FLOWPATH, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1410658, 45.6765346), Type.FLOWPATH, Direction.OUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1432731, 45.674589) , Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1437354, 45.676579) , Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1433676, 45.6758761), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1441996, 45.6762655), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1431991, 45.6781611), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.141928, 45.6761954) , Type.BANK, Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1451472, 45.6766104), NodeType.FLOWPATH, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1410658, 45.6765346), NodeType.FLOWPATH, FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1432731, 45.674589) , NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1437354, 45.676579) , NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1433676, 45.6758761), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1441996, 45.6762655), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1431991, 45.6781611), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.141928, 45.6761954) , NodeType.BANK, FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -529,10 +529,10 @@ public class PointGeneratorTest {
 		List<ConstructionPoint> pnts = pg.getPoints();
 		
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-73.3159661, 45.5521985), Type.FLOWPATH, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.3142681, 45.550576), Type.TERMINAL, Direction.OUT, null));
-//		expected.add(new SkeletonPoint(new Coordinate(-73.3159578, 45.5508397), Type.BANK, FlowDirection.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.3145214, 45.5514313), Type.BANK, Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3159661, 45.5521985), NodeType.FLOWPATH, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3142681, 45.550576), NodeType.TERMINAL, FlowDirection.OUTPUT, null));
+//		expected.add(new SkeletonPoint(new Coordinate(-73.3159578, 45.5508397), NodeType.BANK, FlowFlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3145214, 45.5514313), NodeType.BANK, FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -559,11 +559,11 @@ public class PointGeneratorTest {
 		pnts = pg.getPoints();
 		
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-73.3292829, 45.0540216), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.3218652, 45.0738787), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.3321268, 45.0649057), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.3232469, 45.0619406), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.3207052, 45.0626476), Type.BANK, Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3292829, 45.0540216), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3218652, 45.0738787), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3321268, 45.0649057), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3232469, 45.0619406), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3207052, 45.0626476), NodeType.BANK, FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -586,39 +586,39 @@ public class PointGeneratorTest {
 		pnts = pg.getPoints();
 
 		expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-73.2682737, 45.4546497), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2751599, 45.4527647), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2702414, 45.4549686), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2618231, 45.4471317), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2644757, 45.4486849), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2743549, 45.4526282), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2680328, 45.4510228), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2606834, 45.446053) , Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2749316, 45.4522874), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2750416, 45.4535654), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2738328, 45.4520873), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2634927, 45.4483409), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.26878045768625, 45.45580258301047), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2687315, 45.452113) , Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2696528, 45.4550934), Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2665147, 45.4559953), Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2757436, 45.453299) , Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2628551, 45.4479527), Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2735731, 45.4531216), Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2716591, 45.4547398), Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2660657, 45.4506049), Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2736575, 45.4511961), Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.27361354527456, 45.45419242772247), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2689754, 45.4487481), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2686295, 45.4552083), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2751817, 45.4504702), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2685922, 45.4549473), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2746469, 45.4531417), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2707256, 45.4552025), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.270805, 45.4546998), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2626512, 45.4477992), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2767814, 45.4512967), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2683685, 45.4533541), Type.BANK, Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2682737, 45.4546497), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2751599, 45.4527647), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2702414, 45.4549686), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2618231, 45.4471317), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2644757, 45.4486849), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2743549, 45.4526282), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2680328, 45.4510228), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2606834, 45.446053) , NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2749316, 45.4522874), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2750416, 45.4535654), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2738328, 45.4520873), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2634927, 45.4483409), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.26878045768625, 45.45580258301047), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2687315, 45.452113) , NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2696528, 45.4550934), NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2665147, 45.4559953), NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2757436, 45.453299) , NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2628551, 45.4479527), NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2735731, 45.4531216), NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2716591, 45.4547398), NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2660657, 45.4506049), NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2736575, 45.4511961), NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.27361354527456, 45.45419242772247), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2689754, 45.4487481), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2686295, 45.4552083), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2751817, 45.4504702), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2685922, 45.4549473), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2746469, 45.4531417), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2707256, 45.4552025), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.270805, 45.4546998), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2626512, 45.4477992), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2767814, 45.4512967), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2683685, 45.4533541), NodeType.BANK, FlowDirection.INPUT, null));
 
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
@@ -634,50 +634,50 @@ public class PointGeneratorTest {
 		pnts = pg.getPoints();
 
 		expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-73.2682737, 45.4546497), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2751599, 45.4527647), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2702414, 45.4549686), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2618231, 45.4471317), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2644757, 45.4486849), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2743549, 45.4526282), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2680328, 45.4510228), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2606834, 45.446053) , Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2749316, 45.4522874), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2750416, 45.4535654), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2738328, 45.4520873), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2634927, 45.4483409), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.26878045768625, 45.45580258301047), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2687315, 45.452113) , Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2696528, 45.4550934), Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2665147, 45.4559953), Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2757436, 45.453299) , Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2628551, 45.4479527), Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2735731, 45.4531216), Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2716591, 45.4547398), Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2660657, 45.4506049), Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2736575, 45.4511961), Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.27361354527456, 45.45419242772247), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2689754, 45.4487481), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2686295, 45.4552083), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2751817, 45.4504702), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2685922, 45.4549473), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2746469, 45.4531417), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2707256, 45.4552025), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.270805, 45.4546998), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2626512, 45.4477992), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2767814, 45.4512967), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2683685, 45.4533541), Type.BANK, Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2682737, 45.4546497), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2751599, 45.4527647), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2702414, 45.4549686), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2618231, 45.4471317), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2644757, 45.4486849), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2743549, 45.4526282), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2680328, 45.4510228), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2606834, 45.446053) , NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2749316, 45.4522874), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2750416, 45.4535654), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2738328, 45.4520873), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2634927, 45.4483409), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.26878045768625, 45.45580258301047), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2687315, 45.452113) , NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2696528, 45.4550934), NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2665147, 45.4559953), NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2757436, 45.453299) , NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2628551, 45.4479527), NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2735731, 45.4531216), NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2716591, 45.4547398), NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2660657, 45.4506049), NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2736575, 45.4511961), NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.27361354527456, 45.45419242772247), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2689754, 45.4487481), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2686295, 45.4552083), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2751817, 45.4504702), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2685922, 45.4549473), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2746469, 45.4531417), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2707256, 45.4552025), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.270805, 45.4546998), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2626512, 45.4477992), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2767814, 45.4512967), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2683685, 45.4533541), NodeType.BANK, FlowDirection.INPUT, null));
 
-		expected.add(new ConstructionPoint(new Coordinate(-73.2767814, 45.4512967), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.27361354527456, 45.45419242772247), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2707256, 45.4552025), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2757436, 45.453299), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.28013051316978, 45.45839146759105), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2883179, 45.4487856), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.27520675, 45.453840150000005), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2716591, 45.4547398), Type.WATER, Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.27629160000001, 45.4526995), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.2713348, 45.45491680000001), Type.BANK, Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2767814, 45.4512967), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.27361354527456, 45.45419242772247), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2707256, 45.4552025), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2757436, 45.453299), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.28013051316978, 45.45839146759105), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2883179, 45.4487856), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.27520675, 45.453840150000005), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2716591, 45.4547398), NodeType.WATER, FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.27629160000001, 45.4526995), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.2713348, 45.45491680000001), NodeType.BANK, FlowDirection.INPUT, null));
 
 		
 		
@@ -701,9 +701,9 @@ public class PointGeneratorTest {
 		List<ConstructionPoint> pnts = pg.getPoints();
 		
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-73.3160047, 45.5521535), Type.HEADWATER, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.3142681, 45.550576), Type.FLOWPATH, Direction.OUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.3145981, 45.5514674), Type.BANK, Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3160047, 45.5521535), NodeType.HEADWATER, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3142681, 45.550576), NodeType.FLOWPATH, FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3145981, 45.5514674), NodeType.BANK, FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -721,9 +721,9 @@ public class PointGeneratorTest {
 		pnts = pg.getPoints();
 		
 		expected.clear();
-		expected.add(new ConstructionPoint(new Coordinate(-1579275.15599318, 344381.3975622514), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1579200.8005433206, 344349.26974770986), Type.FLOWPATH, Direction.OUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1579244.5556398274, 344472.1923603108), Type.HEADWATER, Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1579275.15599318, 344381.3975622514), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1579200.8005433206, 344349.26974770986), NodeType.FLOWPATH, FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1579244.5556398274, 344472.1923603108), NodeType.HEADWATER, FlowDirection.INPUT, null));
 
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -740,9 +740,9 @@ public class PointGeneratorTest {
 		List<ConstructionPoint> pnts = pg.getPoints(); 
 		
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-73.3240431,45.5413862), Type.TERMINAL, Direction.OUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.3268319,45.5422723), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.3268155,45.5393028), Type.HEADWATER, Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3240431,45.5413862), NodeType.TERMINAL, FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3268319,45.5422723), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3268155,45.5393028), NodeType.HEADWATER, FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -755,9 +755,9 @@ public class PointGeneratorTest {
 		pnts = pg.getPoints(); 
 		
 		expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-73.3389781, 45.5354423), Type.HEADWATER, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.345556,45.5413273), Type.TERMINAL, Direction.OUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.343272,45.5383907), Type.BANK, Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3389781, 45.5354423), NodeType.HEADWATER, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.345556,45.5413273), NodeType.TERMINAL, FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.343272,45.5383907), NodeType.BANK, FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -770,10 +770,10 @@ public class PointGeneratorTest {
 		pg.processPolygon(polygon, Collections.emptyList(),  Collections.emptyList());
 		pnts = pg.getPoints(); 
 		expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-73.1255718, 45.6092503), Type.HEADWATER, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1280229, 45.6089073), Type.TERMINAL, Direction.OUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1268408, 45.6093084), Type.BANK, Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1264731, 45.6086863), Type.BANK, Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1255718, 45.6092503), NodeType.HEADWATER, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1280229, 45.6089073), NodeType.TERMINAL, FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1268408, 45.6093084), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1264731, 45.6086863), NodeType.BANK, FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -811,20 +811,20 @@ public class PointGeneratorTest {
 		Collection<ConstructionPoint> pnts = pg.getPoints();
 		
 		ArrayList<ConstructionPoint> expected = new ArrayList<>();
-		expected.add(new ConstructionPoint(new Coordinate(-1548057.2939982228,308063.6058185636),Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1545116.6724219415,309802.54312652536),Type.FLOWPATH,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1550350.7992721763,310568.503093807),Type.FLOWPATH,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1545442.1426244352, 308000.2138310028),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1545130.1527877913,310213.90950570535),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1550653.227175346,308615.6164732883),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1550790.4972609133,309653.47135985456),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1550228.246048949, 310377.98523211945),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1545366.9223517894,308218.3907535542),Type.FLOWPATH,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1550813.5321511407,308946.0723840734),Type.FLOWPATH,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1550302.32115557,310111.8404649761),Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1547588.3938290146,310737.0206989875),Type.WATER,Direction.UNKNOWN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1544989.7215381619,308939.38913954794),Type.BANK,Direction.IN, null));
-		expected.add(new ConstructionPoint(new Coordinate(-1550275.0184973506,310717.4553442793),Type.BANK,Direction.IN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1548057.2939982228,308063.6058185636),NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1545116.6724219415,309802.54312652536),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1550350.7992721763,310568.503093807),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1545442.1426244352, 308000.2138310028),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1545130.1527877913,310213.90950570535),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1550653.227175346,308615.6164732883),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1550790.4972609133,309653.47135985456),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1550228.246048949, 310377.98523211945),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1545366.9223517894,308218.3907535542),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1550813.5321511407,308946.0723840734),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1550302.32115557,310111.8404649761),NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1547588.3938290146,310737.0206989875),NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1544989.7215381619,308939.38913954794),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-1550275.0184973506,310717.4553442793),NodeType.BANK,FlowDirection.INPUT, null));
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
 		

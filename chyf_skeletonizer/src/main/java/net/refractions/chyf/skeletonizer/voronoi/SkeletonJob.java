@@ -23,8 +23,10 @@ import org.opengis.feature.simple.SimpleFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
+import net.refractions.chyf.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.datasource.WaterbodyIterator;
 
 /**
  * Skeleton job that generates skeletons for waterbodies
@@ -37,15 +39,18 @@ public class SkeletonJob implements Runnable{
 
 	static final Logger logger = LoggerFactory.getLogger(SkeletonJob.class.getCanonicalName());
 
-	private ChyfGeoPackageDataSource dataSource;
+	private FlowpathGeoPackageDataSource dataSource;
 	private SkeletonGenerator generator;
+	private WaterbodyIterator iterator;
+	
 	
 	private List<Exception> exerrors;
 	private List<String> skelerrors;
 	
-	public SkeletonJob(ChyfGeoPackageDataSource dataSource, SkeletonGenerator generator) {
+	public SkeletonJob(FlowpathGeoPackageDataSource dataSource, WaterbodyIterator iterator, SkeletonGenerator generator) {
 		this.dataSource = dataSource;
 		this.generator = generator;
+		this.iterator = iterator;
 	}
 	
 	public List<Exception> getExceptions() {
@@ -61,19 +66,17 @@ public class SkeletonJob implements Runnable{
 		skelerrors = new ArrayList<>();
 		
 		try {
-			while(true) {
-				//find next feature to process
-				SimpleFeature toProcess = dataSource.getNextWaterbody();
-				if (toProcess == null) break; //finished processing
+			SimpleFeature toProcess = null;
+			while((toProcess = iterator.getNextWaterbody()) != null) {
 				logger.info(toProcess.getIdentifier().toString());
-				Integer polyid = (Integer) toProcess.getAttribute(ChyfGeoPackageDataSource.POLYID_ATTRIBUTE);
+				String catchmentId = (String) toProcess.getAttribute(ChyfAttribute.INTERNAL_ID.getFieldName());
 				try {
 					Polygon workingPolygon = ChyfDataSource.getPolygon(toProcess);
-					SkeletonResult result = generator.generateSkeleton(workingPolygon, dataSource.getConstructionsPoints(polyid));
+					SkeletonResult result = generator.generateSkeleton(workingPolygon, dataSource.getConstructionsPoints(catchmentId));
 					dataSource.writeSkeletons(result.getSkeletons());
 					skelerrors.addAll(result.getErrors());
 				}catch (Exception ex) {
-					exerrors.add(new Exception("Error processing polyid: " + polyid, ex));
+					exerrors.add(new Exception("Error processing catchment with identifier: " + catchmentId, ex));
 				}
 			}
 		}catch (Exception ex) {

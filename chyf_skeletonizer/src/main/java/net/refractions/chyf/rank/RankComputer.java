@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.geometry.jts.ReferencedEnvelope;
@@ -35,10 +36,13 @@ import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.filter.identity.FeatureId;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
+import net.refractions.chyf.ChyfProperties;
+import net.refractions.chyf.ChyfProperties.Property;
 import net.refractions.chyf.datasource.ChyfAngle;
 import net.refractions.chyf.datasource.ChyfDataSource;
-import net.refractions.chyf.datasource.ChyfDataSource.EfType;
-import net.refractions.chyf.datasource.ChyfDataSource.RankType;
+import net.refractions.chyf.datasource.EfType;
+import net.refractions.chyf.datasource.Layer;
+import net.refractions.chyf.datasource.RankType;
 
 /**
  * Compute rank by looking at angles.
@@ -50,13 +54,15 @@ public class RankComputer {
 
 	private ChyfAngle angleComputer;
 	private ChyfDataSource source;
+	private ChyfProperties properties;
 	
 	private CoordinateReferenceSystem sourceCRS;
 	
-	public RankComputer(CoordinateReferenceSystem sourceCRS, ChyfDataSource source) {
+	public RankComputer(CoordinateReferenceSystem sourceCRS, ChyfDataSource source, ChyfProperties properties) {
 		this.angleComputer = new ChyfAngle(sourceCRS);
 		this.source = source;
 		this.sourceCRS = sourceCRS;
+		this.properties = properties;
 	}
 	
 	public void computeRank(RGraph graph) throws Exception {
@@ -72,37 +78,43 @@ public class RankComputer {
 	private void computePrimarySecondary(RNode node) throws Exception {
 		HashMap<REdge, Double> angles = new HashMap<>();
 
-		
 		boolean inwb = true;
+//		if (node.getCoordinate().equals2D(new Coordinate(635579.88930474047083408, 4997718.46288649551570415))) {
+//			System.out.println("??");
+//		}
 		for (REdge out : node.getOutEdges()) {
 			if (out.getType() != EfType.SKELETON) inwb = false;
 			
 			double angle = 0;
 			for (REdge in : node.getInEdges()) {
 				double a = computeAngle(in.getToC(), node.getCoordinate(), out.getFromC());
-				
-				if (Math.PI - a < Math.PI - angle) {
-					angle = (Math.PI-a);
+				if (a > angle) {
+					angle = a;
 				}
+//				if (Math.PI - a < Math.PI - angle) {
+//					angle = (Math.PI-a);
+//				}
 			}
-			angles.put(out,  angle);
+			angles.put(out,  angle/ Math.PI);
 		}
 		
 		//if all angles are within 10degrees of each other then look for another way of computing rank
-		Double minValue = angles.entrySet().stream().min(Map.Entry.comparingByValue()).get().getValue();
-		Double maxValue = angles.entrySet().stream().max(Map.Entry.comparingByValue()).get().getValue();
+//		Double minValue = angles.entrySet().stream().min(Map.Entry.comparingByValue()).get().getValue();
+//		Double maxValue = angles.entrySet().stream().max(Map.Entry.comparingByValue()).get().getValue();
 		
-		if ( inwb && (maxValue - minValue < 30*(Math.PI / 180.0))) {
+//		if (inwb) {
+//			System.out.println( node.toString() + "," +  Math.toDegrees( (maxValue - minValue)) );
+//		}
+		if ( inwb ) { //&& (maxValue - minValue < 30*(Math.PI / 180.0))) {
 			//compute channel width
 			
-			HashMap<REdge, Double> angles2 = new HashMap<>();
 
 			//find waterbody that contains the node
 			Polygon wb = null;
 			FeatureId wbfid = null;
 			Point nodep = ((new GeometryFactory())).createPoint(node.getCoordinate());
 			
-			try(SimpleFeatureReader reader = source.getWaterbodies(new ReferencedEnvelope(nodep.getEnvelopeInternal(), sourceCRS))){
+			try(SimpleFeatureReader reader = source.query(new ReferencedEnvelope(nodep.getEnvelopeInternal(), sourceCRS), Layer.ECATCHMENTS, source.getWbTypeFilter())){
 				while(reader.hasNext()) {
 					SimpleFeature sf = reader.next();
 					Polygon p = ChyfDataSource.getPolygon(sf);
@@ -115,23 +127,47 @@ public class RankComputer {
 			}
 			if (wb == null) {
 				throw new Exception("waterbody could not be found for node: " + node.toString());
-			}else {	
-				List<LineString> wbparts = new ArrayList<>();
-				wbparts.add(wb.getExteriorRing());
-				for (int i = 0; i < wb.getNumInteriorRing();i ++) wbparts.add(wb.getInteriorRingN(i));
+			}	
+			List<LineString> wbparts = new ArrayList<>();
+			wbparts.add(wb.getExteriorRing());
+			for (int i = 0; i < wb.getNumInteriorRing();i ++) wbparts.add(wb.getInteriorRingN(i));
 				
-				List<LineString> tempparts = new ArrayList<>();
+			List<LineString> tempparts = new ArrayList<>();
 				
-				//break waterbody parts where they intersect with another waterbody or the coastline
-				try(SimpleFeatureReader reader = source.getWaterbodies(new ReferencedEnvelope(wb.getEnvelopeInternal(), sourceCRS))){
+			//break waterbody parts where they intersect with another waterbody or the coastline
+			try(SimpleFeatureReader reader = source.query(new ReferencedEnvelope(wb.getEnvelopeInternal(), sourceCRS), Layer.ECATCHMENTS, source.getWbTypeFilter())){
+				while(reader.hasNext()) {
+					SimpleFeature sf = reader.next();
+					if (sf.getIdentifier().equals(wbfid)) continue;
+					Polygon p = ChyfDataSource.getPolygon(sf);
+					
+					tempparts.clear();
+					for (LineString l : wbparts) {
+						if (l.getEnvelopeInternal().intersects(p.getEnvelopeInternal()) && l.intersects(p)) {
+							Geometry g = l.difference(p);
+							for (int i = 0; i < g.getNumGeometries(); i ++) {
+								LineString ls = ((LineString)g.getGeometryN(i));
+								if (!ls.isEmpty()) tempparts.add(ls);
+							}	
+						}else {
+							tempparts.add(l);
+						}
+					}
+					wbparts.clear();
+					wbparts.addAll(tempparts);
+					
+				}
+			}
+			//do the some thing with the coastline
+			try(SimpleFeatureReader reader = source.query(new ReferencedEnvelope(wb.getEnvelopeInternal(), sourceCRS), Layer.SHORELINES, null)){
+				if (reader != null) {
 					while(reader.hasNext()) {
 						SimpleFeature sf = reader.next();
-						if (sf.getIdentifier().equals(wbfid)) continue;
-						Polygon p = ChyfDataSource.getPolygon(sf);
+						LineString p = ChyfDataSource.getLineString(sf);
 						
 						tempparts.clear();
 						for (LineString l : wbparts) {
-							if (l.getEnvelopeInternal().intersects(p.getEnvelopeInternal()) && l.intersects(p)) {
+							if (l.getEnvelopeInternal().intersects(p.getEnvelopeInternal())) {
 								Geometry g = l.difference(p);
 								for (int i = 0; i < g.getNumGeometries(); i ++) {
 									LineString ls = ((LineString)g.getGeometryN(i));
@@ -146,105 +182,94 @@ public class RankComputer {
 						
 					}
 				}
-				//do the some thing with the coastline
-				try(SimpleFeatureReader reader = source.getCoastlines(new ReferencedEnvelope(wb.getEnvelopeInternal(), sourceCRS))){
-					if (reader != null) {
-						while(reader.hasNext()) {
-							SimpleFeature sf = reader.next();
-							LineString p = ChyfDataSource.getLineString(sf);
-							
-							tempparts.clear();
-							for (LineString l : wbparts) {
-								if (l.getEnvelopeInternal().intersects(p.getEnvelopeInternal())) {
-									Geometry g = l.difference(p);
-									for (int i = 0; i < g.getNumGeometries(); i ++) {
-										LineString ls = ((LineString)g.getGeometryN(i));
-										if (!ls.isEmpty()) tempparts.add(ls);
-									}	
-								}else {
-									tempparts.add(l);
-								}
-							}
-							wbparts.clear();
-							wbparts.addAll(tempparts);
-							
+			}
+				
+			
+			HashMap<REdge, Double> widths = new HashMap<>();
+			for (REdge out : node.getOutEdges()) {
+			
+				LineString ls = getOutGeometry(out);
+				if (ls == null) continue; //line goes outside of waterbody
+				
+				//closest points on different rings
+				double target = ls.getLength() / 2.0;
+				LengthIndexedLine ll = new LengthIndexedLine(ls);
+				Point center = wb.getFactory().createPoint( ll.extractPoint(target) );
+				
+				Coordinate p1 = null;
+				LineString f1 = null;
+				Double d1 = Double.MAX_VALUE;
+					
+				Coordinate p2 = null;
+				LineString f2 = null;
+				Double d2 = Double.MAX_VALUE;
+				
+				for (LineString lls : wbparts) {
+					Double dt = lls.distance(center);
+					if (dt < d1) {
+						if (d1 < d2) {
+							d2 = d1;
+							p2 = p1;
+							f2 = f1;
 						}
+						d1 = dt;
+						p1 = DistanceOp.nearestPoints(lls,  center)[0];
+						f1 = lls;
+							
+						
+					}else if (dt < d2) {
+						
+						d2 = dt;
+						p2 = DistanceOp.nearestPoints(lls,  center)[0];
+						f2 = lls;
 					}
 				}
+						
+				if (f1 == null || f2 == null) {
+					//single lake case
+					break;
+//					angles2.put(out,angles.get(out));
+//					continue;
+				}
+				Coordinate[] closest =  DistanceOp.nearestPoints(f1,  ls);
+				Coordinate[] closest2 =  DistanceOp.nearestPoints(f2,  ls);
+				p1 = closest [0];
+				p2 = closest2 [0];
+					
+				LineString item = wb.getFactory().createLineString(new Coordinate[] {p1,p2});
+					
+				Geometry g1 = item.difference(wb);
+				if (g1.getLength() > item.getLength() * 0.1) {
+//					angles2.put(out,angles.get(out));
+//					continue;
+					break;
+				}
 				
-			
-			
-				for (REdge out : node.getOutEdges()) {
-				
-					LineString ls = getOutGeometry(out);
-					if (ls == null) continue; //line goes outside of waterbody
+				System.out.println(item.toString());
 					
-					//closest points on different rings
-					double target = ls.getLength() / 2.0;
-					LengthIndexedLine ll = new LengthIndexedLine(ls);
-					Point center = wb.getFactory().createPoint( ll.extractPoint(target) );
+				double width = -1*p1.distance(p2);
 					
-					Coordinate p1 = null;
-					LineString f1 = null;
-					Double d1 = Double.MAX_VALUE;
-						
-					Coordinate p2 = null;
-					LineString f2 = null;
-					Double d2 = Double.MAX_VALUE;
-					
-					for (LineString lls : wbparts) {
-						Double dt = lls.distance(center);
-						if (dt < d1) {
-							if (d1 < d2) {
-								d2 = d1;
-								p2 = p1;
-								f2 = f1;
-							}
-							d1 = dt;
-							p1 = DistanceOp.nearestPoints(lls,  center)[0];
-							f1 = lls;
-								
-							
-						}else if (dt < d2) {
-							
-							d2 = dt;
-							p2 = DistanceOp.nearestPoints(lls,  center)[0];
-							f2 = lls;
-						}
-					}
-						
-					if (f1 == null || f2 == null) {
-						//single lake case
-						angles2.put(out,angles.get(out));
-						continue;
-					}
-					Coordinate[] closest =  DistanceOp.nearestPoints(f1,  ls);
-					Coordinate[] closest2 =  DistanceOp.nearestPoints(f2,  ls);
-					p1 = closest [0];
-					p2 = closest2 [0];
-						
-					LineString item = wb.getFactory().createLineString(new Coordinate[] {p1,p2});
-						
-					Geometry g1 = item.difference(wb);
-					if (g1.getLength() > item.getLength() * 0.1) {
-						angles2.put(out,angles.get(out));
-						continue;
-					}
-					
-					System.out.println(item.toString());
-						
-					double width = -1*p1.distance(p2);
-						
-					angles2.put(out, width);
-						
-				}	
+				widths.put(out, width);	
 			}
-			if (!angles2.isEmpty())  angles = angles2;
+			if (widths.size() == angles.size()) {
+				//every edge also has channel
+				double total = widths.values().stream().mapToDouble(Double::doubleValue).sum();
+				for (Entry<REdge, Double> e : widths.entrySet()) {
+					e.setValue(e.getValue() / total);
+				}
+				
+				double p = properties.getProperty(Property.RANK_CHANNEL_WEIGHT);
+				for (Entry<REdge, Double> e : angles.entrySet()) {
+					e.setValue(e.getValue() * (1.0 - p) + widths.get(e.getKey()) * p);
+				}
+			}else {
+				//we don't have channels for every edge so only use angles
+			}
 		}
 		
 		//find min angle and set others to secondary
-		REdge e = angles.entrySet().stream().min(Map.Entry.comparingByValue()).get().getKey();
-		
+		REdge e = angles.entrySet().stream().max(Map.Entry.comparingByValue()).get().getKey();
+
 		for (REdge out : node.getOutEdges()) {
 			if (out == e) continue;
 			out.setRank(RankType.SECONDARY);

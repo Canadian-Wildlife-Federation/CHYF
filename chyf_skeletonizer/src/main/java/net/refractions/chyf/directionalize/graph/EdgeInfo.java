@@ -18,8 +18,8 @@ package net.refractions.chyf.directionalize.graph;
 import org.locationtech.jts.geom.Coordinate;
 import org.opengis.filter.identity.FeatureId;
 
-import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
-import net.refractions.chyf.datasource.ChyfDataSource.EfType;
+import net.refractions.chyf.datasource.DirectionType;
+import net.refractions.chyf.datasource.EfType;
 
 /**
  * Class to track information about the flowpath edge used

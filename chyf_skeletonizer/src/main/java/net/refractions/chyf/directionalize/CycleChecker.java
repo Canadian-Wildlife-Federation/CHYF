@@ -29,11 +29,12 @@ import org.opengis.feature.type.Name;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
-import net.refractions.chyf.datasource.ChyfDataSource.Attribute;
-import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
-import net.refractions.chyf.datasource.ChyfDataSource.EfType;
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
+import net.refractions.chyf.datasource.DirectionType;
+import net.refractions.chyf.datasource.EfType;
+import net.refractions.chyf.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.datasource.Layer;
 import net.refractions.chyf.directionalize.graph.DEdge;
 import net.refractions.chyf.directionalize.graph.DGraph;
 import net.refractions.chyf.directionalize.graph.DNode;
@@ -58,22 +59,22 @@ public class CycleChecker {
 	public boolean checkCycles(Path output) throws Exception{
 		List<EdgeInfo> edges = new ArrayList<>();
 
-		try(ChyfGeoPackageDataSource dataSource = new ChyfGeoPackageDataSource(output)){
+		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
 			
 			List<PreparedPolygon> aois = new ArrayList<>();
 			for (Polygon p : dataSource.getAoi()) aois.add(new PreparedPolygon(p));
 			
-			try(SimpleFeatureReader reader = dataSource.getFlowpaths(null)){
-				Name efatt = ChyfDataSource.findAttribute(reader.getFeatureType(), Attribute.EFTYPE);
-				Name diratt = ChyfDataSource.findAttribute(reader.getFeatureType(), Attribute.DIRECTION);
+			try(SimpleFeatureReader reader = dataSource.getFeatureReader(Layer.EFLOWPATHS,null, null)){
+				Name efatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.EFTYPE);
+				Name diratt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.DIRECTION);
 				while(reader.hasNext()) {
 					SimpleFeature sf = reader.next();
 					
 					LineString ls = ChyfDataSource.getLineString(sf);
 					for (PreparedPolygon p : aois) {
 						if (p.contains(ls) || p.getGeometry().relate(ls, "1********")) {
-							EfType eftype = EfType.parseType((Integer)sf.getAttribute(efatt));					
-							DirectionType dtype = DirectionType.parseType((Integer)sf.getAttribute(diratt));
+							EfType eftype = EfType.parseValue((Integer)sf.getAttribute(efatt));					
+							DirectionType dtype = DirectionType.parseValue((Integer)sf.getAttribute(diratt));
 							if (dtype == DirectionType.UNKNOWN) throw new Exception("An unknown direction edge type found. Cannot check cycles when direction is unknown");					
 							EdgeInfo ei = new EdgeInfo(ls.getCoordinateN(0),
 									ls.getCoordinateN(1),

@@ -19,8 +19,8 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
 import org.opengis.filter.identity.FeatureId;
 
-import net.refractions.chyf.datasource.ChyfDataSource.EfType;
-import net.refractions.chyf.datasource.ChyfDataSource.RankType;
+import net.refractions.chyf.datasource.EfType;
+import net.refractions.chyf.datasource.RankType;
 
 /**
  * Represents an edge in our rank graph

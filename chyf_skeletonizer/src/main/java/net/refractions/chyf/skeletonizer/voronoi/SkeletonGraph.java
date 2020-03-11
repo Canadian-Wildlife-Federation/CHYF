@@ -35,9 +35,9 @@ import org.locationtech.jts.simplify.DouglasPeuckerSimplifier;
 
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.ChyfProperties.Property;
-import net.refractions.chyf.datasource.ChyfDataSource.EfType;
+import net.refractions.chyf.datasource.EfType;
+import net.refractions.chyf.datasource.FlowpathGeoPackageDataSource.NodeType;
 import net.refractions.chyf.skeletonizer.points.ConstructionPoint;
-import net.refractions.chyf.skeletonizer.points.ConstructionPoint.Type;
 
 /**
  * Graph used for processing skeletons
@@ -80,7 +80,7 @@ public class SkeletonGraph {
 			
 			EfType type = EfType.SKELETON;
 			for (ConstructionPoint p : inout) {
-				if (p.getType() == Type.BANK && (p.getCoordinate().equals2D(c0) || p.getCoordinate().equals2D(c1))) {
+				if (p.getType() == NodeType.BANK && (p.getCoordinate().equals2D(c0) || p.getCoordinate().equals2D(c1))) {
 					type = EfType.BANK;
 				}
 			}
@@ -128,7 +128,7 @@ public class SkeletonGraph {
 			
 			EfType type = EfType.SKELETON;
 			for (ConstructionPoint p : inout) {
-				if (p.getType() == Type.BANK && (p.getCoordinate().equals2D(c0) || p.getCoordinate().equals2D(c1))) {
+				if (p.getType() == NodeType.BANK && (p.getCoordinate().equals2D(c0) || p.getCoordinate().equals2D(c1))) {
 					type = EfType.BANK;
 				}
 			}

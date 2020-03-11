@@ -16,9 +16,7 @@
 package net.refractions.chyf.skeleontizer.points;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 
 import org.geotools.filter.identity.FeatureIdImpl;
@@ -36,17 +34,11 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.ChyfProperties.Property;
-import net.refractions.chyf.datasource.ChyfAngle;
-import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
-import net.refractions.chyf.datasource.ChyfDataSource.EfType;
+import net.refractions.chyf.datasource.DirectionType;
+import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.directionalize.Directionalizer;
-import net.refractions.chyf.directionalize.graph.DEdge;
 import net.refractions.chyf.directionalize.graph.DGraph;
-import net.refractions.chyf.directionalize.graph.DNode;
-import net.refractions.chyf.directionalize.graph.DPath;
 import net.refractions.chyf.directionalize.graph.EdgeInfo;
-import net.refractions.chyf.directionalize.graph.PathDirectionalizer;
-import net.refractions.chyf.directionalize.graph.PathFinder;
 
 public class DirectionalizeTest {
 	

@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 import net.refractions.chyf.ChyfProperties;
 import net.refractions.chyf.ChyfProperties.Property;
 import net.refractions.chyf.datasource.ChyfAngle;
-import net.refractions.chyf.datasource.ChyfDataSource.DirectionType;
+import net.refractions.chyf.datasource.DirectionType;
 import net.refractions.chyf.directionalize.Directionalizer;
 
 /**
