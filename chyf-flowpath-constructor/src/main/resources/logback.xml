@@ -1,14 +1,23 @@
 <configuration>
+	<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    	<encoder>
+      		<pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    	</encoder>
+  	</appender>
 
-  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-    <!-- encoders are assigned the type
-         ch.qos.logback.classic.encoder.PatternLayoutEncoder by default -->
-    <encoder>
-      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-    </encoder>
-  </appender>
+	<appender name="ERRORFILE" class="ch.qos.logback.core.FileAppender">
+		<file>warnings.log</file>
+		<filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+         	<level>WARN</level>
+      	</filter>
+    	<encoder>
+    	  	<pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    	</encoder>
+  	</appender>
 
   <root level="info">
     <appender-ref ref="STDOUT" />
+    <appender-ref ref="ERRORFILE" />
   </root>
+  
 </configuration>
