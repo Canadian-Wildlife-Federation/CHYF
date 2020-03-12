@@ -45,3 +45,47 @@ be used for testing the running of the application.
 
 * testdata/Richelieu.32618.gpkg
 
+
+
+---------------------------------------
+--- Advanced ---
+---------------------------------------
+
+These tools contain 5 separate processes:
+
+1. Construction Point Generator - This tool generates a set of construction points on the boundary
+of each polygonal waterbody.  These points represent
+location where water enters or exists the waterbody, and are used
+as input into the next process - the skeletonizer.  
+
+2. Skeletonizer - This tool generated skeleton lines within a waterbody 
+connecting the construction points generated in step 1.
+
+3. Directionalizer - Directionalizes all skeletons and other undirectionalized
+eflowpath features.
+
+4. Rank Generator - Computes rank (primary and secondary flows) for each
+eflowpath feature.
+
+5. Bank Flowpath Generator - This tool uses existing skeletons and waterbody and
+generates only bank flowpaths.
+
+
+
+Each of these tools can be run independently as follows, modifying as required for your operating system.
+
+1. Construction Point Generator
+java -cp lib/* net.refractions.chyf.flowpathconstructor.skeletonizer.points.PointEngine [OPTIONS] <INFILE> <OUTFILE>
+
+2. Skeletonizer
+java -cp lib/* net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkeletonEngine [OPTIONS] <INFILE> <OUTFILE>
+
+3.  Directionalizer
+java -cp lib/* net.refractions.chyf.flowpathconstructor.directionalize.DirectionalizeEngine [OPTIONS] <INFILE> <OUTFILE>
+
+4.  Rank Generator 
+java -cp lib/* net.refractions.chyf.flowpathconstructor.rank.RankEngine [OPTIONS] <INFILE> <OUTFILE>
+
+5.  Bank Flowpath Generator
+java -cp lib/*  net.refractions.chyf.flowpathconstructor.skeletonizer.bank.Bank[OPTIONS] <INFILE> <OUTFILE>
+

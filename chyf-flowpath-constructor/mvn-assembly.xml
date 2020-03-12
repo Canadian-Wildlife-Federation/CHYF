@@ -42,6 +42,18 @@
             <destName>bank-only-constructor.bat</destName>
             <filtered>true</filtered>
         </file>
+        <file>
+            <source>flowpath-constructor.sh</source>
+            <outputDirectory>/</outputDirectory>
+            <destName>flowpath-constructor.sh</destName>
+            <filtered>true</filtered>
+        </file>
+        <file>
+            <source>bank-only-constructor.sh</source>
+            <outputDirectory>/</outputDirectory>
+            <destName>bank-only-constructor.sh</destName>
+            <filtered>true</filtered>
+        </file>
         <!--  
          <file>
             <source>run.sh</source>
