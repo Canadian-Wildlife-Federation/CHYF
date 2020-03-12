@@ -44,6 +44,7 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.feature.type.AttributeDescriptor;
 import org.opengis.feature.type.Name;
 import org.opengis.filter.Filter;
 import org.opengis.filter.identity.FeatureId;
@@ -60,6 +61,7 @@ import net.refractions.chyf.datasource.Layer;
 import net.refractions.chyf.datasource.RankType;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.ConstructionPoint;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.PolygonInfo;
+import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkelLineString;
 
 /**
  * Extension of the geopackage data source for flowpath computation
@@ -107,7 +109,7 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource{
 	
 	private boolean cIsMulti = false;
 	
-	private List<LineString> skeletonWriteCache;
+	private List<SkelLineString> skeletonWriteCache;
 	
 	public FlowpathGeoPackageDataSource(Path geopackageFile) throws Exception {
 		super(geopackageFile);
@@ -410,12 +412,13 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource{
 	 * @param skeletons
 	 * @throws IOException
 	 */
-	public synchronized void writeSkeletons(Collection<LineString> skeletons) throws IOException {
+	public synchronized void writeSkeletons(Collection<SkelLineString> skeletons) throws IOException {
 		if (skeletonWriteCache == null) skeletonWriteCache = new ArrayList<>();
 		skeletonWriteCache.addAll(skeletons);
 				
 		if (skeletonWriteCache.size() > 1000 || skeletons.isEmpty()) {
 			logger.info("Writing skeletons to geopackage");
+	
 			try(Transaction tx = new DefaultTransaction()) {	
 				try(SimpleFeatureWriter fw = geopkg.writer(getEntry(Layer.EFLOWPATHS), true, Filter.EXCLUDE, tx)){
 					//all skeletons are always 2d
@@ -424,13 +427,35 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource{
 					Name diratt = ChyfDataSource.findAttribute(fw.getFeatureType(), ChyfAttribute.DIRECTION);
 					Name eftypeatt = ChyfDataSource.findAttribute(fw.getFeatureType(), ChyfAttribute.EFTYPE);
 					Name idatt = ChyfDataSource.findAttribute(fw.getFeatureType(), ChyfAttribute.INTERNAL_ID);
+					Name rankatt = ChyfDataSource.findAttribute(fw.getFeatureType(), ChyfAttribute.RANK);
 							
-					for (LineString item : skeletonWriteCache) {
+					for (SkelLineString item : skeletonWriteCache) {
 						SimpleFeature fs = fw.next();
-						fs.setAttribute(eftypeatt, ((EfType)item.getUserData()).getChyfValue() );
+						fs.setAttribute(eftypeatt, item.getEfType().getChyfValue() );
 						fs.setAttribute(diratt, DirectionType.UNKNOWN.getChyfValue());
 						fs.setAttribute(idatt, UUID.randomUUID().toString());
-						fs.setDefaultGeometry(item);
+						
+						if (rankatt != null && item.getEfType() == EfType.BANK) {
+							fs.setAttribute(rankatt, RankType.PRIMARY.getChyfValue());
+						}
+						if (diratt != null && item.getEfType() == EfType.BANK) {
+							//bank flowpaths are directionalized
+							fs.setAttribute(diratt, DirectionType.KNOWN.getChyfValue());
+						}
+						
+						//copy over existing attributes
+						if (item.getFeature() != null) {
+							fs.setAttribute(diratt, DirectionType.KNOWN.getChyfValue());
+							for (AttributeDescriptor att : fw.getFeatureType().getAttributeDescriptors()) {
+								if (att.getName().equals(diratt) || att.getName().equals(eftypeatt) 
+										|| att.getName().equals(idatt) || att.getName().equals(rankatt)) {
+									continue;
+								}
+								fs.setAttribute(att.getName(), item.getFeature().getAttribute(att.getName()));
+							}
+						}
+						
+						fs.setDefaultGeometry(item.getLineString());
 						fw.write();
 					}
 					tx.commit();

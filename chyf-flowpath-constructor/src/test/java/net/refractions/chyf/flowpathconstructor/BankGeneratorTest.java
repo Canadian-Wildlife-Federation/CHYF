@@ -27,9 +27,10 @@ import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.io.WKTReader;
 
-import net.refractions.chyf.flowpathconstructor.ChyfProperties;
+import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties.Property;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.bank.BankSkeletonizer;
+import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkelLineString;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkeletonResult;
 
 /**
@@ -85,13 +86,13 @@ public class BankGeneratorTest {
 		
 		Polygon wb = (Polygon) reader.read(p);
 		
-		List<LineString> items = new ArrayList<>();
+		List<SkelLineString> items = new ArrayList<>();
 		for (String s : ls) {
-			items.add((LineString)reader.read(s));
+			items.add(new SkelLineString((LineString)reader.read(s), EfType.SKELETON));
 		}
 		
 		SkeletonResult r = createSkeletonizer().skeletonize(wb, items, null, Collections.emptyList());
-		r.getSkeletons().forEach(e->System.out.println(e.toText()));
+		r.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 	}
 	
 	@Test
@@ -103,13 +104,13 @@ public class BankGeneratorTest {
 		};
 		Polygon wb = (Polygon) reader.read(p);
 		
-		List<LineString> items = new ArrayList<>();
+		List<SkelLineString> items = new ArrayList<>();
 		for (String s : ls) {
-			items.add((LineString)reader.read(s));
+			items.add(new SkelLineString((LineString)reader.read(s), EfType.SKELETON));
 		}
 		
 		SkeletonResult r = createSkeletonizer().skeletonize(wb, items, null, Collections.emptyList());
-		r.getSkeletons().forEach(e->System.out.println(e.toText()));
+		r.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 	}
 	
 	@Test
@@ -135,13 +136,13 @@ public class BankGeneratorTest {
 		};
 		Polygon wb = (Polygon) reader.read(p);
 		
-		List<LineString> items = new ArrayList<>();
+		List<SkelLineString> items = new ArrayList<>();
 		for (String s : ls) {
-			items.add((LineString)reader.read(s));
+			items.add(new SkelLineString((LineString)reader.read(s), EfType.SKELETON));
 		}
 		
 		SkeletonResult r = createSkeletonizer().skeletonize(wb, items, null, Collections.emptyList());
-		r.getSkeletons().forEach(e->System.out.println(e.toText()));
+		r.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 	}
 	
 	@Test
@@ -154,13 +155,13 @@ public class BankGeneratorTest {
 		WKTReader reader = new WKTReader();
 		Polygon wb = (Polygon) reader.read(p);
 		
-		List<LineString> items = new ArrayList<>();
+		List<SkelLineString> items = new ArrayList<>();
 		for (String s : ls) {
-			items.add((LineString)reader.read(s));
+			items.add(new SkelLineString((LineString)reader.read(s), EfType.SKELETON));
 		}
 		
 		SkeletonResult r = createSkeletonizer().skeletonize(wb, items, null, Collections.singletonList((LineString)reader.read(wedge)));
-		r.getSkeletons().forEach(e->System.out.println(e.toText()));
+		r.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 
 	}
 	
@@ -177,9 +178,9 @@ public class BankGeneratorTest {
 		WKTReader reader = new WKTReader();
 		Polygon wb = (Polygon) reader.read(p);
 		
-		List<LineString> items = new ArrayList<>();
+		List<SkelLineString> items = new ArrayList<>();
 		for (String s : ls) {
-			items.add((LineString)reader.read(s));
+			items.add(new SkelLineString((LineString)reader.read(s), EfType.SKELETON));
 		}
 		
 		ChyfProperties prop = new ChyfProperties();
@@ -194,8 +195,7 @@ public class BankGeneratorTest {
 		
 		BankSkeletonizer gen = new BankSkeletonizer(prop);
 		SkeletonResult r = gen.skeletonize(wb, items, terminal, Collections.emptyList());
-		r.getSkeletons().forEach(e->System.out.println(e.toText()));
-
+		r.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 	}
 	
 	@Test
@@ -210,9 +210,9 @@ public class BankGeneratorTest {
 		WKTReader reader = new WKTReader();
 		Polygon wb = (Polygon) reader.read(p);
 		
-		List<LineString> items = new ArrayList<>();
+		List<SkelLineString> items = new ArrayList<>();
 		for (String s : ls) {
-			items.add((LineString)reader.read(s));
+			items.add(new SkelLineString((LineString)reader.read(s), EfType.SKELETON));
 		}
 		ChyfProperties prop = new ChyfProperties();
 		prop.setProperty(Property.SKEL_DENSIFY_FACTOR, 0.0001);
@@ -225,8 +225,7 @@ public class BankGeneratorTest {
 		prop.setProperty(Property.BANK_MIN_VERTEX_DISTANCE, 0.001);
 		BankSkeletonizer gen = new BankSkeletonizer(prop);
 		SkeletonResult r = gen.skeletonize(wb, items, terminal, Collections.emptyList());
-		r.getSkeletons().forEach(e->System.out.println(e.toText()));
-
+		r.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 	}
 	
 	
@@ -246,9 +245,9 @@ public class BankGeneratorTest {
 		WKTReader reader = new WKTReader();
 		Polygon wb = (Polygon) reader.read(p);
 		
-		List<LineString> items = new ArrayList<>();
+		List<SkelLineString> items = new ArrayList<>();
 		for (String s : ls) {
-			items.add((LineString)reader.read(s));
+			items.add(new SkelLineString((LineString)reader.read(s), EfType.SKELETON));
 		}
 		
 		ChyfProperties prop = new ChyfProperties();
@@ -263,8 +262,7 @@ public class BankGeneratorTest {
 		
 		
 		SkeletonResult r = gen.skeletonize(wb, items, terminal, Collections.emptyList());
-		r.getSkeletons().forEach(e->System.out.println(e.toText()));
-
+		r.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 	}
 	
 	
@@ -282,9 +280,9 @@ public class BankGeneratorTest {
 		
 		Polygon wb = (Polygon) reader.read(p);
 		
-		List<LineString> items = new ArrayList<>();
+		List<SkelLineString> items = new ArrayList<>();
 		for (String s : ls) {
-			items.add((LineString)reader.read(s));
+			items.add(new SkelLineString((LineString)reader.read(s), EfType.SKELETON));
 		}
 		
 		SkeletonResult r = createSkeletonizer().skeletonize(wb, items, null, Collections.emptyList());
@@ -311,11 +309,11 @@ public class BankGeneratorTest {
 	}
 	
 	
-	private void setEquals(Collection<LineString> expected, Collection<LineString> actual) {
+	private void setEquals(Collection<LineString> expected, Collection<SkelLineString> actual) {
 		for (LineString p : expected) {
 			boolean found = false;
-			for (LineString b : actual) {
-				if (p.equalsExact(b)) {
+			for (SkelLineString b : actual) {
+				if (p.equalsExact(b.getLineString())) {
 					found = true;
 					break;
 				}

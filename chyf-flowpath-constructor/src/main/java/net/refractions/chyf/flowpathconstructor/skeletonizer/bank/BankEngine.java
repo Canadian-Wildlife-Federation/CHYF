@@ -46,6 +46,7 @@ import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.WaterbodyIterator;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.PolygonInfo;
+import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkelLineString;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkeletonResult;
 
 public class BankEngine {
@@ -57,7 +58,7 @@ public class BankEngine {
 		int cnt = 1;
 		
 		List<Polygon> ptouch = new ArrayList<>();
-		List<LineString> ftouch = new ArrayList<>();
+		List<SkelLineString> ftouch = new ArrayList<>();
 
 		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
 			
@@ -68,7 +69,7 @@ public class BankEngine {
 			BankSkeletonizer generator = new BankSkeletonizer(properties);
 			List<LineString> be = getBoundary(dataSource);
 
-			List<LineString> newSkeletons = new ArrayList<>();
+			List<SkelLineString> newSkeletons = new ArrayList<>();
 			
 			WaterbodyIterator iterator = new WaterbodyIterator(dataSource);
 			
@@ -130,9 +131,11 @@ public class BankEngine {
 						boolean isskel = false;
 						if (type == EfType.SKELETON) { 
 							LineString temp = ChyfDataSource.getLineString(t);
+							temp.setUserData(t.getIdentifier());
 							if (workingPolygon.contains(temp)) {
 								isskel = true;
-								ftouch.add(temp);
+								SkelLineString ls = new SkelLineString(temp, type, t);
+								ftouch.add(ls);
 							}
 						}
 

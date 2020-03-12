@@ -17,7 +17,6 @@ package net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi;
 
 import java.util.Collection;
 
-import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Polygon;
 
 /**
@@ -29,7 +28,7 @@ import org.locationtech.jts.geom.Polygon;
  */
 public class SkeletonResult {
 
-	private Collection<LineString> skeletons;
+	private Collection<SkelLineString> skeletons;
 	private Collection<String> errors;
 	private Polygon updatedPolgyon = null;
 	
@@ -38,7 +37,7 @@ public class SkeletonResult {
 	 * @param skeletons
 	 * @param errors
 	 */
-	public SkeletonResult(Collection<LineString> skeletons, Collection<String> errors) {
+	public SkeletonResult(Collection<SkelLineString> skeletons, Collection<String> errors) {
 		this(skeletons, errors, null);
 	}
 	
@@ -48,7 +47,7 @@ public class SkeletonResult {
 	 * @param errors
 	 * @param updated
 	 */
-	public SkeletonResult(Collection<LineString> skeletons, Collection<String> errors, Polygon updated) {
+	public SkeletonResult(Collection<SkelLineString> skeletons, Collection<String> errors, Polygon updated) {
 		this.skeletons = skeletons;
 		this.errors = errors;
 		this.updatedPolgyon = updated;
@@ -58,7 +57,7 @@ public class SkeletonResult {
 	 * Get resulting skeletons
 	 * @return
 	 */
-	public Collection<LineString> getSkeletons(){
+	public Collection<SkelLineString> getSkeletons(){
 		return this.skeletons;
 	}
 	

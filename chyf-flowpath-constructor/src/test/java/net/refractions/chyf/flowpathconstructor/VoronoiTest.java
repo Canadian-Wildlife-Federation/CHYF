@@ -75,7 +75,7 @@ public class VoronoiTest {
 				
 		SkeletonGenerator gen = createGenerator(0.00001, 0.000001, 0.00001);
 		SkeletonResult results = gen.generateSkeleton(polygon,  expected);
-		results.getSkeletons().forEach(e->System.out.println(e.toText()));
+		results.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 		results.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", results.getErrors().isEmpty());
 	}
@@ -93,7 +93,7 @@ public class VoronoiTest {
 				
 		SkeletonGenerator gen = createGenerator(0.00001, 0.000001, 0.00001);
 		SkeletonResult results = gen.generateSkeleton(polygon,  expected);
-		results.getSkeletons().forEach(e->System.out.println(e.toText()));
+		results.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 		results.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", results.getErrors().isEmpty());
 	}
@@ -112,7 +112,7 @@ public class VoronoiTest {
 				
 		SkeletonGenerator gen = createGenerator(0.00001, 0.000001, 0.00001);
 		SkeletonResult results = gen.generateSkeleton(polygon,  expected);
-		results.getSkeletons().forEach(e->System.out.println(e.toText()));
+		results.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 		results.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", results.getErrors().isEmpty());
 	}
@@ -131,7 +131,7 @@ public class VoronoiTest {
 		
 		SkeletonGenerator gen = createGenerator(0.00001, 0.000001, 0.00001);
 		SkeletonResult results = gen.generateSkeleton(polygon,  expected);
-		results.getSkeletons().forEach(e->System.out.println(e.toText()));
+		results.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 		
 		results.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", results.getErrors().isEmpty());
@@ -157,7 +157,7 @@ public class VoronoiTest {
 		SkeletonGenerator gen = new SkeletonGenerator(prop);
 
 		SkeletonResult results = gen.generateSkeleton(polygon,  expected);
-		results.getSkeletons().forEach(e->System.out.println(e.toText()));
+		results.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 		results.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", results.getErrors().isEmpty());
 		
@@ -169,7 +169,7 @@ public class VoronoiTest {
 		
 		results = gen.generateSkeleton(polygon,  expected);
 		System.out.println("---");
-		results.getSkeletons().forEach(e->System.out.println(e.toText()));
+		results.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 		results.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", results.getErrors().isEmpty());
 		
@@ -180,7 +180,7 @@ public class VoronoiTest {
 		expected.add(new ConstructionPoint(new Coordinate(-92.94428589999999701, 48.52076759999999922),NodeType.FLOWPATH,FlowDirection.OUTPUT, null));
 		results = gen.generateSkeleton(polygon,  expected);
 		System.out.println("---");
-		results.getSkeletons().forEach(e->System.out.println(e.toText()));
+		results.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 		results.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", results.getErrors().isEmpty());
 		
@@ -191,7 +191,7 @@ public class VoronoiTest {
 		expected.add(new ConstructionPoint(new Coordinate(-92.07025160000000596, 48.14914230000000117),NodeType.FLOWPATH,FlowDirection.OUTPUT, null));
 		results = gen.generateSkeleton(polygon,  expected);
 		System.out.println("---");
-		results.getSkeletons().forEach(e->System.out.println(e.toText()));
+		results.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 		results.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", results.getErrors().isEmpty());
 		
@@ -202,7 +202,7 @@ public class VoronoiTest {
 		expected.add(new ConstructionPoint(new Coordinate(-90.79251949999999738, 48.13572800000000029),NodeType.FLOWPATH,FlowDirection.OUTPUT, null));
 		results = gen.generateSkeleton(polygon,  expected);
 		System.out.println("---");
-		results.getSkeletons().forEach(e->System.out.println(e.toText()));
+		results.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 		results.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", results.getErrors().isEmpty());
 	}
@@ -235,7 +235,7 @@ public class VoronoiTest {
 		SkeletonGenerator gen = new SkeletonGenerator(prop);
 
 		SkeletonResult results = gen.generateSkeleton(polygon,  expected);
-		results.getSkeletons().forEach(e->System.out.println(e.toText()));	
+		results.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));	
 		results.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", results.getErrors().isEmpty());
 	}
@@ -267,7 +267,7 @@ public class VoronoiTest {
 		
 		SkeletonGenerator g = createGenerator(1, 1, 1);
 		SkeletonResult results = g.generateSkeleton(polygon,  expected);
-		results.getSkeletons().forEach(e->System.out.println(e.toText()));
+		results.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 		results.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", results.getErrors().isEmpty());
 		
@@ -279,7 +279,7 @@ public class VoronoiTest {
 		expected.add(new ConstructionPoint(new Coordinate(-518.8, 630.4),NodeType.BANK,FlowDirection.INPUT, null));
 		
 		results = g.generateSkeleton(otherp,  expected);
-		results.getSkeletons().forEach(e->System.out.println(e.toText()));
+		results.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 		results.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", results.getErrors().isEmpty());
 	}
@@ -302,7 +302,7 @@ public class VoronoiTest {
 		SkeletonGenerator g = createGenerator(1, 1, 1);
 		SkeletonResult items = g.generateSkeleton(polygon,  riverPoints);
 	
-		items.getSkeletons().forEach(e->System.out.println(e.toText()));
+		items.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 		items.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", items.getErrors().isEmpty());
 	}
@@ -334,7 +334,7 @@ public class VoronoiTest {
 		System.out.println(polygon.toText());
 		riverPoints.forEach(p->System.out.println("POINT(" + p.getCoordinate().x + " " + p.getCoordinate().y+")"));
 		
-		items.getSkeletons().forEach(ls->System.out.println(ls.toText()));
+		items.getSkeletons().forEach(e->System.out.println(e.getLineString().toText()));
 		items.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", items.getErrors().isEmpty());
 		
@@ -393,7 +393,7 @@ public class VoronoiTest {
 		Assert.assertEquals("Errors existing in skeleton results", 0, items.getErrors().size());
 		Assert.assertNotEquals("No skeletons generated", 0, items.getSkeletons().size());
 		
-		items.getSkeletons().forEach(ls->System.out.println(ls.toText()));
+		items.getSkeletons().forEach(ls->System.out.println(ls.getLineString().toText()));
 		items.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", items.getErrors().isEmpty());
 		
@@ -415,7 +415,7 @@ public class VoronoiTest {
 		SkeletonGenerator g = createGenerator(1.0,1.0,1.0);
 		SkeletonResult items = g.generateSkeleton(polygon,  riverPoints);
 		
-		items.getSkeletons().forEach(ls->System.out.println(ls.toText()));
+		items.getSkeletons().forEach(ls->System.out.println(ls.getLineString().toText()));
 		items.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", items.getErrors().isEmpty());
 		
@@ -437,7 +437,7 @@ public class VoronoiTest {
 		SkeletonGenerator g = createGenerator(1.0,0.2,1.0);
 		SkeletonResult items = g.generateSkeleton(polygon,  riverPoints);
 		
-		items.getSkeletons().forEach(ls->System.out.println(ls.toText()));
+		items.getSkeletons().forEach(ls->System.out.println(ls.getLineString().toText()));
 		items.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", items.getErrors().isEmpty());
 		
@@ -460,7 +460,7 @@ public class VoronoiTest {
 		SkeletonGenerator g = createGenerator(1.0,1.0,1.0);
 		SkeletonResult items = g.generateSkeleton(polygon,  riverPoints);
 		
-		items.getSkeletons().forEach(ls->System.out.println(ls.toText()));
+		items.getSkeletons().forEach(ls->System.out.println(ls.getLineString().toText()));
 		items.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", items.getErrors().isEmpty());
 		
@@ -490,7 +490,7 @@ public class VoronoiTest {
 		
 		SkeletonResult items = g.generateSkeleton(polygon,  riverPoints);
 
-		items.getSkeletons().forEach(ls->System.out.println(ls.toText()));
+		items.getSkeletons().forEach(ls->System.out.println(ls.getLineString().toText()));
 		items.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", items.getErrors().isEmpty());
 		
@@ -542,7 +542,7 @@ public class VoronoiTest {
 		SkeletonGenerator g = createGenerator(0.00001,0.00001,0.00001);
 		
 		SkeletonResult items = g.generateSkeleton(polygon,  riverPoints);
-		items.getSkeletons().forEach(ls->System.out.println(ls.toText()));
+		items.getSkeletons().forEach(ls->System.out.println(ls.getLineString().toText()));
 		items.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", items.getErrors().isEmpty());
 		
@@ -562,7 +562,7 @@ public class VoronoiTest {
 		SkeletonGenerator g = createGenerator(1.0,1.0,1.0);
 		SkeletonResult items = g.generateSkeleton(polygon,  riverPoints);
 		
-		items.getSkeletons().forEach(ls->System.out.println(ls.toText()));
+		items.getSkeletons().forEach(ls->System.out.println(ls.getLineString().toText()));
 		items.getErrors().forEach(e->System.out.println(e));
 		Assert.assertTrue("Skeleton returned errors", items.getErrors().isEmpty());
 		

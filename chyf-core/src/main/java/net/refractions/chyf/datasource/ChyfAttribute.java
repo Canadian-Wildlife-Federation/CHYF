@@ -25,7 +25,7 @@ public enum ChyfAttribute{
 	FLOWDIRECTION("flow_direction"),
 	ECTYPE("ec_type"),
 	EFTYPE("ef_type"),
-	DIRECTION("direction"),
+	DIRECTION("direction_known"),
 	RANK("rank"),
 	INTERNAL_ID("internal_id"),
 	NAME("name_string");

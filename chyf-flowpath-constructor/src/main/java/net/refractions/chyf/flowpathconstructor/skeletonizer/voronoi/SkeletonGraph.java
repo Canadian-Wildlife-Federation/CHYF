@@ -103,11 +103,13 @@ public class SkeletonGraph {
 	 * @param inout
 	 * @return
 	 */
-	public static SkeletonGraph buildGraphLines(Collection<LineString> segments, List<ConstructionPoint> inout) {
+	public static SkeletonGraph buildGraphLines(Collection<SkelLineString> segments, List<ConstructionPoint> inout) {
 		SkeletonGraph graph = new SkeletonGraph();
 		HashMap<Coordinate, Node> nodes = new HashMap<>();
 		
-		for (LineString ls : segments) {
+		for (SkelLineString sls : segments) {
+			LineString ls = sls.getLineString();
+			
 			Coordinate c0 = ls.getCoordinateN(0);
 			Coordinate c1 = ls.getCoordinateN(ls.getCoordinates().length - 1);
 			
@@ -126,7 +128,7 @@ public class SkeletonGraph {
 				graph.nodes.add(a2);
 			}
 			
-			EfType type = EfType.SKELETON;
+			EfType type = sls.getEfType();
 			for (ConstructionPoint p : inout) {
 				if (p.getType() == NodeType.BANK && (p.getCoordinate().equals2D(c0) || p.getCoordinate().equals2D(c1))) {
 					type = EfType.BANK;
@@ -135,6 +137,7 @@ public class SkeletonGraph {
 			ArrayList<Coordinate> coords = new ArrayList<>();
 			for (Coordinate c : ls.getCoordinates()) coords.add(c);
 			Edge e = graph.createEdge(type, a1, a2, coords);
+			
 			a1.getEdges().add(e);
 			a2.getEdges().add(e);
 			graph.edges.add(e);
@@ -199,7 +202,12 @@ public class SkeletonGraph {
 	}
 	
 	
-	
+	/**
+	 * 
+	 * @param prop
+	 * @param gf
+	 * @return set of generated skeletons represented as linestring with userdata set to the type of skeleton
+	 */
 	public Set<LineString> getSkeletons(ChyfProperties prop, GeometryFactory gf){
 		Set<LineString> skeletons = new HashSet<>();
 		for (Edge e : edges) {
@@ -315,7 +323,7 @@ public class SkeletonGraph {
 			if (e1.getType() == EfType.BANK || e2.getType() == EfType.BANK) type = EfType.BANK;
 			
 			Edge e = new Edge(type, a1, a2, c);
-			
+			e.setUserData(e1.getUserData());
 			a1.getEdges().add(e);
 			a2.getEdges().add(e);
 			edges.add(e);
@@ -370,6 +378,9 @@ public class SkeletonGraph {
 		private boolean visited = false;
 
 		private Double distance = null;
+		
+		private Object userData;
+		
 		public Edge(EfType type, Node n1, Node n2, List<Coordinate> coords) {
 			this.type = type;
 			this.n1 = n1;
@@ -386,6 +397,12 @@ public class SkeletonGraph {
 				this.distance = t;
 			}
 			return this.distance;
+		}
+		public void setUserData(Object data) {
+			this.userData = data;
+		}
+		public Object getUserData() {
+			return this.userData;
 		}
 		public void setVisited(boolean visited) {
 			this.visited = visited;

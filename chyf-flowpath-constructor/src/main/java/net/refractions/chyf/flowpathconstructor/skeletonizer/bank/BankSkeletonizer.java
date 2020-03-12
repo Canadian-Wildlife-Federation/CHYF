@@ -42,6 +42,7 @@ import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties.Property;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource.NodeType;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.ConstructionPoint;
+import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkelLineString;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkeletonGenerator;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkeletonGraph;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkeletonResult;
@@ -81,12 +82,12 @@ public class BankSkeletonizer {
 	 * @return
 	 * @throws Exception
 	 */
-	public SkeletonResult skeletonize(Polygon waterbody, Collection<LineString> existingSkeletons,
+	public SkeletonResult skeletonize(Polygon waterbody, Collection<SkelLineString> existingSkeletons,
 			Coordinate terminalNode, List<LineString> wateredges) throws Exception {
 		gf = waterbody.getFactory();
 		
 		
-		List<LineString> newSkeletonBankEdges = new ArrayList<>();
+		List<SkelLineString> newSkeletonBankEdges = new ArrayList<>();
 		SkeletonGenerator gen = new SkeletonGenerator(properties);
 				
 		List<WorkingPolygon> toprocess = new ArrayList<>();
@@ -219,7 +220,7 @@ public class BankSkeletonizer {
 				//regenerate polygon; this will add new verticies as required
 				p.regeneratePolygon();
 				newskels.add(generateSkeleton(points, p, gen));
-				newSkeletonBankEdges.addAll(newskels);
+				for (LineString ll : newskels) newSkeletonBankEdges.add(new SkelLineString(ll, EfType.BANK));
 			}
 			
 			
@@ -273,13 +274,13 @@ public class BankSkeletonizer {
 			
 			int i = index+1;
 			if (i == cs.length - 1) i = 1;
-			LineString toremove = null;
+			SkelLineString toremove = null;
 			Set<Coordinate> stopPoints = new HashSet<>();
-			for (LineString ls : newSkeletonBankEdges) stopPoints.add(ls.getCoordinateN(0));
+			for (SkelLineString ls : newSkeletonBankEdges) stopPoints.add(ls.getLineString().getCoordinateN(0));
 			
 			while(true) {
-				for (LineString ls : newSkeletonBankEdges) {
-					if (ls.getCoordinateN(0).equals2D(cs[i])){
+				for (SkelLineString ls : newSkeletonBankEdges) {
+					if (ls.getLineString().getCoordinateN(0).equals2D(cs[i])){
 						toremove = ls;
 						break;
 					}
@@ -298,42 +299,38 @@ public class BankSkeletonizer {
 		
 
 		//add verticies to existing skeletons
-		Set<LineString> skels = new HashSet<>();
-		for (LineString ls : existingSkeletons) {
-			LineString working = ls;
-			
-			for (LineString skl : newSkeletonBankEdges) {
-				
-				Coordinate c1 = skl.getCoordinateN(0);
-				Coordinate c2 = skl.getCoordinateN(skl.getCoordinates().length - 1);
-				
-				if (ls.getEnvelopeInternal().intersects(c1)) {
-					working = addVertex(working, c1);
-				}
-				if (ls.getEnvelopeInternal().intersects(c2)) {
-					working = addVertex(working, c2);
-				}
-				
-			}
-			skels.add(working);
-		}
-		
-		//merge all existing skeletons incase we introduce new degree2 nodes 
-		SkeletonGraph g = SkeletonGraph.buildGraphLines(skels, Collections.emptyList());
-		g.mergedegree2();
-		skels = g.getSkeletons(null, gf);
-		
-		//need to break the updatedSkeletons at the new SkeletonBankEdge
 		HashSet<Coordinate> breakpoints = new HashSet<Coordinate>();
 		newSkeletonBankEdges.forEach(e->{
-			breakpoints.add(e.getCoordinateN(0));
-			breakpoints.add(e.getCoordinateN(e.getCoordinates().length-1));
+			breakpoints.add(e.getLineString().getCoordinateN(0));
+			breakpoints.add(e.getLineString().getCoordinateN(e.getLineString().getCoordinates().length-1));
 		});
-
-		List<Coordinate> items = new ArrayList<>();
-		List<LineString> brokenSkels = new ArrayList<>();
 		
-		for (LineString ls : skels) {
+		Set<SkelLineString> skels = new HashSet<>();
+		for (SkelLineString ls : existingSkeletons) {
+			LineString working = ls.getLineString();
+			
+			for (Coordinate c : breakpoints) {
+				if (ls.getLineString().getEnvelopeInternal().intersects(c)) {
+					working = addVertex(working, c);
+				}
+			}
+			
+			ls.setLineString(working);
+			skels.add(ls);
+		}
+		
+		//mark requested we don't do this
+		//merge all existing skeletons incase we introduce new degree2 nodes 
+//		SkeletonGraph g = SkeletonGraph.buildGraphLines(skels, Collections.emptyList());
+//		g.mergedegree2();
+//		skels = g.getSkeletons(null, gf);
+		
+		//need to break the updatedSkeletons at the new SkeletonBankEdge
+			List<Coordinate> items = new ArrayList<>();
+		List<SkelLineString> brokenSkels = new ArrayList<>();
+		
+		for (SkelLineString sls : skels) {
+			LineString ls = sls.getLineString();
 			items.clear();
 			items.add(ls.getCoordinateN(0));
 				
@@ -341,20 +338,21 @@ public class BankSkeletonizer {
 				if (breakpoints.contains(ls.getCoordinateN(i))) {
 					//break into two lines
 					items.add(ls.getCoordinateN(i));
-					brokenSkels.add(gf.createLineString(items.toArray(new Coordinate[items.size()])));
+					
+					LineString newls = gf.createLineString(items.toArray(new Coordinate[items.size()])); 
+					brokenSkels.add(new SkelLineString(newls, EfType.SKELETON, sls.getFeature()));
 					items.clear();
 				}
 				items.add(ls.getCoordinateN(i));
 			}
 			items.add(ls.getCoordinateN(ls.getCoordinates().length - 1));
 			if (items.size() >= 2) {
-				brokenSkels.add(gf.createLineString(items.toArray(new Coordinate[items.size()])));
+				LineString newls = gf.createLineString(items.toArray(new Coordinate[items.size()])); 
+				brokenSkels.add(new SkelLineString(newls, EfType.SKELETON, sls.getFeature()));
 			}
 		}
 		
 		//set type and combine			
-		brokenSkels.forEach(e->e.setUserData(EfType.SKELETON));
-		newSkeletonBankEdges.forEach(e->e.setUserData(EfType.BANK));
 		newSkeletonBankEdges.addAll(brokenSkels);
 		
 		SkeletonResult result = new SkeletonResult(newSkeletonBankEdges, Collections.emptyList(), waterbody);
@@ -368,17 +366,17 @@ public class BankSkeletonizer {
 	 * @param waterbody
 	 * @param newBankEdges
 	 */
-	private Polygon generatePolygon(Polygon waterbody, List<LineString> newBankEdges) {
+	private Polygon generatePolygon(Polygon waterbody, List<SkelLineString> newBankEdges) {
 		LineString ls = waterbody.getExteriorRing();
-		for (LineString b : newBankEdges) {
-			ls = addVertex(ls, b.getCoordinateN(0));
+		for (SkelLineString b : newBankEdges) {
+			ls = addVertex(ls, b.getLineString().getCoordinateN(0));
 		}
 		
 		ArrayList<LinearRing> ints = new ArrayList<>();
 		for (int i = 0; i < waterbody.getNumInteriorRing(); i ++) {
 			LineString ils = waterbody.getInteriorRingN(i);
-			for (LineString b : newBankEdges) {
-				ils = addVertex(ils, b.getCoordinateN(0));	
+			for (SkelLineString b : newBankEdges) {
+				ils = addVertex(ils, b.getLineString().getCoordinateN(0));	
 			}
 			ints.add(gf.createLinearRing(ils.getCoordinates()));
 		}
@@ -457,7 +455,7 @@ public class BankSkeletonizer {
 	 * @return
 	 */
 	@SuppressWarnings("unchecked")
-	private List<WorkingPolygon> breakPolgyon(Polygon polygon, Collection<LineString> existingSkeletons,
+	private List<WorkingPolygon> breakPolgyon(Polygon polygon, Collection<SkelLineString> existingSkeletons,
 			List<LineString> wateredges) {
 		
 		LineString outer = polygon.getExteriorRing();
@@ -468,10 +466,10 @@ public class BankSkeletonizer {
 		}
 		
 		Set<Coordinate> stopPoints = new HashSet<>();
-		for (LineString ls : existingSkeletons) {
-			if (polygon.getExteriorRing().intersects(ls)) {
-				stopPoints.add(ls.getCoordinateN(0));
-				stopPoints.add(ls.getCoordinateN(ls.getCoordinates().length - 1));
+		for (SkelLineString ls : existingSkeletons) {
+			if (polygon.getExteriorRing().intersects(ls.getLineString())) {
+				stopPoints.add(ls.getLineString().getCoordinateN(0));
+				stopPoints.add(ls.getLineString().getCoordinateN(ls.getLineString().getCoordinates().length - 1));
 			}
 		}
 
@@ -511,8 +509,8 @@ public class BankSkeletonizer {
 		Polygonizer pgen = new Polygonizer();
 		pgen.add(parts);
 		pgen.add(inner);
-		pgen.add(existingSkeletons);
-
+		for (SkelLineString l : existingSkeletons) pgen.add(l.getLineString());
+		
 		Collection<Polygon> items = pgen.getPolygons();
 		
 		List<WorkingPolygon> working = new ArrayList<>();
@@ -524,8 +522,8 @@ public class BankSkeletonizer {
 			for (LineString ls : inner) {
 				if (ls.relate(p, "F1*F*****")) wp.getInnerEdges().add(ls);
 			}
-			for (LineString ls : existingSkeletons) {
-				if (ls.relate(p, "F1*F*****")) wp.getSkeletonEdges().add(ls);
+			for (SkelLineString ls : existingSkeletons) {
+				if (ls.getLineString().relate(p, "F1*F*****")) wp.getSkeletonEdges().add(ls.getLineString());
 			}
 			if (!wp.getSkeletonEdges().isEmpty()) {
 				working.add(wp);

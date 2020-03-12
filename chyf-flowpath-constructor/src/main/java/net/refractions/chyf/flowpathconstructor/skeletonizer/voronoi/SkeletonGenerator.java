@@ -37,6 +37,7 @@ import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.prep.PreparedPolygon;
 import org.locationtech.jts.triangulate.VoronoiDiagramBuilder;
 
+import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties.Property;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.ConstructionPoint;
@@ -57,8 +58,7 @@ public class SkeletonGenerator {
 	
 	public SkeletonResult generateSkeleton(Polygon waterbody, List<ConstructionPoint> inoutPoints) throws Exception {
 		if (inoutPoints.size() < 2) throw new IOException("invalid number of input/output points");
-		List<Coordinate> points = preprocess2(waterbody, inoutPoints);
-//		points.forEach(c->System.out.println("POINT(" + c.x + " " + c.y + ")"));		
+		List<Coordinate> points = preprocess2(waterbody, inoutPoints);	
 		
 		VoronoiDiagramBuilder builder = new VoronoiDiagramBuilder();
 		builder.setSites(points);
@@ -66,8 +66,10 @@ public class SkeletonGenerator {
 		Geometry voronoi = builder.getDiagram(waterbody.getFactory());
 		
 		Collection<LineSegment> segments = processVoronoi(waterbody, inoutPoints, voronoi);
-		Collection<LineString> skeletons = filterExcess(segments, inoutPoints, waterbody.getFactory());
-		Collection<String> errors = validate(skeletons, waterbody, inoutPoints);
+		Collection<LineString> linestrings = filterExcess(segments, inoutPoints, waterbody.getFactory());
+		Collection<String> errors = validate(linestrings, waterbody, inoutPoints);
+		
+		Collection<SkelLineString> skeletons = linestrings.stream().map(ls->new SkelLineString(ls, (EfType) ls.getUserData())).collect(Collectors.toList());
 		SkeletonResult result = new SkeletonResult(skeletons, errors);
 		
 		return result;
