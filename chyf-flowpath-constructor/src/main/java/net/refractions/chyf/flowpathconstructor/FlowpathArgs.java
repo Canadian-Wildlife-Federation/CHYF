@@ -13,30 +13,25 @@
  * See the License for the specific language governing permissions and 
  * limitations under the License.
  */
-package net.refractions.chyf.datasource;
+package net.refractions.chyf.flowpathconstructor;
+
+import net.refractions.chyf.Args;
 
 /**
- * Represents the values attribute in the chyf layers
+ * Class for parsing and validation input arguments for various tools
+ * 
  * @author Emily
  *
  */
-public enum ChyfAttribute{
-	
-	FLOWDIRECTION("flow_direction"),
-	ECTYPE("ec_type"),
-	EFTYPE("ef_type"),
-	DIRECTION("direction_known"),
-	RANK("rank"),
-	INTERNAL_ID("internal_id"),
-	NAME("name_string");
-	
-	private String fieldName;
-	
-	ChyfAttribute(String name){
-		this.fieldName = name;
+public class FlowpathArgs extends Args{
+
+	public FlowpathArgs(String mainClass) {
+		super(mainClass);
 	}
-	
-	public String getFieldName() {
-		return this.fieldName;
+
+	public ChyfProperties getPropertiesFile() throws Exception {
+		if (this.prop == null) return null;
+		return ChyfProperties.getProperties(this.prop);
 	}
+
 }
