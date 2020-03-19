@@ -22,10 +22,10 @@ public class TestData {
 		try(ChyfDataSource dataSource = new ChyfShapeDataSource(Paths.get(datasource));
 				GeoTiffDemReader demReader = new GeoTiffDemReader(dem)){
 			SEAProcessor engine = new SEAProcessor(dataSource, demReader);
-			SEAResult result = engine.doWork();
+			//SEAResult result = engine.doWork();
 			
 			ChyfShapeDataSourceSEAWriter writer = new ChyfShapeDataSourceSEAWriter(dataSource, Paths.get(outdatasource));
-			writer.write(result);
+			//writer.write(result);
 		}
 				
 		    

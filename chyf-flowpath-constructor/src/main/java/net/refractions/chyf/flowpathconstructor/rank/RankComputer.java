@@ -100,7 +100,7 @@ public class RankComputer {
 			FeatureId wbfid = null;
 			Point nodep = ((new GeometryFactory())).createPoint(node.getCoordinate());
 			
-			try(SimpleFeatureReader reader = source.query(new ReferencedEnvelope(nodep.getEnvelopeInternal(), sourceCRS), Layer.ECATCHMENTS, source.getWbTypeFilter())){
+			try(SimpleFeatureReader reader = source.query(Layer.ECATCHMENTS, new ReferencedEnvelope(nodep.getEnvelopeInternal(), sourceCRS), source.getWbTypeFilter())){
 				while(reader.hasNext()) {
 					SimpleFeature sf = reader.next();
 					Polygon p = ChyfDataSource.getPolygon(sf);
@@ -121,7 +121,7 @@ public class RankComputer {
 			List<LineString> tempparts = new ArrayList<>();
 				
 			//break waterbody parts where they intersect with another waterbody or the coastline
-			try(SimpleFeatureReader reader = source.query(new ReferencedEnvelope(wb.getEnvelopeInternal(), sourceCRS), Layer.ECATCHMENTS, source.getWbTypeFilter())){
+			try(SimpleFeatureReader reader = source.query(Layer.ECATCHMENTS, new ReferencedEnvelope(wb.getEnvelopeInternal(), sourceCRS), source.getWbTypeFilter())){
 				while(reader.hasNext()) {
 					SimpleFeature sf = reader.next();
 					if (sf.getIdentifier().equals(wbfid)) continue;
@@ -145,7 +145,7 @@ public class RankComputer {
 				}
 			}
 			//do the some thing with the coastline
-			try(SimpleFeatureReader reader = source.query(new ReferencedEnvelope(wb.getEnvelopeInternal(), sourceCRS), Layer.SHORELINES, null)){
+			try(SimpleFeatureReader reader = source.query(Layer.SHORELINES, new ReferencedEnvelope(wb.getEnvelopeInternal(), sourceCRS), null)){
 				if (reader != null) {
 					while(reader.hasNext()) {
 						SimpleFeature sf = reader.next();

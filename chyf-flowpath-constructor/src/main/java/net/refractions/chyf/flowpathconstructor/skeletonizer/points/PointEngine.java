@@ -106,7 +106,7 @@ public class PointEngine {
 			
 			//get overlapping polygons
 			ReferencedEnvelope env = new ReferencedEnvelope(workingPolygon.getEnvelopeInternal(), toProcess.getType().getCoordinateReferenceSystem());
-			try(SimpleFeatureReader wbtouches = dataSource.query(env, Layer.ECATCHMENTS, dataSource.getWbTypeFilter())){
+			try(SimpleFeatureReader wbtouches = dataSource.query(Layer.ECATCHMENTS, env, dataSource.getWbTypeFilter())){
 				while(wbtouches.hasNext()) {
 					SimpleFeature t = wbtouches.next();
 					if (t.getIdentifier().equals(toProcess.getIdentifier())) continue;
@@ -119,7 +119,7 @@ public class PointEngine {
 				}
 			}
 			//get overlapping flowpaths							
-			try(SimpleFeatureReader flowtouches = dataSource.query(env, Layer.EFLOWPATHS, null)){
+			try(SimpleFeatureReader flowtouches = dataSource.query(Layer.EFLOWPATHS, env)){
 				Name eftypeatt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), ChyfAttribute.EFTYPE);
 				Name diratt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), ChyfAttribute.DIRECTION);
 				while(flowtouches.hasNext()) {
@@ -163,7 +163,7 @@ public class PointEngine {
 			aoiedges.add(new PreparedLineString(ring));
 		}
 		
-		try(SimpleFeatureReader reader = geopkg.query(null, Layer.SHORELINES, null)){
+		try(SimpleFeatureReader reader = geopkg.query(Layer.SHORELINES, null, null)){
 			if (reader != null) {
 				while(reader.hasNext()){
 					SimpleFeature aoi = reader.next();

@@ -66,7 +66,7 @@ public class RankEngine {
 		}
 		
 		logger.info("loading flowpaths");
-		try(SimpleFeatureReader reader = dataSource.getFeatureReader(Layer.EFLOWPATHS, null, null)){
+		try(SimpleFeatureReader reader = dataSource.query(Layer.EFLOWPATHS)){
 			
 			Name eftypeatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.EFTYPE);
 			crs = reader.getFeatureType().getCoordinateReferenceSystem();

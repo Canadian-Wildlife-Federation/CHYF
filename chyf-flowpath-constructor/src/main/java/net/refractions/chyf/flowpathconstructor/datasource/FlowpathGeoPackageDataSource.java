@@ -113,8 +113,6 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource{
 	
 	public FlowpathGeoPackageDataSource(Path geopackageFile) throws Exception {
 		super(geopackageFile);
-		this.geopackageFile = geopackageFile;
-		read();
 		
 		addInternalIdAttribute();
 		if (ChyfDataSource.findAttribute(getFeatureType(Layer.EFLOWPATHS), ChyfAttribute.DIRECTION) == null) {

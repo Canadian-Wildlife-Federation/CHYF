@@ -60,7 +60,7 @@ public class CycleChecker {
 		List<PreparedPolygon> aois = new ArrayList<>();
 		for (Polygon p : dataSource.getAoi()) aois.add(new PreparedPolygon(p));
 			
-		try(SimpleFeatureReader reader = dataSource.getFeatureReader(Layer.EFLOWPATHS,null, null)){
+		try(SimpleFeatureReader reader = dataSource.query(Layer.EFLOWPATHS)){
 			Name efatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.EFTYPE);
 			Name diratt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.DIRECTION);
 			while(reader.hasNext()) {
