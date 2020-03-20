@@ -174,7 +174,7 @@ public class SkeletonGenerator {
 		
 		
 		IndexedPointInAreaLocator outer = new IndexedPointInAreaLocator(waterbody);
-//		FastPIP outer = new FastPIP(waterbody);
+
 		//this is for the cases where there are acute angle in the
 		//boundary of the polygons and the segment 
 		//crosses the boundary
@@ -190,9 +190,7 @@ public class SkeletonGenerator {
 				boolean in1 = (loc == Location.INTERIOR || loc == Location.BOUNDARY);
 				loc = outer.locate(c2);
 				boolean in2 = (loc == Location.INTERIOR || loc == Location.BOUNDARY);
-				
-//				boolean in1 = outer.PIP(c);
-//				boolean in2 = outer.PIP(c2);
+		
 				if (in1 && in2) {
 					if (segInPoly.testSegment(c1, c2)) {
 						segments.add(createSegment(c1, c2));
@@ -204,10 +202,7 @@ public class SkeletonGenerator {
 				}
 			}
 		}
-		
-//		inoutsegments.forEach(e->System.out.println(e.toString()));
-//		segments.forEach(e->System.out.println(e.toString()));
-		
+
 		//only keep the inout segments that are closest to input/output point
 		//and truncate to original inout point
 		for (ConstructionPoint spnt : inoutPoints) {
@@ -225,7 +220,7 @@ public class SkeletonGenerator {
 				throw new Exception("FAIL");
 			}else {
 				int loc = outer.locate(nearest.p0);
-				if (loc == Location.INTERIOR || loc == Location.BOUNDARY) { //outer.PIP(nearest.p0)
+				if (loc == Location.INTERIOR || loc == Location.BOUNDARY) { 
 					segments.add(createSegment(c, nearest.p0));
 				}else {
 					segments.add(createSegment(c, nearest.p1));
