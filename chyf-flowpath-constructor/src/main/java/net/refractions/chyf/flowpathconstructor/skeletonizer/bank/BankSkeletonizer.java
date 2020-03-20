@@ -73,7 +73,7 @@ public class BankSkeletonizer {
 	/**
 	 * 
 	 * @param waterbody the waterbody to add bank skeletons to
-	 * @param existingSkeletons set of existing skeleonts linking all inflows to outflows
+	 * @param existingSkeletons set of existing skeletons linking all inflows to outflows
 	 * @param terminalNode degree 1 input or output node if it exists.  This is for isolated and headwater (or tailwater)
 	 * lakes where we only want one bank edge.
 	 * @param wateredges set of linestrings that represent shared boundaries with other waterbodies. We don't
@@ -110,7 +110,6 @@ public class BankSkeletonizer {
 				double maxD = skl.getLength() * (1-bankNodeDistanceFactor);
 				LineString tpart = chopLineString(skl.getCoordinates(), minD, maxD, gf);
 				
-
 				if (!p.getBoundaryEdges().isEmpty()) {
 					List<LineString> newboundaries = new ArrayList<>();
 					for (LineString ls : p.getBoundaryEdges()) {

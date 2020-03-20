@@ -59,13 +59,14 @@ public class SkeletonGenerator {
 	public SkeletonResult generateSkeleton(Polygon waterbody, List<ConstructionPoint> inoutPoints) throws Exception {
 		if (inoutPoints.size() < 2) throw new IOException("invalid number of input/output points");
 		List<Coordinate> points = preprocess2(waterbody, inoutPoints);	
-		
+
 		VoronoiDiagramBuilder builder = new VoronoiDiagramBuilder();
 		builder.setSites(points);
 		builder.setClipEnvelope(waterbody.getEnvelopeInternal());
 		Geometry voronoi = builder.getDiagram(waterbody.getFactory());
 		
 		Collection<LineSegment> segments = processVoronoi(waterbody, inoutPoints, voronoi);
+		
 		Collection<LineString> linestrings = filterExcess(segments, inoutPoints, waterbody.getFactory());
 		Collection<String> errors = validate(linestrings, waterbody, inoutPoints);
 		
@@ -252,7 +253,7 @@ public class SkeletonGenerator {
 		
 		List<Coordinate> densifyMore = new ArrayList<>();
 		
-		double minAngle = properties.getProperty(Property.SKEL_ACUTE_ANGLE_RAD);
+		double minAngle = Math.toRadians( properties.getProperty(Property.SKEL_ACUTE_ANGLE) );
 		double maxAngle = 2*Math.PI - minAngle;
 		double densify = properties.getProperty(Property.SKEL_DENSIFY_FACTOR);
 

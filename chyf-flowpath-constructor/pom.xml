@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>net.refractions.chyf</groupId>
-	<artifactId>flowpath-constructor</artifactId>
+	<artifactId>chyf-flowpath-constructor</artifactId>
 	<version>3.0.0</version>
 	<packaging>jar</packaging>
 	<name>CHyF Flowpath Constructor</name>

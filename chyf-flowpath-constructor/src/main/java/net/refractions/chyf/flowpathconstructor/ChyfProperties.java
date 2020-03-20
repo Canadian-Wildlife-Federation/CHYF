@@ -48,7 +48,7 @@ public class ChyfProperties implements IChyfProperties{
 		SKEL_DENSIFY_FACTOR("densify_factor"),
 		SKEL_SIMPLIFY_FACTOR("simplify_factor"),
 		SKEL_MINSIZE("minimum_skeleton_length"),
-		SKEL_ACUTE_ANGLE_RAD("acute_angle_rad"),
+		SKEL_ACUTE_ANGLE("acute_angle"),
 		BANK_NODE_DISTANCE_OFFSET("bank_node_distance_offset"),
 		BANK_MIN_VERTEX_DISTANCE("bank_min_vertex_distance"),
 		

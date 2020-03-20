@@ -50,7 +50,7 @@ public class VoronoiTest {
 		prop.setProperty(Property.SKEL_DENSIFY_FACTOR, densify);
 		prop.setProperty(Property.SKEL_SIMPLIFY_FACTOR, simplify);
 		prop.setProperty(Property.SKEL_MINSIZE, minsize);
-		prop.setProperty(Property.SKEL_ACUTE_ANGLE_RAD, 0.523599);
+		prop.setProperty(Property.SKEL_ACUTE_ANGLE, 30.0);
 		SkeletonGenerator gen = new SkeletonGenerator(prop);
 		return gen;
 	}
@@ -153,7 +153,7 @@ public class VoronoiTest {
 		prop.setProperty(Property.SKEL_DENSIFY_FACTOR, 0.00001);
 		prop.setProperty(Property.SKEL_SIMPLIFY_FACTOR, 0.000001);
 		prop.setProperty(Property.SKEL_MINSIZE, 0.00001);
-		prop.setProperty(Property.SKEL_ACUTE_ANGLE_RAD, 0.523599);
+		prop.setProperty(Property.SKEL_ACUTE_ANGLE, 30.0);
 		SkeletonGenerator gen = new SkeletonGenerator(prop);
 
 		SkeletonResult results = gen.generateSkeleton(polygon,  expected);
@@ -231,7 +231,7 @@ public class VoronoiTest {
 		prop.setProperty(Property.SKEL_DENSIFY_FACTOR, 0.00001);
 		prop.setProperty(Property.SKEL_SIMPLIFY_FACTOR, 0.000001);
 		prop.setProperty(Property.SKEL_MINSIZE, 0.00001);
-		prop.setProperty(Property.SKEL_ACUTE_ANGLE_RAD, 0.52);
+		prop.setProperty(Property.SKEL_ACUTE_ANGLE, 30.0);
 		SkeletonGenerator gen = new SkeletonGenerator(prop);
 
 		SkeletonResult results = gen.generateSkeleton(polygon,  expected);

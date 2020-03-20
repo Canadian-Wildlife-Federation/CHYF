@@ -50,7 +50,7 @@ public class BankGeneratorTest {
 		prop.setProperty(Property.SKEL_DENSIFY_FACTOR, 1.0);
 		prop.setProperty(Property.SKEL_MINSIZE, 1.0);
 		prop.setProperty(Property.SKEL_SIMPLIFY_FACTOR, 1.0);
-		prop.setProperty(Property.SKEL_ACUTE_ANGLE_RAD, 0.3);
+		prop.setProperty(Property.SKEL_ACUTE_ANGLE, 30.0);
 		prop.setProperty(Property.BANK_NODE_DISTANCE_OFFSET, 0.2);
 		prop.setProperty(Property.BANK_NODE_DISTANCE_OFFSET, 0.2);
 		prop.setProperty(Property.PNT_VERTEX_DISTANCE, 0.001);
@@ -187,7 +187,7 @@ public class BankGeneratorTest {
 		prop.setProperty(Property.SKEL_DENSIFY_FACTOR, 0.0001);
 		prop.setProperty(Property.SKEL_MINSIZE, 0.0001);
 		prop.setProperty(Property.SKEL_SIMPLIFY_FACTOR, 0.000001);
-		prop.setProperty(Property.SKEL_ACUTE_ANGLE_RAD, 0.3);
+		prop.setProperty(Property.SKEL_ACUTE_ANGLE, 30.0);
 		prop.setProperty(Property.BANK_NODE_DISTANCE_OFFSET, 0.2);
 		prop.setProperty(Property.BANK_NODE_DISTANCE_OFFSET, 0.2);
 		prop.setProperty(Property.PNT_VERTEX_DISTANCE, 0.001);
@@ -218,7 +218,7 @@ public class BankGeneratorTest {
 		prop.setProperty(Property.SKEL_DENSIFY_FACTOR, 0.0001);
 		prop.setProperty(Property.SKEL_MINSIZE, 0.0001);
 		prop.setProperty(Property.SKEL_SIMPLIFY_FACTOR, 0.000001);
-		prop.setProperty(Property.SKEL_ACUTE_ANGLE_RAD, 0.3);
+		prop.setProperty(Property.SKEL_ACUTE_ANGLE, 30.0);
 		prop.setProperty(Property.BANK_NODE_DISTANCE_OFFSET, 0.2);
 		prop.setProperty(Property.BANK_NODE_DISTANCE_OFFSET, 0.2);
 		prop.setProperty(Property.PNT_VERTEX_DISTANCE, 0.001);
@@ -254,7 +254,7 @@ public class BankGeneratorTest {
 		prop.setProperty(Property.SKEL_DENSIFY_FACTOR, 1.0);
 		prop.setProperty(Property.SKEL_MINSIZE, 1.0);
 		prop.setProperty(Property.SKEL_SIMPLIFY_FACTOR, 0.25);
-		prop.setProperty(Property.SKEL_ACUTE_ANGLE_RAD, 0.3);
+		prop.setProperty(Property.SKEL_ACUTE_ANGLE, 30.0);
 		prop.setProperty(Property.BANK_NODE_DISTANCE_OFFSET, 0.2);
 		prop.setProperty(Property.BANK_MIN_VERTEX_DISTANCE, 0.001);
 		prop.setProperty(Property.PNT_VERTEX_DISTANCE, 0.001);
