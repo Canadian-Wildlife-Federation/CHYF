@@ -79,7 +79,7 @@ public class DirectionalizeEngine {
 
 		logger.info("loading flowpaths");
 		
-		try(SimpleFeatureReader reader = dataSource.getFeatureReader(Layer.EFLOWPATHS,null, null)){
+		try(SimpleFeatureReader reader = dataSource.query(Layer.EFLOWPATHS)){
 			sourceCRS = reader.getFeatureType().getCoordinateReferenceSystem();
 			Name eftypeatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.EFTYPE);
 			Name direatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.DIRECTION);
@@ -172,7 +172,7 @@ public class DirectionalizeEngine {
 		
 		//add coastline sinks
 		Set<Coordinate> clc = new HashSet<>();
-		try(SimpleFeatureReader reader = source.getFeatureReader(Layer.SHORELINES, null, null)){
+		try(SimpleFeatureReader reader = source.query(Layer.SHORELINES)){
 			if (reader != null) {
 				while(reader.hasNext()) {
 					SimpleFeature sf = reader.next();

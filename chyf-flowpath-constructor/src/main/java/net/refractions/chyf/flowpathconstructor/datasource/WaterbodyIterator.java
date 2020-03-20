@@ -91,7 +91,7 @@ public class WaterbodyIterator {
 		
 		SimpleFeature next = null;
 		
-		try(SimpleFeatureReader rr = source.getFeatureReader(Layer.ECATCHMENTS, featureFilter, null)){
+		try(SimpleFeatureReader rr = source.query(Layer.ECATCHMENTS, featureFilter)){
 			if (rr.hasNext()) next = rr.next();
 		}
 		if (next == null) throw new IllegalStateException("Waterbody with feature id " + fid + " not found.");

@@ -86,7 +86,7 @@ public class BankEngine {
 				//get overlapping polygons
 				List<LineString> wateredges = new ArrayList<>();
 				ReferencedEnvelope env = new ReferencedEnvelope(workingPolygon.getEnvelopeInternal(), toProcess.getType().getCoordinateReferenceSystem());
-				try(SimpleFeatureReader wbtouches = dataSource.query(env, Layer.ECATCHMENTS, dataSource.getWbTypeFilter())){
+				try(SimpleFeatureReader wbtouches = dataSource.query(Layer.ECATCHMENTS, env, dataSource.getWbTypeFilter())){
 					while(wbtouches.hasNext()) {
 						SimpleFeature t = wbtouches.next();
 						if (t.getIdentifier().equals(toProcess.getIdentifier())) continue;
@@ -120,7 +120,7 @@ public class BankEngine {
 				//get overlapping flowpaths
 				HashMap<Coordinate, Integer> nodes = new HashMap<>();
 				HashMap<Coordinate, Integer> ctype = new HashMap<>();
-				try(SimpleFeatureReader flowtouches = dataSource.query(env, Layer.EFLOWPATHS, null)){
+				try(SimpleFeatureReader flowtouches = dataSource.query(Layer.EFLOWPATHS, env, null)){
 					Name efatt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), ChyfAttribute.EFTYPE);
 					while(flowtouches.hasNext()) {
 						SimpleFeature t = flowtouches.next();
@@ -233,7 +233,7 @@ public class BankEngine {
 		}
 		
 		
-		try(SimpleFeatureReader reader = geopkg.query(null, Layer.SHORELINES, null)){
+		try(SimpleFeatureReader reader = geopkg.query(Layer.SHORELINES)){
 			if (reader != null) {
 				while(reader.hasNext()){
 					SimpleFeature aoi = reader.next();

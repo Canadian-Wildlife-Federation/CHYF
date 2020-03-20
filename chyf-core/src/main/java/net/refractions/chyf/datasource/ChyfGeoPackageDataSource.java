@@ -1,18 +1,18 @@
-/*
- * Copyright 2019 Government of Canada
- * 
+/*******************************************************************************
+ * Copyright 2020 Government of Canada
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); 
  * you may not use this file except in compliance with the License. 
  * You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software 
  * distributed under the License is distributed on an "AS IS" BASIS, 
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
  * See the License for the specific language governing permissions and 
  * limitations under the License.
- */
+ *******************************************************************************/
 package net.refractions.chyf.datasource;
 
 import java.io.IOException;
@@ -20,8 +20,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
 import org.geotools.data.DefaultTransaction;
@@ -40,9 +42,12 @@ import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.Name;
 import org.opengis.filter.Filter;
 import org.opengis.filter.FilterFactory2;
+import org.opengis.geometry.BoundingBox;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import net.refractions.chyf.util.ReprojectionUtils;
 
 /**
  * Reads a geopackage input dataset.  
@@ -60,7 +65,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	protected GeoPackage geopkg;
 	protected CoordinateReferenceSystem crs;
 	
-	public ChyfGeoPackageDataSource(Path geopackageFile) throws Exception {
+	public ChyfGeoPackageDataSource(Path geopackageFile) throws IOException {
 		this.geopackageFile = geopackageFile;
 		read();
 	}
@@ -72,7 +77,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		return crs;
 	}
 	
-	protected void read() throws Exception {
+	protected void read() throws IOException {
 		geopkg = new GeoPackage(geopackageFile.toFile());
 		geopkg.init();
 		
@@ -82,7 +87,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 			if (crs == null) {
 				crs = ft.getCoordinateReferenceSystem();
 			}else if (!CRS.equalsIgnoreMetadata(crs,  ft.getCoordinateReferenceSystem())) {
-				throw new Exception("All layers must have the same projection.");
+				throw new RuntimeException("All layers must have the same projection.");
 			}
 		}
 	}
@@ -114,7 +119,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	/**
 	 * @return a feature reader for the given layer
 	 */
-    public SimpleFeatureReader getFeatureReader(Layer layer, Filter filter, Transaction tx) throws IOException {
+    protected SimpleFeatureReader getFeatureReader(Layer layer, Filter filter, Transaction tx) throws IOException {
     	FeatureEntry fe = getEntry(layer);
     	if (fe == null) return null;
     	return geopkg.reader(fe, filter, tx);
@@ -140,15 +145,21 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	protected FeatureEntry getEntry(Layer layer) throws IOException {
 		return geopkg.feature(layer.getLayerName());
 	}
-	
+
+	public int getSrid(Layer layer) throws IOException {
+		return geopkg.feature(layer.getLayerName()).getSrid();
+	}
+
 	/**
 	 * Ensures that the eflowpath, ecatchments, and ecoastline layers
 	 * all have a internal_uuid attribute and that is is unique and populated
 	 * for each feature.  If it doesn't exist a new field is added.  Any empty values
 	 * are populated.  If not unique then an exception is thrown
+	 * @throws SQLException 
+	 * @throws IOException 
 	 * @throws Exception 
 	 */
-	public void addInternalIdAttribute() throws Exception{
+	public void addInternalIdAttribute() throws IOException {
 		
 		//layers which need internal_ids
 		Layer[] layers = new Layer[] {Layer.SHORELINES, Layer.EFLOWPATHS, Layer.ECATCHMENTS};
@@ -164,34 +175,37 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		for (FeatureEntry fe : featureEntries) {
 			Name name = ChyfDataSource.findAttribute(getFeatureType(fe), ChyfAttribute.INTERNAL_ID);
 			if (name == null) addId.add(fe);
-			
 		}
 		
-		//add the id
-		Connection c = geopkg.getDataSource().getConnection();
-		for (FeatureEntry layer : addId) {
-			String query = "ALTER TABLE " + layer.getTableName() + " add column " + ChyfAttribute.INTERNAL_ID.getFieldName()  + " text ";
-			c.createStatement().execute(query);
-		}
-		
-		//ensure unique
-		for (FeatureEntry layer : featureEntries) {
-			
-			StringBuilder sb = new StringBuilder();
-			sb.append("SELECT count(*), ");
-			sb.append(ChyfAttribute.INTERNAL_ID.getFieldName());
-			sb.append(" FROM ");
-			sb.append(layer.getTableName());
-			sb.append(" WHERE ");
-			sb.append(ChyfAttribute.INTERNAL_ID.getFieldName());
-			sb.append(" is not null ");
-			sb.append(" GROUP BY ");
-			sb.append(ChyfAttribute.INTERNAL_ID.getFieldName());
-			sb.append(" HAVING count(*) > 1");
-			
-			try(ResultSet rs = c.createStatement().executeQuery(sb.toString())){
-				if (rs.next()) throw new Exception("Provided internal ids are not unique.");
+		try {
+			//add the id
+			Connection c = geopkg.getDataSource().getConnection();
+			for (FeatureEntry layer : addId) {
+				String query = "ALTER TABLE " + layer.getTableName() + " add column " + ChyfAttribute.INTERNAL_ID.getFieldName()  + " text ";
+				c.createStatement().execute(query);
 			}
+			
+			//ensure unique
+			for (FeatureEntry layer : featureEntries) {
+				
+				StringBuilder sb = new StringBuilder();
+				sb.append("SELECT count(*), ");
+				sb.append(ChyfAttribute.INTERNAL_ID.getFieldName());
+				sb.append(" FROM ");
+				sb.append(layer.getTableName());
+				sb.append(" WHERE ");
+				sb.append(ChyfAttribute.INTERNAL_ID.getFieldName());
+				sb.append(" is not null ");
+				sb.append(" GROUP BY ");
+				sb.append(ChyfAttribute.INTERNAL_ID.getFieldName());
+				sb.append(" HAVING count(*) > 1");
+				
+				try(ResultSet rs = c.createStatement().executeQuery(sb.toString())){
+					if (rs.next()) throw new RuntimeException("Provided internal ids are not unique.");
+				}
+			}
+		} catch (SQLException sqle) {
+			throw new IOException(sqle);
 		}
 		
 		geopkg.close();
@@ -199,7 +213,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		
 		//populate internal_id with uuids
 		for (FeatureEntry layer : featureEntries) {
-			try(DefaultTransaction tx = new DefaultTransaction()){
+			try(DefaultTransaction tx = new DefaultTransaction()) {
 				try {
 					Filter blankFilter = ff.isNull(ff.property(ChyfAttribute.INTERNAL_ID.getFieldName()));
 		
@@ -213,51 +227,69 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 						}
 					}
 					tx.commit();
-				}catch (Exception ex) {
+				} catch (IOException ioe) {
 					tx.rollback();
-					throw ex;
+					throw ioe;
 				}
 			}
 		}
 		
 	}
 
+	@Override
+	public SimpleFeatureReader query(Layer layer) throws IOException {
+		return query(layer, null, null);
+	}
 
-	/**
-	 * Queries the provided layer using the bounds and filter provided.  Filter can be null.
-	 * @param bounds
-	 * @param layer
-	 * @param filter
-	 * @return
-	 * @throws IOException
-	 */
-	public SimpleFeatureReader query(ReferencedEnvelope bounds, Layer layer, Filter filter) throws IOException {
+	@Override
+	public SimpleFeatureReader query(Layer layer, ReferencedEnvelope bounds) throws IOException {
+		return query(layer, bounds, null);
+	}
+
+	@Override
+	public SimpleFeatureReader query(Layer layer, Filter filter) throws IOException {
+		return query(layer, null, filter);
+	}
+
+	@Override
+	public SimpleFeatureReader query(Layer layer, ReferencedEnvelope bounds, Filter filter) throws IOException {
 		if (layer == null) throw new IOException("Required dataset not found.");
-		if (getEntry(layer) == null) return null;
-		if (bounds == null) {
-			return getFeatureReader(layer,  filter,  null);
-		}
-		
-		String geom = getEntry(layer).getGeometryColumn();
-		Filter filter1 = ff.bbox(ff.property(geom), bounds);
-		Filter filter2 = ff.intersects(ff.property(geom), ff.literal(JTS.toGeometry(bounds)));
-		List<Filter> all = new ArrayList<>();
-		if (filter != null) all.add(filter);
-		all.add(filter1);
-		all.add(filter2);
-		Filter filters = ff.and(all);
-            
-        return getFeatureReader(layer, filters,  null);
-		
+		FeatureEntry fe = getEntry(layer);
+		return query(fe, bounds, filter);
 	}
 	
+	// Internal query interface allows subclasses to specify the featureEntry instead of using the fixed Layer Enum
+	protected SimpleFeatureReader query(FeatureEntry fe, ReferencedEnvelope bounds, Filter filter) throws IOException {
+		Filter netFilter = null;
+		if(bounds != null) {
+			netFilter = filterFromEnvelope(bounds, fe);
+		}
+		if(filter != null) {
+			netFilter = ff.and(netFilter, filter);
+		}
+    	return geopkg.reader(fe, netFilter, null);
+	}
 	
+	protected Filter filterFromEnvelope(ReferencedEnvelope env, FeatureEntry source) {
+		Filter filter;
+		BoundingBox bounds;
+		bounds = ReprojectionUtils.reproject(env, ReprojectionUtils.srsCodeToCRS(source.getSrid()));
+		String geom = source.getGeometryColumn();
+		Filter filter1 = ff.bbox(ff.property(geom), bounds);
+		Filter filter2 = ff.intersects(ff.property(geom), ff.literal(JTS.toGeometry(bounds)));
+		filter = ff.and(filter1, filter2);
+		return filter;
+	}
+
 	/**
 	 * Gets aoi layer as a list of polygons
 	 * @return
+	 * @throws IOException 
+	 * @throws NoSuchElementException 
+	 * @throws IllegalArgumentException 
 	 * @throws Exception
 	 */
-	public List<Polygon> getAoi() throws Exception{
+	public List<Polygon> getAoi() throws IOException  {
 		List<Polygon> aois = new ArrayList<>();
 		try(SimpleFeatureReader reader = getFeatureReader(Layer.AOI, Filter.INCLUDE, null)){
 			while(reader.hasNext()) {
@@ -270,12 +302,12 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	}
 	
 	@Override
-	public void close() throws Exception {
+	public void close() {
 		geopkg.close();
 	}
 	
 	
-	public static final void deleteOutputFile(Path outputFile) throws Exception{
+	public static final void deleteOutputFile(Path outputFile) throws IOException {
 		if (Files.exists(outputFile)) {
 			Files.delete(outputFile);
 			//also delete -shm and -wal if files
