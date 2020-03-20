@@ -52,12 +52,20 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 		
 	}
 	
-	public FeatureEntry createLayer(SimpleFeatureType ft, ReferencedEnvelope workingExtent) throws IOException{
-		FeatureEntry fe = new FeatureEntry();
-		fe.setBounds(workingExtent);
-		geopkg.create(fe, ft);
-		geopkg.createSpatialIndex(fe);
-		return fe;
+	public boolean createLayer(SimpleFeatureType ft, ReferencedEnvelope workingExtent) {
+		try {
+			FeatureEntry fe = geopkg.feature(ft.getTypeName());
+			if(fe == null) {
+				fe = new FeatureEntry();
+				fe.setBounds(workingExtent);
+				geopkg.create(fe, ft);
+				geopkg.createSpatialIndex(fe);
+				return true;
+			}
+			return false;
+		} catch(IOException ioe) {
+			throw new RuntimeException(ioe);
+		}
 	}
 	
 	public SimpleFeatureReader query(String layerName, ReferencedEnvelope bounds, Filter filter) throws IOException {

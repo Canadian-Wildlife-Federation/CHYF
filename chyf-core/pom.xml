@@ -19,13 +19,14 @@
 
 	<groupId>net.refractions.chyf</groupId>
 	<artifactId>chyf-core</artifactId>
-	<version>3.0.0</version>
+	<version>1.0.0</version>
 	<packaging>jar</packaging>
 	<name>CHyF Core Library</name>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<geotools.version>21.1</geotools.version>
+		<junit.jupiter.version>5.5.2</junit.jupiter.version>
 		
 		<timestamp>${maven.build.timestamp}</timestamp>
         	<maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
@@ -59,6 +60,19 @@
 	</build>
 	
 	<dependencies>
+		<dependency>
+		    <groupId>org.junit.jupiter</groupId>
+		    <artifactId>junit-jupiter-engine</artifactId>
+		    <version>${junit.jupiter.version}</version>
+        	<scope>test</scope>
+		</dependency>
+		<dependency>
+		    <groupId>org.junit.jupiter</groupId>
+		    <artifactId>junit-jupiter-params</artifactId>
+		    <version>${junit.jupiter.version}</version>
+        	<scope>test</scope>
+		</dependency>
+	
 		<dependency>
 			<groupId>org.geotools</groupId>
 			<artifactId>gt-epsg-hsql</artifactId>

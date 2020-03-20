@@ -71,19 +71,15 @@ public class DataManager {
 	private ReferencedEnvelope workingExtent;
 
 	public DataManager(Path geoTiffDirPath, Path inputGeopackagePath, Path outputGeopackagePath, 
-			Integer newSrid, boolean recover) throws IOException {
+			boolean recover) throws IOException {
 		if(!recover) {
 			ChyfGeoPackageDataSource.deleteOutputFile(outputGeopackagePath);
 			Files.copy(inputGeopackagePath, outputGeopackagePath, StandardCopyOption.REPLACE_EXISTING);
 		}
 		dataSource = new CatchmentDelineatorDataSource(outputGeopackagePath);
 		
-		// determine the srid/srid of the projection to use
-		if(newSrid == null) {
-			srid = dataSource.getSrid(Layer.EFLOWPATHS);
-		} else {
-			srid = newSrid;
-		}
+		// determine the srid/crs to use
+		srid = dataSource.getSrid(Layer.EFLOWPATHS);
 		crs = ReprojectionUtils.srsCodeToCRS(srid);
 
 		// load the appropriate properties
@@ -98,7 +94,7 @@ public class DataManager {
 		// Build a featureType for the HydroEdge features
 		SimpleFeatureTypeBuilder sftBuilder = new SimpleFeatureTypeBuilder();
 		sftBuilder.setName(CatchmentDelineatorDataSource.HYDRO_EDGE_LAYER);
-		sftBuilder.setSRS("srid:" + srid);
+		sftBuilder.setSRS("EPSG:" + srid);
 		sftBuilder.add("drainageId", Integer.class);
 		sftBuilder.add("waterSide", String.class);
 		sftBuilder.add("geometry", LineString.class);
@@ -109,7 +105,7 @@ public class DataManager {
 		// Build a featureType for the Block features
 		SimpleFeatureTypeBuilder sftBuilder = new SimpleFeatureTypeBuilder();
 		sftBuilder.setName(CatchmentDelineatorDataSource.BLOCK_LAYER);
-		sftBuilder.setSRS("srid:" + srid);
+		sftBuilder.setSRS("EPSG:" + srid);
 		sftBuilder.add("id", Integer.class);
 		sftBuilder.add("state", Integer.class);
 		sftBuilder.add("geometry", Polygon.class);
@@ -120,7 +116,7 @@ public class DataManager {
 		// Build a featureType for the WatershedBoundary features
 		SimpleFeatureTypeBuilder sftBuilder = new SimpleFeatureTypeBuilder();
 		sftBuilder.setName("WatershedBoundary");
-		sftBuilder.setSRS("srid:" + srid);
+		sftBuilder.setSRS("EPSG:" + srid);
 		sftBuilder.add("leftDrainageId", Integer.class);
 		sftBuilder.add("rightDrainageId", Integer.class);
 		sftBuilder.add("geometry", LineString.class);
@@ -148,7 +144,9 @@ public class DataManager {
 				}
 			}
 		}
-		deleteBlocks();
+		if(!dataSource.createLayer(getBlockFT(), workingExtent)) { 
+			deleteBlocks();
+		}
 		writeBlocks(blocks);
 		return blocks;
 	}
@@ -261,14 +259,16 @@ public class DataManager {
 		try {
 			List<Geometry> coastlines = new ArrayList<Geometry>();
 			SimpleFeatureReader clReader = dataSource.query(Layer.SHORELINES);
-			while (clReader.hasNext()) {
-				SimpleFeature cl = clReader.next();
-				Geometry clGeom = (Geometry) cl.getDefaultGeometry();
-				clGeom = ReprojectionUtils.reproject(clGeom, cl.getType().getCoordinateReferenceSystem(), crs);
-				clGeom = GeometryPrecisionReducer.reduce(clGeom, WatershedSettings.getPrecisionModel());
-				coastlines.add(clGeom);
+			if(clReader != null) {
+				while (clReader.hasNext()) {
+					SimpleFeature cl = clReader.next();
+					Geometry clGeom = (Geometry) cl.getDefaultGeometry();
+					clGeom = ReprojectionUtils.reproject(clGeom, cl.getType().getCoordinateReferenceSystem(), crs);
+					clGeom = GeometryPrecisionReducer.reduce(clGeom, WatershedSettings.getPrecisionModel());
+					coastlines.add(clGeom);
+				}
+				clReader.close();
 			}
-			clReader.close();
 			stats.reportStatus(logger, "loaded " + coastlines.size() + " shorelines.");
 			return coastlines;
 		} catch(IOException ioe) {
@@ -331,7 +331,7 @@ public class DataManager {
 			public DataBlock apply(SimpleFeature f) {
 				return new DataBlock(
 						(Integer)f.getAttribute("id"), 
-						((Geometry)f.getAttribute("geometry")).getEnvelopeInternal(),
+						((Geometry)f.getDefaultGeometry()).getEnvelopeInternal(),
 						BlockState.fromId((Integer)f.getAttribute("state")),
 						dm);
 			}
@@ -357,26 +357,30 @@ public class DataManager {
 	}
 
 	public void writeWatershedBoundaries(Collection<WatershedBoundaryEdge> watershedBoundaries) {
-		dataSource.writeObjects(Layer.ECATCHMENTS.getLayerName(), watershedBoundaries, new BiConsumer<WatershedBoundaryEdge,SimpleFeature>() {
+		dataSource.createLayer(getWatershedBoundaryEdgeFT(), workingExtent);
+		dataSource.writeObjects(CatchmentDelineatorDataSource.WATERSHED_BOUNDARY_LAYER, watershedBoundaries, new BiConsumer<WatershedBoundaryEdge,SimpleFeature>() {
 
 			@Override
 			public void accept(WatershedBoundaryEdge edge, SimpleFeature f) {
 				f.setAttribute("leftDrainageId", edge.getRegionID(WatershedBoundaryEdge.LEFT));
 				f.setAttribute("rightDrainageId", edge.getRegionID(WatershedBoundaryEdge.RIGHT));
-				f.setAttribute("geometry", edge.getGeometry());				
+				f.setDefaultGeometry(edge.getGeometry());				
 			}
 			
 		});
 	}
 	
 	public void writeHydroEdges(Collection<HydroEdge> hydroEdges) {
+		if(!dataSource.createLayer(getHydroEdgeFT(), workingExtent)) {
+			deleteHydroEdges();
+		}
 		dataSource.writeObjects(CatchmentDelineatorDataSource.HYDRO_EDGE_LAYER, hydroEdges, new BiConsumer<HydroEdge,SimpleFeature>() {
 
 			@Override
 			public void accept(HydroEdge edge, SimpleFeature f) {
 				f.setAttribute("drainageId", edge.getDrainageID());
 				f.setAttribute("waterSide", edge.getWaterSide());
-				f.setAttribute("geometry", edge.getLine());
+				f.setDefaultGeometry(edge.getLine());
 			}
 			
 		});
@@ -389,7 +393,7 @@ public class DataManager {
 			public void accept(DataBlock block, SimpleFeature f) {
 				f.setAttribute("id", block.getId());
 				f.setAttribute("state", block.getState().id);
-				f.setAttribute("geometry", JTS.toPolygon(JTS.toRectangle2D(block.getBounds())));
+				f.setDefaultGeometry(JTS.toPolygon(JTS.toRectangle2D(block.getBounds())));
 			}
 			
 		});
@@ -400,8 +404,8 @@ public class DataManager {
 
 			@Override
 			public void accept(Geometry geom, SimpleFeature f) {
-				f.setAttribute("ec_type", EcType.WATER);
-				f.setAttribute("geometry", geom);
+				f.setAttribute("ec_type", EcType.WATER.getChyfValue());
+				f.setDefaultGeometry(geom);
 			}
 			
 		});
@@ -412,9 +416,9 @@ public class DataManager {
 
 			@Override
 			public void accept(WatershedBoundary wb, SimpleFeature f) {
-				f.setAttribute("drainage_id", wb.getDrainageId());
+				//f.setAttribute("drainage_id", wb.getDrainageId());
 				f.setAttribute("ec_type", wb.getCatchmentType());
-				f.setAttribute("geometry", wb.getPoly());
+				f.setDefaultGeometry(wb.getPoly());
 			}
 			
 		});

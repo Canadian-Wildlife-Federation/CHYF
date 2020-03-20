@@ -4,17 +4,16 @@
 
 	<groupId>net.refractions.chyf</groupId>
 	<artifactId>chyf-flowpath-constructor</artifactId>
-	<version>3.0.0</version>
+	<version>1.0.0</version>
 	<packaging>jar</packaging>
 	<name>CHyF Flowpath Constructor</name>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<geotools.version>21.1</geotools.version>
-		<chyf.version>3.0.0</chyf.version>
-		
+		<chyf.version>1.0.0</chyf.version>
 		<timestamp>${maven.build.timestamp}</timestamp>
-        <maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
+        	<maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
 	</properties>
 
 	<!-- to build: mvn clean package -->

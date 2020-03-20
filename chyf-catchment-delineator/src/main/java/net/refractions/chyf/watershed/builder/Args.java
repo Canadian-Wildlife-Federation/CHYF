@@ -36,7 +36,6 @@ public class Args {
 		options.addOption("p", true, "custom properties file");
 		options.addOption("c", true, "number of cores to use for multi-core processing (default 1)");
 		options.addOption("r", false, "recover/continue previous output (output file must exist)");
-		options.addOption("s", true, " identifier of spatial reference system to reproject input data to before processing");
 	}
 
 	private Path inFile = null;
@@ -44,7 +43,6 @@ public class Args {
 	private Path outFile = null;
 	private Path propertiesFile = null;
 	private int cores = 1;
-	private Integer srid = null;
 	private boolean recover = false;
 	
 
@@ -79,9 +77,6 @@ public class Args {
 				args.recover = true;
 			}
 
-			if(cmd.hasOption("s")) {
-				args.srid = Integer.parseInt(cmd.getOptionValue("s"));
-			}
 
 			if (cmd.getArgList().size() == 3) {
 				args.inFile = Paths.get(cmd.getArgList().get(0));
@@ -144,10 +139,6 @@ public class Args {
 
 	public boolean getRecover() {
 		return recover;
-	}
-
-	public Integer getSrid() {
-		return srid;
 	}
 
 	private static void printUsage(String main) {
