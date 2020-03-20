@@ -18,7 +18,6 @@ package net.refractions.chyf.watershed.builder;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
@@ -66,17 +65,11 @@ public class CatchmentDelineator {
 		Path outputPath = args.getOutput();
     	numThreads = args.getCores();
     	recover = args.getRecover();
-    	//numThreads = 1;
 		
-    	Integer epsg = args.getSrid();; 
-		//epsg = 4617; // CSRS Lat-lon
-		//epsg = 6624; // CSRS Quebec Albers
-    	//epsg = 3978; // Canada Lambert Conformal Conic
-
-    	dm = new DataManager(inputTiffDir, inputPath, outputPath, epsg, recover);
+    	dm = new DataManager(inputTiffDir, inputPath, outputPath, recover);
     }
     
-    public void build()  {
+    public void build() {
     	if(recover) {
     		blocks = dm.getBlocks();
     	} else {

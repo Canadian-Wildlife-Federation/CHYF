@@ -260,6 +260,8 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	
 	// Internal query interface allows subclasses to specify the featureEntry instead of using the fixed Layer Enum
 	protected SimpleFeatureReader query(FeatureEntry fe, ReferencedEnvelope bounds, Filter filter) throws IOException {
+		if(fe == null) return null;
+		
 		Filter netFilter = null;
 		if(bounds != null) {
 			netFilter = filterFromEnvelope(bounds, fe);
@@ -271,13 +273,11 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	}
 	
 	protected Filter filterFromEnvelope(ReferencedEnvelope env, FeatureEntry source) {
-		Filter filter;
-		BoundingBox bounds;
-		bounds = ReprojectionUtils.reproject(env, ReprojectionUtils.srsCodeToCRS(source.getSrid()));
+		BoundingBox bounds = ReprojectionUtils.reproject(env, ReprojectionUtils.srsCodeToCRS(source.getSrid()));
 		String geom = source.getGeometryColumn();
 		Filter filter1 = ff.bbox(ff.property(geom), bounds);
 		Filter filter2 = ff.intersects(ff.property(geom), ff.literal(JTS.toGeometry(bounds)));
-		filter = ff.and(filter1, filter2);
+		Filter filter = ff.and(filter1, filter2);
 		return filter;
 	}
 
@@ -305,7 +305,6 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	public void close() {
 		geopkg.close();
 	}
-	
 	
 	public static final void deleteOutputFile(Path outputFile) throws IOException {
 		if (Files.exists(outputFile)) {
