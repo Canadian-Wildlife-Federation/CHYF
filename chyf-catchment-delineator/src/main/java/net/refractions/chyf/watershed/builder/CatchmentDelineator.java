@@ -36,14 +36,6 @@ import net.refractions.chyf.datasource.EcType;
  */
 public class CatchmentDelineator {
     private static Logger logger = LoggerFactory.getLogger(CatchmentDelineator.class);
-
-    //private static String inputTiff = "L:\\Refractions\\NRCan\\CHyF Catchment Delineation 2019-20\\data\\bc";
-    //private static String inputGeopackage = "L:\\Refractions\\NRCan\\CHyF Skeletonizer 2019-20\\data_processed\\KOTL.gpkg";
-    //private static String inputGeopackage = "L:\\Refractions\\NRCan\\CHyF Catchment Delineation 2019-20\\data\\bc\\KOTL.gpkg";
-    //private static String outputGeopackage = "L:\\Refractions\\NRCan\\CHyF Catchment Delineation 2019-20\\data\\bc\\output.gpkg";
-    //private static String inputTiff = "L:\\Refractions\\NRCan\\CHyF Catchment Delineation 2019-20\\data\\quebec";
-    //private static String inputGeopackage = "L:\\Refractions\\NRCan\\CHyF Catchment Delineation 2019-20\\data\\quebec\\Richelieu.gpkg";
-    //private static String outputGeopackage = "C:\\Users\\cmhod\\Documents\\chyf_output.gpkg";
     
     private int numThreads = 1;
     private int maxBlocks = Integer.MAX_VALUE;
@@ -84,8 +76,6 @@ public class CatchmentDelineator {
     }
     
     public void processBlocks() {
-    	// TODO delete only watershed boundaries that we need to, for each block being processed
-    	//dm.deleteWatershedBoundaries(null);
         BlockProcessor processor = new BlockProcessor(dm);
         Stream<DataBlock> blocksToRun = blocks.stream().filter(new Predicate<DataBlock>() {
 
@@ -121,8 +111,8 @@ public class CatchmentDelineator {
     public void buildBoundaries() {
     	dm.deleteECatchments(EcType.REACH, EcType.BANK);
     	WatershedBoundaryMerger wbm = new WatershedBoundaryMerger(dm);
-    	List<WatershedBoundary> watersheds = wbm.merge();
-    	dm.writeWatersheds(watersheds);
+    	List<Catchment> watersheds = wbm.merge();
+    	dm.writeCatchments(watersheds);
     }
 
 }

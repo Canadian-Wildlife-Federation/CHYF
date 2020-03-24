@@ -7,10 +7,8 @@
   	</parent>
   	
   <modelVersion>4.0.0</modelVersion>
-  <groupId>net.refractions.chyf</groupId>
   <artifactId>chyf-processing-tools</artifactId>
-  <version>1.0.0</version>
-  	<packaging>jar</packaging>
+  <packaging>jar</packaging>
   
   <name>CHyF Processing Tools</name>
   <description>A set of tools for processing data into the CHyF format</description>
@@ -45,12 +43,12 @@
 		<dependency>
 			<groupId>net.refractions.chyf</groupId>
 			<artifactId>chyf-flowpath-constructor</artifactId>
-			<version>${chyf.version}</version>
+			<version>${project.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>net.refractions.chyf</groupId>
 			<artifactId>chyf-catchment-delineator</artifactId>
-			<version>${chyf.version}</version>
+			<version>${project.version}</version>
 		</dependency>
 	</dependencies>
   

@@ -11,15 +11,22 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<geotools.version>21.1</geotools.version>
-		<chyf.version>1.0.0</chyf.version>
 		<junit.jupiter.version>5.5.2</junit.jupiter.version>
 		<logback.version>1.1.7</logback.version>
 		<slf4j.version>1.7.25</slf4j.version>
 		<commonscli.version>1.4</commonscli.version>
 
 		<timestamp>${maven.build.timestamp}</timestamp>
-        	<maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
+        <maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
 	</properties>
+	
+	<modules>
+		<module>chyf-core</module>
+		<module>chyf-flowpath-constructor</module>
+		<module>chyf-catchment-delineator</module>
+		<module>chyf-processing-tools</module>
+	</modules>
+	
 	<build>
 		<plugins>
 			<plugin>
@@ -148,10 +155,4 @@
 		</repository>
 	</repositories>
 
-	<modules>
-		<module>chyf-core</module>
-		<module>chyf-flowpath-constructor</module>
-		<module>chyf-catchment-delineator</module>
-		<module>chyf-processing-tools</module>
-	</modules>
 </project>

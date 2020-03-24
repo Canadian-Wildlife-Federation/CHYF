@@ -46,7 +46,7 @@ import org.opengis.filter.FilterFactory2;
  */
 public interface ChyfDataSource extends AutoCloseable {
 	
-	public static FilterFactory2 ff = CommonFactoryFinder.getFilterFactory2();
+	public static final FilterFactory2 ff = CommonFactoryFinder.getFilterFactory2();
 
 
 	/**

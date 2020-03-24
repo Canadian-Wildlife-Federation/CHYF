@@ -17,7 +17,6 @@ package net.refractions.chyf.watershed.builder;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -33,13 +32,16 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineSegment;
 import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.precision.GeometryPrecisionReducer;
 import org.locationtech.jts.util.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.EcType;
 import net.refractions.chyf.util.ProcessStatistics;
+import net.refractions.chyf.watershed.WatershedSettings;
 import net.refractions.chyf.watershed.model.HydroEdge;
 import net.refractions.chyf.watershed.model.WaterSide;
 
@@ -68,7 +70,7 @@ public class HydroEdgeLoader {
 		Envelope overallEnv = new Envelope();
 
 		// load flowpaths
-		List<Geometry> flowpaths = dm.getInputFlowpaths();
+		List<Geometry> flowpaths = dm.getFlowpaths();
 		for(Geometry g : flowpaths) {
 			for (int i = 0; i < g.getNumGeometries(); i++) {
 				Geometry geomN = g.getGeometryN(i);
@@ -86,38 +88,42 @@ public class HydroEdgeLoader {
 		}
 		
 		// load waterbodies
-		List<Geometry> waterbodies = dm.getInputWaterbodies();
-		for(Geometry g : waterbodies) {
-			if(!g.isValid()) {
-				g = g.buffer(0);
+		List<Catchment> waterbodies = dm.getWaterbodies();
+		for(Catchment w : waterbodies) {
+			Polygon poly = w.getPoly(); 
+			poly = (Polygon) GeometryPrecisionReducer.reduce(poly, WatershedSettings.getPrecisionModel());
+			
+			if(!poly.isValid()) {
+				poly = (Polygon) poly.buffer(0);
 			}
-			for (int i = 0; i < g.getNumGeometries(); i++) {
-				Geometry geomN = g.getGeometryN(i);
-				if (geomN instanceof Polygon) {
-					Polygon poly = (Polygon) geomN;
-					overallEnv.expandToInclude(poly.getEnvelopeInternal());
-					LineString ls = poly.getExteriorRing();
-					WaterSide side = WaterSide.RIGHT;
-					if(Orientation.isCCW(ls.getCoordinateSequence())) {
-						side = WaterSide.LEFT;
-					}
-					addSegments(ls, side);
-					for(int n = 0; n < poly.getNumInteriorRing(); n++) {
-						ls = poly.getInteriorRingN(n);
-						side = WaterSide.LEFT;
-						if(Orientation.isCCW(ls.getCoordinateSequence())) {
-							side = WaterSide.RIGHT;
-						}
-						addSegments(ls, side);
-					}
-				} else {
-					logger.warn("non-polygon encountered in waterbodies");
+			w.setPolygon(poly);
+			//for (int i = 0; i < g.getNumGeometries(); i++) {
+			//	Geometry geomN = g.getGeometryN(i);
+			//if (geomN instanceof Polygon) {
+			//Polygon poly = (Polygon) geomN;
+			overallEnv.expandToInclude(poly.getEnvelopeInternal());
+			LineString ls = poly.getExteriorRing();
+			WaterSide side = WaterSide.RIGHT;
+			if(Orientation.isCCW(ls.getCoordinateSequence())) {
+				side = WaterSide.LEFT;
+			}
+			addSegments(ls, side);
+			for(int n = 0; n < poly.getNumInteriorRing(); n++) {
+				ls = poly.getInteriorRingN(n);
+				side = WaterSide.LEFT;
+				if(Orientation.isCCW(ls.getCoordinateSequence())) {
+					side = WaterSide.RIGHT;
 				}
+				addSegments(ls, side);
 			}
+			//} else {
+			//	logger.warn("non-polygon encountered in waterbodies");
+			//}
+			//}
 		}
 		
 		// load coastlines
-		List<Geometry> coastlines = dm.getInputShorelines();
+		List<Geometry> coastlines = dm.getShorelines();
 		for(Geometry g : coastlines) {
 			for (int i = 0; i < g.getNumGeometries(); i++) {
 				Geometry geomN = g.getGeometryN(i);
@@ -137,8 +143,7 @@ public class HydroEdgeLoader {
 		for(HydroChainLink link : segmentMap.values()) {
 			edges.add(link.edge);
 		}
-		dm.deleteECatchments(EcType.WATER);
-		dm.writeWaterbodies(waterbodies);
+		dm.updateWaterbodies(waterbodies);
 		dm.writeHydroEdges(edges);
 		stats.reportStatus(logger, "Hydro edges loaded and drainageIds assigned.");
 	}

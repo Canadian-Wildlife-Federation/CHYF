@@ -107,16 +107,6 @@ public class Args {
 	private Args() {
 	}
 	
-	/**
-	 * Deletes any existing output files and copies the input
-	 * file to the output file
-	 * @throws Exception
-	 */
-//	public void prepareOutput() throws Exception{
-//		ChyfGeoPackageDataSource.deleteOutputFile(getOutput());
-//		Files.copy(getInput(), getOutput(), StandardCopyOption.REPLACE_EXISTING);
-//	}
-	
 	public int getCores() {
 		return cores;
 	}

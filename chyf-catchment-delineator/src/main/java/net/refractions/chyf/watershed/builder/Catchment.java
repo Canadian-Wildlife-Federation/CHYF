@@ -17,19 +17,19 @@ package net.refractions.chyf.watershed.builder;
 
 import org.locationtech.jts.geom.Polygon;
 
-public class WatershedBoundary {
-	private int drainageId;
+public class Catchment {
+	private String internalId;
 	private int catchmentType;
 	private Polygon poly;
 
-	public WatershedBoundary(int drainageId, int catchmentType, Polygon poly) {
-		this.drainageId = drainageId;
+	public Catchment(String internalId, int catchmentType, Polygon poly) {
+		this.internalId = internalId;
 		this.catchmentType = catchmentType;
 		this.poly = poly;
 	}
-
-	public int getDrainageId() {
-		return drainageId;
+	
+	public String getInternalId() {
+		return internalId;
 	}
 
 	public int getCatchmentType() {
@@ -40,4 +40,7 @@ public class WatershedBoundary {
 		return poly;
 	}
 
+	public void setPolygon(Polygon p) {
+		poly = p;
+	}
 }

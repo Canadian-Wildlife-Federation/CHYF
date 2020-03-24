@@ -9,16 +9,14 @@
   	</parent>
 
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>net.refractions.chyf</groupId>
 	<artifactId>chyf-catchment-delineator</artifactId>
-	<version>1.0.0</version>
 	<name>CHyF Catchment Delineator</name>
 	
 	<dependencies>		
 		<dependency>
 			<groupId>net.refractions.chyf</groupId>
 			<artifactId>chyf-core</artifactId>
-			<version>${chyf.version}</version>
+			<version>${project.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.geotools</groupId>

@@ -19,18 +19,17 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import org.geotools.data.DefaultTransaction;
 import org.geotools.data.Transaction;
 import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.data.simple.SimpleFeatureWriter;
-import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.geopkg.FeatureEntry;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,9 +39,9 @@ import net.refractions.chyf.util.ProcessStatistics;
 public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 	private static final Logger logger = LoggerFactory.getLogger(DataManager.class);
 	
-	public static final String HYDRO_EDGE_LAYER = "HydroEdge"; 
-	public static final String WATERSHED_BOUNDARY_LAYER = "WatershedBoundary";
-	public static final String BLOCK_LAYER = "Block";
+	public static final String HYDRO_EDGE_LAYER = "HydroEdges"; 
+	public static final String WATERSHED_BOUNDARY_LAYER = "WatershedBoundaries";
+	public static final String BLOCK_LAYER = "ProcessingBlocks";
 	
 
 	public CatchmentDelineatorDataSource(Path geopackageFile) throws IOException {
@@ -72,6 +71,41 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 		return query(geopkg.feature(layerName), bounds, filter);
 	}
 
+	public synchronized void updateObjects(String layerName, Consumer<SimpleFeature> func) {
+		updateObjects(layerName, null, func);
+	}		
+
+	public synchronized void updateObjects(String layerName, Filter filter, Consumer<SimpleFeature> func) {
+		ProcessStatistics stats = new ProcessStatistics();
+		stats.reportStatus(logger, "Updating " + layerName + " features");
+		if(filter == null) filter = Filter.INCLUDE;
+		try {
+			FeatureEntry fe = geopkg.feature(layerName);	
+			Transaction tx = new DefaultTransaction();
+			int count = 0;
+			try {
+				SimpleFeatureWriter writer = geopkg.writer(fe, false, filter, tx);
+				while(writer.hasNext()) {
+					count++;
+					SimpleFeature f = writer.next();
+					func.accept(f);
+					writer.write();
+				}
+				writer.close();
+				tx.commit();
+			} catch(IOException ioe) {
+				ioe.printStackTrace();
+				tx.rollback();
+				throw new RuntimeException(ioe);
+			} finally {
+				tx.close();
+			}
+			stats.reportStatus(logger, count + " " + layerName + " features updated.");
+		} catch(IOException ioe) {
+			throw new RuntimeException(ioe);
+		}
+	}		
+
 	public synchronized <T> void writeObjects(String layerName, Collection<T> data, BiConsumer<T,SimpleFeature> func) {
 		ProcessStatistics stats = new ProcessStatistics();
 		stats.reportStatus(logger, "Writing " + data.size() + " " + layerName + " features");
@@ -98,9 +132,8 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 		} catch(IOException ioe) {
 			throw new RuntimeException(ioe);
 		}
-
 	}
-	
+
 	public synchronized void deleteFeatures(String name, Filter filter) {
 		ProcessStatistics stats = new ProcessStatistics();
 		stats.reportStatus(logger, "Deleting previous " + name + " features");
@@ -140,7 +173,6 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 		logger.trace("Updating Block Status for " + dataBlock);
 		try {
 			FeatureEntry fe = geopkg.feature(BLOCK_LAYER);
-			FilterFactory2 ff = CommonFactoryFinder.getFilterFactory2();
 			Filter filter = ff.equals(ff.property("id"), ff.literal(dataBlock.getId()));
 			Transaction tx = new DefaultTransaction();
 			try { 

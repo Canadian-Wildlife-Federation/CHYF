@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineSegment;
@@ -47,16 +48,17 @@ public class WatershedBoundaryMerger {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public List<WatershedBoundary> merge() {
+	public List<Catchment> merge() {
 		ProcessStatistics stats = new ProcessStatistics();
 		stats.reportStatus(logger, "starting watershed boundary merge process");
-		List<Polygon> waterbodies = dm.getOutputWaterbodies();
+		List<Catchment> waterbodies = dm.getWaterbodies();
 		List<HydroEdge> edges = dm.getHydroEdges(null);
 		List<WatershedBoundaryEdge> boundaries = dm.getWatershedBoundaries();
 		
 		// build an index of all waterbodies
 		STRtree wbIndex = new STRtree();
-		for(Polygon p : waterbodies) {
+		for(Catchment c : waterbodies) {
+			Polygon p = c.getPoly();
 			wbIndex.insert(p.getEnvelopeInternal(), p);
 		}
 
@@ -119,7 +121,7 @@ public class WatershedBoundaryMerger {
 		
 		stats.reportStatus(logger, "Polygonizing watershed boundary edges");
 
-		List<WatershedBoundary> watersheds = new ArrayList<WatershedBoundary>(maxDrainageId+1);
+		List<Catchment> watersheds = new ArrayList<Catchment>(maxDrainageId+1);
 		// loop over drainageID map and join edges into polygons
 		for(int drainageId = 0; drainageId < maxDrainageId+1; drainageId++) {
 			if(boundaryGroups[drainageId].isEmpty()) {
@@ -235,7 +237,7 @@ public class WatershedBoundaryMerger {
 			}
 			// if there are no hydroEdges in the boundary it must be a reach catchment (1), otherwise it is a bank catchment(2)
 			for(Polygon poly : polys) {
-				watersheds.add(new WatershedBoundary(drainageId, hydroEdges.isEmpty() ? 1 : 2, poly));
+				watersheds.add(new Catchment(UUID.randomUUID().toString(), hydroEdges.isEmpty() ? 1 : 2, poly));
 			}
 		}
 		stats.reportStatus(logger, "watershed boundary merging complete");

@@ -21,9 +21,13 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
@@ -47,6 +51,8 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.datasource.ChyfAttribute;
+import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.datasource.EcType;
 import net.refractions.chyf.datasource.Layer;
@@ -113,9 +119,9 @@ public class DataManager {
 	}
 
 	private SimpleFeatureType getWatershedBoundaryEdgeFT() {
-		// Build a featureType for the WatershedBoundary features
+		// Build a featureType for the Catchment features
 		SimpleFeatureTypeBuilder sftBuilder = new SimpleFeatureTypeBuilder();
-		sftBuilder.setName("WatershedBoundary");
+		sftBuilder.setName(CatchmentDelineatorDataSource.WATERSHED_BOUNDARY_LAYER);
 		sftBuilder.setSRS("EPSG:" + srid);
 		sftBuilder.add("leftDrainageId", Integer.class);
 		sftBuilder.add("rightDrainageId", Integer.class);
@@ -200,7 +206,7 @@ public class DataManager {
 		}
 	}
 	
-	public List<Geometry> getInputFlowpaths() {
+	public List<Geometry> getFlowpaths() {
 		ProcessStatistics stats = new ProcessStatistics();
 		stats.reportStatus(logger, "loading flowpaths");
 		try {
@@ -215,7 +221,6 @@ public class DataManager {
 					continue;
 				}
 				Geometry fpGeom = (Geometry) fp.getDefaultGeometry();
-				fpGeom = ReprojectionUtils.reproject(fpGeom, fp.getType().getCoordinateReferenceSystem(), crs);
 				fpGeom = GeometryPrecisionReducer.reduce(fpGeom, WatershedSettings.getPrecisionModel());
 				flowpaths.add(fpGeom);
 			}
@@ -227,23 +232,23 @@ public class DataManager {
 		}
 	}
 	
-	public List<Geometry> getInputWaterbodies() {
+	public List<Catchment> getWaterbodies() {
 		ProcessStatistics stats = new ProcessStatistics();
 		stats.reportStatus(logger, "loading waterbodies");
 		try {
-			List<Geometry> waterbodies = new ArrayList<Geometry>();
+			List<Catchment> waterbodies = new ArrayList<Catchment>();
 			//TODO use a filter to select only the EcType = 4 features
 			SimpleFeatureReader wbReader = dataSource.query(Layer.ECATCHMENTS);
 			while (wbReader.hasNext()) {
 				SimpleFeature wb = wbReader.next();
 				// ignore non-water catchments
-				if(!Integer.valueOf(4).equals(wb.getAttribute("ec_type"))) {
+				if(!Integer.valueOf(EcType.WATER.getChyfValue()).equals(wb.getAttribute("ec_type"))) {
 					continue;
 				}
-				Geometry wbGeom = (Geometry) wb.getDefaultGeometry();
-				wbGeom = ReprojectionUtils.reproject(wbGeom, wb.getType().getCoordinateReferenceSystem(), crs);
-				wbGeom = GeometryPrecisionReducer.reduce(wbGeom, WatershedSettings.getPrecisionModel());
-				waterbodies.add(wbGeom);
+				String internalId = (String) wb.getAttribute(ChyfDataSource.findAttribute(wb.getFeatureType(), ChyfAttribute.INTERNAL_ID));
+				Polygon p = ChyfDataSource.getPolygon(wb);
+				
+				waterbodies.add(new Catchment(internalId, EcType.WATER.getChyfValue(), p));
 			}
 			wbReader.close();
 			stats.reportStatus(logger, "loaded " + waterbodies.size() + " waterbodies.");
@@ -253,7 +258,7 @@ public class DataManager {
 		}
 	}
 
-	public List<Geometry> getInputShorelines() {
+	public List<Geometry> getShorelines() {
 		ProcessStatistics stats = new ProcessStatistics();
 		stats.reportStatus(logger, "loading shorelines");
 		try {
@@ -263,7 +268,6 @@ public class DataManager {
 				while (clReader.hasNext()) {
 					SimpleFeature cl = clReader.next();
 					Geometry clGeom = (Geometry) cl.getDefaultGeometry();
-					clGeom = ReprojectionUtils.reproject(clGeom, cl.getType().getCoordinateReferenceSystem(), crs);
 					clGeom = GeometryPrecisionReducer.reduce(clGeom, WatershedSettings.getPrecisionModel());
 					coastlines.add(clGeom);
 				}
@@ -276,29 +280,6 @@ public class DataManager {
 		}
 	}
 	
-	public List<Polygon> getOutputWaterbodies() {
-		ProcessStatistics stats = new ProcessStatistics();
-		stats.reportStatus(logger, "loading waterbodies");
-		try {
-			List<Polygon> waterbodies = new ArrayList<Polygon>();
-			SimpleFeatureReader wbReader = dataSource.query(Layer.ECATCHMENTS);
-			while (wbReader.hasNext()) {
-				SimpleFeature wb = wbReader.next();
-				// ignore non-water catchments
-				if(!Integer.valueOf(4).equals(wb.getAttribute("ec_type"))) {
-					continue;
-				}
-				Polygon wbPoly = (Polygon) wb.getDefaultGeometry();
-				waterbodies.add(wbPoly);
-			}
-			wbReader.close();
-			stats.reportStatus(logger, "loaded " + waterbodies.size() + " waterbodies.");
-			return waterbodies;
-		} catch(IOException ioe) {
-			throw new RuntimeException(ioe);
-		}
-	}
-
 	public List<WatershedBoundaryEdge> getWatershedBoundaries() {
 		ProcessStatistics stats = new ProcessStatistics();
 		stats.reportStatus(logger, "loading all watershed boundaries");
@@ -399,26 +380,30 @@ public class DataManager {
 		});
 	}
 	
-	public void writeWaterbodies(List<Geometry> waterbodies) {
-		dataSource.writeObjects(Layer.ECATCHMENTS.getLayerName(), waterbodies, new BiConsumer<Geometry,SimpleFeature>() {
+	public void updateWaterbodies(List<Catchment> waterbodies) {
+		Map<String,Catchment> waterbodyMap = waterbodies.stream().collect(Collectors.toMap(Catchment::getInternalId, Function.identity()));
+		
+		dataSource.updateObjects(Layer.ECATCHMENTS.getLayerName(), new Consumer<SimpleFeature>() {
 
 			@Override
-			public void accept(Geometry geom, SimpleFeature f) {
-				f.setAttribute("ec_type", EcType.WATER.getChyfValue());
-				f.setDefaultGeometry(geom);
+			public void accept(SimpleFeature f) {
+				Catchment c = waterbodyMap.get(f.getAttribute(ChyfDataSource.findAttribute(f.getFeatureType(), ChyfAttribute.INTERNAL_ID)));
+				if(c != null) {
+					f.setDefaultGeometry(c.getPoly());
+				}
 			}
 			
 		});
 	}
 
-	public void writeWatersheds(List<WatershedBoundary> watersheds) {
-		dataSource.writeObjects(Layer.ECATCHMENTS.getLayerName(), watersheds, new BiConsumer<WatershedBoundary,SimpleFeature>() {
+	public void writeCatchments(List<Catchment> watersheds) {
+		dataSource.writeObjects(Layer.ECATCHMENTS.getLayerName(), watersheds, new BiConsumer<Catchment,SimpleFeature>() {
 
 			@Override
-			public void accept(WatershedBoundary wb, SimpleFeature f) {
+			public void accept(Catchment c, SimpleFeature f) {
 				//f.setAttribute("drainage_id", wb.getDrainageId());
-				f.setAttribute("ec_type", wb.getCatchmentType());
-				f.setDefaultGeometry(wb.getPoly());
+				f.setAttribute("ec_type", c.getCatchmentType());
+				f.setDefaultGeometry(c.getPoly());
 			}
 			
 		});
