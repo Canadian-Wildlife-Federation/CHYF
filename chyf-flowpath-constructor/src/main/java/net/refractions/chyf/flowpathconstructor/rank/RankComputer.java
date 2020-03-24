@@ -26,6 +26,7 @@ import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineSegment;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
@@ -34,6 +35,8 @@ import org.locationtech.jts.operation.distance.DistanceOp;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.filter.identity.FeatureId;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.EfType;
@@ -51,6 +54,8 @@ import net.refractions.chyf.flowpathconstructor.datasource.ChyfAngle;
  */
 public class RankComputer {
 
+	static final Logger logger = LoggerFactory.getLogger(RankComputer.class.getCanonicalName());
+	
 	private ChyfAngle angleComputer;
 	private ChyfDataSource source;
 	private ChyfProperties properties;
@@ -91,9 +96,8 @@ public class RankComputer {
 			angles.put(out,  angle/ Math.PI);
 		}
 		
-		//if all angles are within 10degrees of each other then look for another way of computing rank
 
-		if ( inwb ) { //&& (maxValue - minValue < 30*(Math.PI / 180.0))) {
+		if ( inwb ) {
 			//compute channel width
 			//find waterbody that contains the node
 			Polygon wb = null;
@@ -227,7 +231,21 @@ public class RankComputer {
 					break;
 				}
 				
-//				System.out.println(item.toString());
+//				System.out.println(item.toText());
+				//look at the angle generate between the linestring item
+				//and where it crosses an eflowpath and generate warning if acute
+				LineSegment toText = new LineSegment(p1, p2);
+				for (int i = 1; i < ls.getCoordinates().length; i ++) {
+					LineSegment l1 = new LineSegment(ls.getCoordinateN(i-1), ls.getCoordinateN(i));
+					Coordinate pnt = l1.intersection(toText);
+					if (pnt == null) continue;
+					//compute angle between p1; pnt and 
+					double angle = angleComputer.angle(p1, pnt, ls.getCoordinateN(i)) ;
+					if (angle < 0.872665 || angle > (Math.PI - 0.872665)) {  //0.872665=50degrees
+						logger.warn("Channel width intersects channel at acute angle: " + item.toString());
+					}
+					break;	
+				}
 				
 				double width = -1*p1.distance(p2);					
 				widths.put(out, width);	
@@ -342,25 +360,6 @@ public class RankComputer {
 		return a;
 	}
 	
-	
-//	public static void main(String[] args) {
-//
-//
-//		LineSegment seg = new LineSegment(0.0, 0.0, 1.0, 1.0);
-//		
-//		Coordinate c1 = seg.pointAlongOffset(0.5, 15);
-//		Coordinate c2 = seg.pointAlongOffset(0.5, -15);
-//		System.out.println("LINESTRING(" + seg.p0.x + " " +seg.p0.y + "," + seg.p1.x + " " +seg.p1.y + ")");
-//		System.out.println("POINT(" + c1.x + " " + c1.y + ")");
-//		System.out.println("POINT(" + c2.x + " " + c2.y + ")");
-//		
-//		LineSegment seg1 = new LineSegment(seg.pointAlong(0.5), c1);
-//		LineSegment seg2 = new LineSegment(seg.pointAlong(0.5), c2);
-//		
-//		for (LineSegment ls : new LineSegment[] {seg, seg1, seg2}) {
-//			System.out.println("LINESTRING(" + ls.p0.x + " " +ls.p0.y + "," + ls.p1.x + " " +ls.p1.y + ")");
-//		}
-//	}
 }
 
 
