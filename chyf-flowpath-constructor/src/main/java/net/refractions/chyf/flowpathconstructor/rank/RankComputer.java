@@ -227,7 +227,7 @@ public class RankComputer {
 					break;
 				}
 				
-				System.out.println(item.toString());
+//				System.out.println(item.toString());
 				
 				double width = -1*p1.distance(p2);					
 				widths.put(out, width);	

@@ -1,63 +1,18 @@
-<!--
-    Copyright 2020 Government of Canada
-   
-    Licensed under the Apache License, Version 2.0 (the "License"); 
-    you may not use this file except in compliance with the License. 
-    You may obtain a copy of the License at
-   
-    http://www.apache.org/licenses/LICENSE-2.0
-   
-    Unless required by applicable law or agreed to in writing, software 
-    distributed under the License is distributed on an "AS IS" BASIS, 
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-    See the License for the specific language governing permissions and 
-    limitations under the License.
- -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
+	<parent>
+    	<groupId>net.refractions.chyf</groupId>
+    	<artifactId>chyf-root</artifactId>
+    	<version>1.0.0</version>
+  	</parent>
+  	
 	<groupId>net.refractions.chyf</groupId>
 	<artifactId>chyf-core</artifactId>
 	<version>1.0.0</version>
 	<packaging>jar</packaging>
 	<name>CHyF Core Library</name>
-
-	<properties>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<geotools.version>21.1</geotools.version>
-		<junit.jupiter.version>5.5.2</junit.jupiter.version>
-		
-		<timestamp>${maven.build.timestamp}</timestamp>
-        	<maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
-	</properties>
-
-	<!-- to build: mvn clean package -->
-	<!-- this will create a zip package that has the jar, all dependency jar files and .bat & .sh files -->
-	<!-- for running the app on windows or linux -->
-	
-	<build>
-		<finalName>${project.artifactId}-${project.version}-${timestamp}</finalName>	  
-		
-		<!-- include source code in package -->		
-		<resources> 
-        	<resource>
-                <directory>src/main/java</directory>
-                <includes><include>**/*.java</include></includes>
-        	</resource>
-    	</resources>
-    	<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.8.1</version>
-				<configuration>
-					<source>11</source>
-					<target>11</target>
-				</configuration>
-			</plugin>
-		</plugins>
-	</build>
 	
 	<dependencies>
 		<dependency>
@@ -86,27 +41,18 @@
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
-			<version>1.7.25</version>
+			<version>${slf4j.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>ch.qos.logback</groupId>
   			<artifactId>logback-classic</artifactId>
-  			<version>1.1.7</version>
+  			<version>${logback.version}</version>
 		</dependency>
 		
 		<dependency>
   			<groupId>commons-cli</groupId>
 			<artifactId>commons-cli</artifactId>
-			<version>1.4</version>
+			<version>${commonscli.version}</version>
 		</dependency>
 	</dependencies>
-
-	<repositories>
-		<repository>
-			<id>osgeo</id>
-			<name>Open Source Geospatial Foundation Repository</name>
-			<url>http://download.osgeo.org/webdav/geotools/</url>
-		</repository>
-	</repositories>
-
 </project>

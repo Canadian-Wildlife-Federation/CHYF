@@ -2,101 +2,24 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
+	<parent>
+    	<groupId>net.refractions.chyf</groupId>
+    	<artifactId>chyf-root</artifactId>
+    	<version>1.0.0</version>
+  	</parent>
+  
 	<groupId>net.refractions.chyf</groupId>
 	<artifactId>chyf-flowpath-constructor</artifactId>
 	<version>1.0.0</version>
 	<packaging>jar</packaging>
 	<name>CHyF Flowpath Constructor</name>
 
-	<properties>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<geotools.version>21.1</geotools.version>
-		<chyf.version>1.0.0</chyf.version>
-		<timestamp>${maven.build.timestamp}</timestamp>
-        	<maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
-	</properties>
-
-	<!-- to build: mvn clean package -->
-	<!-- this will create a zip package that has the jar, all dependency jar files and .bat & .sh files -->
-	<!-- for running the app on windows or linux -->
-	
-	<build>
-		<finalName>${project.artifactId}-${project.version}-${timestamp}</finalName>
-		<!-- include source code in package -->		
-		
-    		  
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.8.1</version>
-				<configuration>
-					<source>11</source>
-					<target>11</target>
-				</configuration>
-			</plugin>
-			
-			<plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                        <configuration>
-                            <appendAssemblyId>false</appendAssemblyId>
-                            <descriptors>
-                                <descriptor>mvn-assembly.xml</descriptor>
-                            </descriptors>
-                        </configuration>
-                    </execution>
-                </executions>
-			</plugin>
-			<plugin>
- 			   <groupId>org.apache.maven.plugins</groupId>
-  			  <artifactId>maven-jar-plugin</artifactId>
-  			  <version>3.2.0</version>
-  			  <configuration>
-     			   <archive>
-         			   <manifest>
-            			    <addClasspath>true</addClasspath>
-              			  <mainClass>net.refractions.chyf.flowpathconstructor.FlowpathConstructor</mainClass> 
-        			   </manifest>
-         			  
-      			  </archive>
-    			</configuration>
-			</plugin>
-		</plugins>
-	</build>
-
 	<dependencies>
-		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<version>4.12</version>
-			<scope>test</scope>
-		</dependency>
 		<dependency>
 			<groupId>net.refractions.chyf</groupId>
 			<artifactId>chyf-core</artifactId>
 			<version>${chyf.version}</version>
 		</dependency>
-
-		
 	</dependencies>
 
-	<repositories>
-		<repository>
-			<id>osgeo</id>
-			<name>Open Source Geospatial Foundation Repository</name>
-			<url>http://download.osgeo.org/webdav/geotools/</url>
-		</repository>
-	</repositories>
-
-
-	<profiles>
-	
-	</profiles>
 </project>
