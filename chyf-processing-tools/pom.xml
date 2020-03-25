@@ -20,17 +20,16 @@
 			<plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
-                <executions>
+            	<executions>    
                     <execution>
+                    	<id>windows</id>
                         <phase>package</phase>
                         <goals>
                             <goal>single</goal>
                         </goals>
                         <configuration>
                             <appendAssemblyId>false</appendAssemblyId>
-                            <descriptors>
-                                <descriptor>mvn-assembly.xml</descriptor>
-                            </descriptors>
+							<descriptors><descriptor>mvn-assembly.xml</descriptor></descriptors>
                         </configuration>
                     </execution>
                 </executions>
