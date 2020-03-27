@@ -40,7 +40,7 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 	private static final Logger logger = LoggerFactory.getLogger(DataManager.class);
 	
 	public static final String HYDRO_EDGE_LAYER = "HydroEdges"; 
-	public static final String WATERSHED_BOUNDARY_LAYER = "WatershedBoundaries";
+	public static final String WATERSHED_BOUNDARY_LAYER = "CatchmentConstructionEdges";
 	public static final String BLOCK_LAYER = "ProcessingBlocks";
 	
 
@@ -51,7 +51,7 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 		
 	}
 	
-	public boolean createLayer(SimpleFeatureType ft, ReferencedEnvelope workingExtent) {
+	public synchronized boolean createLayer(SimpleFeatureType ft, ReferencedEnvelope workingExtent) {
 		try {
 			FeatureEntry fe = geopkg.feature(ft.getTypeName());
 			if(fe == null) {
@@ -67,7 +67,7 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 		}
 	}
 	
-	public SimpleFeatureReader query(String layerName, ReferencedEnvelope bounds, Filter filter) throws IOException {
+	public synchronized SimpleFeatureReader query(String layerName, ReferencedEnvelope bounds, Filter filter) throws IOException {
 		return query(geopkg.feature(layerName), bounds, filter);
 	}
 

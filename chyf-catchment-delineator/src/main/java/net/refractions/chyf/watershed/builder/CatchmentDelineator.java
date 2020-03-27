@@ -23,12 +23,13 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.EcType;
+import net.refractions.chyf.util.ProcessStatistics;
 
 /**
  * The CatchmentDelineator is a Java application that can be used
@@ -47,8 +48,8 @@ public class CatchmentDelineator {
     	Args a = Args.parseArguments(args, "CatchmentDelineator");
 		if (a == null) return;
     	
-    	CatchmentDelineator wb = new CatchmentDelineator(a);
-    	wb.build();
+    	CatchmentDelineator cd = new CatchmentDelineator(a);
+    	cd.build();
     }
     
     public CatchmentDelineator(Args args) throws IOException {
@@ -77,7 +78,7 @@ public class CatchmentDelineator {
     
     public void processBlocks() {
         BlockProcessor processor = new BlockProcessor(dm);
-        Stream<DataBlock> blocksToRun = blocks.stream().filter(new Predicate<DataBlock>() {
+        List<DataBlock> blocksToRun = blocks.stream().filter(new Predicate<DataBlock>() {
 
 			@Override
 			public boolean test(DataBlock block) {
@@ -87,15 +88,19 @@ public class CatchmentDelineator {
 				return true;
 			}
         	
-        }).limit(maxBlocks);
+        }).limit(maxBlocks).collect(Collectors.toList());
+        
+        ProcessStatistics ps = new ProcessStatistics();
         
         ForkJoinPool pool = new ForkJoinPool(numThreads);
         ForkJoinTask<?> task = pool.submit(
-        		() -> blocksToRun.parallel().forEach(
+        		() -> blocksToRun.parallelStream().forEach(
         				new Consumer<DataBlock>() {
+        						int completedBlocks = 0;
 								@Override
 								public void accept(DataBlock block) {
 									processor.run(block);
+									ps.reportStatus(logger, "Block Processing status: " + (++completedBlocks) + "/" + blocksToRun.size() + " blocks completed.");
 								}
         				}
        			)

@@ -32,14 +32,12 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineSegment;
 import org.locationtech.jts.geom.LineString;
-import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.precision.GeometryPrecisionReducer;
 import org.locationtech.jts.util.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.refractions.chyf.datasource.EcType;
 import net.refractions.chyf.util.ProcessStatistics;
 import net.refractions.chyf.watershed.WatershedSettings;
 import net.refractions.chyf.watershed.model.HydroEdge;

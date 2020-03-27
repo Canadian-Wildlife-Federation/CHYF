@@ -74,6 +74,11 @@ public class BlockProcessor {
 	        }
 	
 	        List<Coordinate> demCoords = dm.getDEM(block);
+	        if(demCoords.isEmpty()) {
+	        	block.setState(BlockState.DISABLED, "No DEM in block");
+	        	stats.reportStatus(logger, "No DEM in block; skipping");
+	        	return;
+	        }
 	        List<Coordinate> respectedDemCoords = new ArrayList<Coordinate>();
 	
         	block.setState(BlockState.BUILD);

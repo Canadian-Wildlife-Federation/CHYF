@@ -91,15 +91,31 @@ public interface ChyfDataSource extends AutoCloseable {
 	/**
 	 * 
 	 * @return a filter that will filter out water catchments based on the ec type
+	 * @deprecated
+	 * @see getECatchmentTypeFilter
 	 */
 	public default Filter getWbTypeFilter() {
 		return ff.equals(ff.property(ChyfAttribute.ECTYPE.getFieldName()), ff.literal(EcType.WATER.getChyfValue()));
 	}
 	
-	public default Filter getECatchmentFilter(EcType... ecTypes) {
+	public default Filter getECatchmentTypeFilter(EcType... ecTypes) {
 		List<Filter> filters = new ArrayList<Filter>(ecTypes.length);
 		for(EcType type : ecTypes) {
 			filters.add(ff.equals(ff.property(ChyfAttribute.ECTYPE.getFieldName()), ff.literal(type.getChyfValue())));
+		}
+		if(filters.size() == 1) {
+			return filters.get(0);
+		}
+		return ff.or(filters);
+	}
+	
+	public default Filter getEFlowpathTypeFilter(EfType... efTypes) {
+		List<Filter> filters = new ArrayList<Filter>(efTypes.length);
+		for(EfType type : efTypes) {
+			filters.add(ff.equals(ff.property(ChyfAttribute.EFTYPE.getFieldName()), ff.literal(type.getChyfValue())));
+		}
+		if(filters.size() == 1) {
+			return filters.get(0);
 		}
 		return ff.or(filters);
 	}

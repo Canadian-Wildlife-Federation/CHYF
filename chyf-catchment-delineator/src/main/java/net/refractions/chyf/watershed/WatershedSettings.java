@@ -60,7 +60,7 @@ public class WatershedSettings {
 
 	/**
 	 * The snap tolerance for enforcing constraints in the TIN surface. If this
-	 * tolerance is too large, the TIN may be be constructed incorrectly (since
+	 * tolerance is too large, the TIN may be constructed incorrectly (since
 	 * endpoints of short segments will be snapped to be coincident, thus collapsing
 	 * triangles which should appear) If the value is too small, there may be
 	 * robustness problems which appear. (In earlier versions of the code, too-small
@@ -92,7 +92,20 @@ public class WatershedSettings {
     public static double MIN_LEN_TO_SMOOTH = 0.00001; //10.0;
     public static double MAX_SEG_LEN = 0.001; //100.0;
 
-	public static double BLOCK_SIZE = 0.1; //10000
+	
+    /**
+     * The size of a block (0.1 degrees square or 10,000m square by default)
+     */ 
+    public static double BLOCK_SIZE = 0.1; //10000\
+    
+	/**
+     * The amount to buffer a block by for processing, determined by multiplying 
+     * the size of the block by this factor. For example, 0.5 means to buffer 
+     * by half the size of the block, all around, making the buffered block 
+     * twice as big in each dimension and covering 4 times the area. 
+     */
+    public static double BLOCK_BUFFER_FACTOR = 0.5;
+    
 
 	public static void load(CoordinateReferenceSystem crs) {
 		Unit<?> units = CRSUtilities.getUnit(crs.getCoordinateSystem());
@@ -123,6 +136,7 @@ public class WatershedSettings {
 		MIN_LEN_TO_SMOOTH = getValue(p, "MIN_LEN_TO_SMOOTH");
 		MAX_SEG_LEN = getValue(p, "MAX_SEG_LEN");
 		BLOCK_SIZE = getValue(p, "BLOCK_SIZE");
+		BLOCK_BUFFER_FACTOR = getValue(p, "BLOCK_BUFFER_FACTOR");
 	}
 	
 	private static double getValue(Properties p, String propName) {

@@ -98,7 +98,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	 * @return the feature type associated with a given layer
 	 * @throws IOException
 	 */
-	public SimpleFeatureType getFeatureType(Layer layer) throws IOException{
+	public synchronized SimpleFeatureType getFeatureType(Layer layer) throws IOException{
 		return getFeatureType(getEntry(layer));
 	}
 
@@ -108,7 +108,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
      * @return the feature type associated with a given feature entry
      * @throws IOException
      */
-	protected SimpleFeatureType getFeatureType(FeatureEntry layer) throws IOException{
+	protected synchronized SimpleFeatureType getFeatureType(FeatureEntry layer) throws IOException{
 		if (layer == null) return null;
 		
 		try(SimpleFeatureReader reader = geopkg.reader(layer, Filter.EXCLUDE, null)){
@@ -133,7 +133,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
      * @throws IOException
      */
     public SimpleFeatureReader getWaterbodies() throws IOException{
-		return getFeatureReader(Layer.ECATCHMENTS, getWbTypeFilter(), null);
+		return getFeatureReader(Layer.ECATCHMENTS, getECatchmentTypeFilter(EcType.WATER), null);
 	}
     
     /**
@@ -142,11 +142,11 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
      * @return
      * @throws IOException
      */
-	protected FeatureEntry getEntry(Layer layer) throws IOException {
+	protected synchronized FeatureEntry getEntry(Layer layer) throws IOException {
 		return geopkg.feature(layer.getLayerName());
 	}
 
-	public int getSrid(Layer layer) throws IOException {
+	public synchronized int getSrid(Layer layer) throws IOException {
 		return geopkg.feature(layer.getLayerName()).getSrid();
 	}
 
@@ -159,7 +159,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	 * @throws IOException 
 	 * @throws Exception 
 	 */
-	public void addInternalIdAttribute() throws IOException {
+	public synchronized void addInternalIdAttribute() throws IOException {
 		
 		//layers which need internal_ids
 		Layer[] layers = new Layer[] {Layer.SHORELINES, Layer.EFLOWPATHS, Layer.ECATCHMENTS};
@@ -289,7 +289,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	 * @throws IllegalArgumentException 
 	 * @throws Exception
 	 */
-	public List<Polygon> getAoi() throws IOException  {
+	public synchronized List<Polygon> getAoi() throws IOException  {
 		List<Polygon> aois = new ArrayList<>();
 		try(SimpleFeatureReader reader = getFeatureReader(Layer.AOI, Filter.INCLUDE, null)){
 			while(reader.hasNext()) {
@@ -302,7 +302,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	}
 	
 	@Override
-	public void close() {
+	public synchronized void close() {
 		geopkg.close();
 	}
 	

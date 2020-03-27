@@ -17,6 +17,8 @@ package net.refractions.chyf.watershed.builder;
 
 import org.locationtech.jts.geom.Envelope;
 
+import net.refractions.chyf.watershed.WatershedSettings;
+
 public class DataBlock {
 
 	private BlockState state = BlockState.READY;
@@ -50,7 +52,7 @@ public class DataBlock {
 
 	public Envelope getBufferedBounds() {
 		Envelope expandedEnv = new Envelope(env);
-		expandedEnv.expandBy(Math.max(expandedEnv.getWidth(), expandedEnv.getHeight())*0.5);
+		expandedEnv.expandBy(Math.max(expandedEnv.getWidth(), expandedEnv.getHeight()) * WatershedSettings.BLOCK_BUFFER_FACTOR);
 		return expandedEnv;
 	}
 
