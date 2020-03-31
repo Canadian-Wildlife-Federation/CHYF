@@ -6,6 +6,9 @@ generating a reuslting dataset that meets CHyF requirements.  This package
 includes tools to generate skeletons for waterbodies, directionalize datasets,
 compute rank, and generate catchments.
 
+This software was developed by Refractions Research (www.refractions.net) for
+the Canada Center for Mapping and Earth Observation, Natural Resources Canada.
+
 More details can be found in the 
 CHyF Tools: Flowpath Constructor and Catchment Delineator
 document.
@@ -91,11 +94,21 @@ java -cp lib/*  net.refractions.chyf.flowpathconstructor.skeletonizer.bank.Bank[
 ---------------------------------------
 --- Catchment Delineator ---
 ---------------------------------------
+To run the catchment delineator you will need to have DEM data in the form of a 
+directory containing geotiff tiles. For the sample Richelieu are, the "CDEM" data can be
+obtained from NRCan at the URL below or by searching the web for "CDEM Download": 
+
+https://open.canada.ca/data/en/dataset/7f245e4d-76c2-4caa-951a-45d1d2051333
+
+The tiles nubmered 031A, 031H, and 031I are required to cover the sample area.
+
 To run the catchment delineator use the catchment-delineator file.  For example to
 run on the sample data provided use the following command:
 
-catchment-delineator.bat ./testdata/Richelieu.32618.gpkg ./testdata/out.gpkg
+catchment-delineator.bat ./testdata/Richelieu.32618.gpkg ./dem ./testdata/out.gpkg
 
 Custom property files can be provided using the -p option.  If you have multiple 
-cores you can specify the number of cores to use using the -c option.
+cores you can specify the number of cores to use using the -c option. To recover
+a partially processed session that failed, add -r to carry on where the
+previous processing left off.
 
