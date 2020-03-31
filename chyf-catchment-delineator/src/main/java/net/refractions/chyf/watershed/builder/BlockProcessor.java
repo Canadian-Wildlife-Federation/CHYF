@@ -46,9 +46,11 @@ public class BlockProcessor {
     private static final Logger logger = LoggerFactory.getLogger(BlockProcessor.class);
 
     private DataManager dm;
+    //private IndexedClosestHydroFinder hydroFinder;
     
     public BlockProcessor(DataManager dm) {
     	this.dm = dm;
+    	//this.hydroFinder = hydroFinder;
     }
     
     /**

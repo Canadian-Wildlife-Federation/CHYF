@@ -25,7 +25,6 @@ import org.locationtech.jts.util.Debug;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.refractions.chyf.watershed.debug.WatershedDebug;
 import net.refractions.chyf.watershed.model.Region;
 import net.refractions.chyf.watershed.model.WatershedTriangle;
 import net.refractions.chyf.watershed.model.WatershedVertex;
@@ -109,7 +108,7 @@ public class TrickleTracer {
         if (log.isTraceEnabled())
             log.trace("trace triangle: " + tri);
 
-        WatershedDebug.watchTriangle(tri, new Coordinate(1266754.624185992, 843134.4002655299));
+        //WatershedDebug.watchTriangle(tri, new Coordinate(1266754.624185992, 843134.4002655299));
 
         addCoordinate(tri.getCentroid());
         currLoc = tracer.findCentroidFlowExit(tri);

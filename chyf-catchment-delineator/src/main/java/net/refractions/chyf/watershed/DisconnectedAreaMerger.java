@@ -56,7 +56,6 @@ public class DisconnectedAreaMerger {
 
 	public void merge() {
 		// Collections.sort(discTris, new WatershedTriangle.MinHeightComparator());
-
 		List<DisconnectedFrontTriangle> discTris = findDisconnectedFrontTris(triangles);
 		// merge repeatedly until all disconnected triangles are merged
 		do {

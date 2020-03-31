@@ -8,7 +8,7 @@
   	
   <modelVersion>4.0.0</modelVersion>
   <artifactId>chyf-processing-tools</artifactId>
-  <packaging>jar</packaging>
+  <packaging>pom</packaging>
   
   <name>CHyF Processing Tools</name>
   <description>A set of tools for processing data into the CHyF format</description>

@@ -25,7 +25,10 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.triangulate.quadedge.QuadEdge;
 import org.locationtech.jts.triangulate.quadedge.QuadEdgeSubdivision;
 import org.locationtech.jts.util.Debug;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.util.ProcessStatistics;
 import net.refractions.chyf.watershed.medialaxis.IndexedClosestConstraintVertexFinder;
 import net.refractions.chyf.watershed.model.Region;
 import net.refractions.chyf.watershed.model.WatershedTIN;
@@ -40,6 +43,8 @@ import net.refractions.chyf.watershed.model.WatershedVertex;
  * @version 1.0
  */
 public class SteepestDescentTrickler {
+	private static final Logger logger = LoggerFactory.getLogger(SteepestDescentTrickler.class);
+	
 	public static final String TRICKLE_LINES = "TRICKLE_LINES";
 
 	/**
@@ -55,6 +60,7 @@ public class SteepestDescentTrickler {
 	private Collection<WatershedTriangle> triangles;
 	private List<Geometry> traceGeomList = new ArrayList<Geometry>();
 	private List<Region> pitRegions = new ArrayList<Region>();
+	private ProcessStatistics ps;
 
 	/**
 	 * Traces paths of steepest descent across a collection of triangles. Triangles
@@ -70,6 +76,7 @@ public class SteepestDescentTrickler {
 		this.triangles = triangles;
 		this.watershedTIN = watershedTIN;
 		this.ccf = ccf;
+		ps = new ProcessStatistics();
 		splitter = new TriangleSplitter(subdiv, watershedTIN);
 	}
 
@@ -83,9 +90,12 @@ public class SteepestDescentTrickler {
 
 	public void compute() {
 		initEdgeAdjacentRegions(triangles);
+		ps.reportStatus(logger, "Edge-adjacent regions initialized");
 		trace(triangles);
+		ps.reportStatus(logger, "triangles traced");
 
 		computePinchSplits();
+		ps.reportStatus(logger, "Pinch-splits computed");
 
 		if (DO_SPLITS)
 			computeSplits();

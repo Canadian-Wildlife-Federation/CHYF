@@ -22,11 +22,8 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
@@ -43,7 +40,6 @@ import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
 import org.locationtech.jts.index.strtree.STRtree;
-import org.locationtech.jts.precision.GeometryPrecisionReducer;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
@@ -77,7 +73,14 @@ public class DataManager {
 
 	public DataManager(Path geoTiffDirPath, Path inputGeopackagePath, Path outputGeopackagePath, 
 			boolean recover) throws IOException {
-		logger.info("Processing input file: " + inputGeopackagePath + " to output file " + outputGeopackagePath + " with DEM from dir: " + geoTiffDirPath);
+		logger.info("Processing input file: " + inputGeopackagePath);
+		logger.info("Using DEM from dir: " + geoTiffDirPath);
+		logger.info("Output to file " + outputGeopackagePath);
+		if(recover) {
+			logger.info("In recovery mode.");
+		} else {
+			logger.info("In normal processing mode.");
+		}
 		if(!recover) {
 			ChyfGeoPackageDataSource.deleteOutputFile(outputGeopackagePath);
 			Files.copy(inputGeopackagePath, outputGeopackagePath, StandardCopyOption.REPLACE_EXISTING);
@@ -90,7 +93,11 @@ public class DataManager {
 
 		// load the appropriate properties
 		WatershedSettings.load(crs);
-		
+
+		if(!recover) {
+			dataSource.reprecisionAll();			
+		}
+
 		gf = new GeometryFactory(WatershedSettings.getPrecisionModel(), srid);
 
 		gridReader = new GeoTiffDirReader(geoTiffDirPath.toString(), crs);
@@ -160,7 +167,6 @@ public class DataManager {
 	public List<Coordinate> getDEM(DataBlock block) {
 		ProcessStatistics stats = new ProcessStatistics();
 		stats.reportStatus(logger, "loading DEM for " + block);
-		// TODO determine correct block buffer distance as a percentage of block size (possibly 100%)
 		Envelope env = block.getBufferedBounds();
 		List<Coordinate> coords = gridReader.getDEM(env);
 		stats.reportStatus(logger, "loaded " + coords.size() + " DEM points.");
@@ -216,7 +222,6 @@ public class DataManager {
 			while (fpReader.hasNext()) {
 				SimpleFeature fp = fpReader.next();
 				Geometry fpGeom = (Geometry) fp.getDefaultGeometry();
-				fpGeom = GeometryPrecisionReducer.reduce(fpGeom, WatershedSettings.getPrecisionModel());
 				flowpaths.add(fpGeom);
 			}
 			fpReader.close();
@@ -258,7 +263,6 @@ public class DataManager {
 				while (clReader.hasNext()) {
 					SimpleFeature cl = clReader.next();
 					Geometry clGeom = (Geometry) cl.getDefaultGeometry();
-					clGeom = GeometryPrecisionReducer.reduce(clGeom, WatershedSettings.getPrecisionModel());
 					coastlines.add(clGeom);
 				}
 				clReader.close();
@@ -373,21 +377,21 @@ public class DataManager {
 		});
 	}
 	
-	public synchronized void updateWaterbodies(List<Catchment> waterbodies) {
-		Map<String,Catchment> waterbodyMap = waterbodies.stream().collect(Collectors.toMap(Catchment::getInternalId, Function.identity()));
-		
-		dataSource.updateObjects(Layer.ECATCHMENTS.getLayerName(), new Consumer<SimpleFeature>() {
-
-			@Override
-			public void accept(SimpleFeature f) {
-				Catchment c = waterbodyMap.get(f.getAttribute(ChyfDataSource.findAttribute(f.getFeatureType(), ChyfAttribute.INTERNAL_ID)));
-				if(c != null) {
-					f.setDefaultGeometry(c.getPoly());
-				}
-			}
-			
-		});
-	}
+//	public synchronized void updateWaterbodies(List<Catchment> waterbodies) {
+//		Map<String,Catchment> waterbodyMap = waterbodies.stream().collect(Collectors.toMap(Catchment::getInternalId, Function.identity()));
+//		
+//		dataSource.updateObjects(Layer.ECATCHMENTS.getLayerName(), new Consumer<SimpleFeature>() {
+//
+//			@Override
+//			public void accept(SimpleFeature f) {
+//				Catchment c = waterbodyMap.get(f.getAttribute(ChyfDataSource.findAttribute(f.getFeatureType(), ChyfAttribute.INTERNAL_ID)));
+//				if(c != null) {
+//					f.setDefaultGeometry(c.getPoly());
+//				}
+//			}
+//			
+//		});
+//	}
 
 	public void writeCatchments(List<Catchment> watersheds) {
 		dataSource.writeObjects(Layer.ECATCHMENTS.getLayerName(), watersheds, new BiConsumer<Catchment,SimpleFeature>() {
@@ -395,7 +399,8 @@ public class DataManager {
 			@Override
 			public void accept(Catchment c, SimpleFeature f) {
 				//f.setAttribute("drainage_id", wb.getDrainageId());
-				f.setAttribute("ec_type", c.getCatchmentType());
+				f.setAttribute(ChyfDataSource.findAttribute(f.getFeatureType(), ChyfAttribute.INTERNAL_ID), c.getInternalId());
+				f.setAttribute(ChyfDataSource.findAttribute(f.getFeatureType(), ChyfAttribute.ECTYPE), c.getCatchmentType());
 				f.setDefaultGeometry(c.getPoly());
 			}
 			

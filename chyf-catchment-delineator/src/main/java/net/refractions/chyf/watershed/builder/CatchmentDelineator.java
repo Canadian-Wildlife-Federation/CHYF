@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.EcType;
 import net.refractions.chyf.util.ProcessStatistics;
+import net.refractions.chyf.watershed.model.HydroEdge;
 
 /**
  * The CatchmentDelineator is a Java application that can be used
@@ -63,13 +64,16 @@ public class CatchmentDelineator {
     }
     
     public void build() {
+    	//List<HydroEdge> hydroEdges = null;
     	if(recover) {
     		blocks = dm.getBlocks();
+    		//hydroEdges = dm.getHydroEdges(null);
     	} else {
     		HydroEdgeLoader loader = new HydroEdgeLoader(dm);
-    		loader.load();
-    		blocks = dm.generateBlocks(loader.getEdges());
+    		List<HydroEdge> hydroEdges = loader.load();	
+    		blocks = dm.generateBlocks(hydroEdges);
     	}
+    	//IndexedClosestHydroFinder hydroFinder = new IndexedClosestHydroFinder(hydroEdges);
     	
     	processBlocks();
     	buildBoundaries();

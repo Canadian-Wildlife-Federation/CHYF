@@ -88,6 +88,7 @@ public class WatershedBoundaryBuilder {
 	// algorithm objects
 	private ConformingDelaunayTriangulator cdt;
 	private IndexedClosestConstraintVertexFinder ccf;
+	//IndexedClosestHydroFinder hydroFinder;
 	// private ClosestConstraintVertexFinder ccf;
 	private MedialAxisExtracter mab;
 	private SteepestDescentTrickler trickleTracer;
@@ -112,6 +113,7 @@ public class WatershedBoundaryBuilder {
 		this.demCoords = demCoords;
 		this.respectedDEMCoords = respectedDEMCoords;
 		this.hydroEdges = hydroEdges;
+		//this.hydroFinder = hydroFinder;
 		this.gf = gf;
 		this.stats = stats;
 	}
@@ -230,7 +232,10 @@ public class WatershedBoundaryBuilder {
 			watershedTIN.setSubdivision(cdt.getSubdivision());
 			setHullVertexConstraints();
 			doMedialAxisRefinement(watershedTIN);
+			// EXPERIMENTAL: closestVertexFinder
+			//hydroFinder.assignClosest(cdt.getSubdivision().getPrimaryEdges(false));
 			doFindClosestConstraintVertices(cdt, constraintVertices);
+			
 			triangles = buildTriangles();
 
 			doTrickle();
@@ -357,7 +362,6 @@ public class WatershedBoundaryBuilder {
 	}
 
 	private static final boolean FIND_FURTHEST_VERTEX = false;
-
 	@SuppressWarnings("unchecked")
 	private void doFindClosestConstraintVertices(ConformingDelaunayTriangulator cdt,
 			List<WatershedVertex> constraintVertices) {

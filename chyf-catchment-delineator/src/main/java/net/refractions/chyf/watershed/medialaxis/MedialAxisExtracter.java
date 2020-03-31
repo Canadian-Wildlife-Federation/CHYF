@@ -123,7 +123,6 @@ public class MedialAxisExtracter {
 		private boolean isRidgeOddVertexIndex(WatershedVertex[] verts, int i) {
 			int i1 = (i + 1) % 3;
 			int i2 = (i + 2) % 3;
-
 			if (((WatershedVertex) verts[i1].getClosestVertex())
 					.getConstraint() == ((WatershedVertex) verts[i2].getClosestVertex()).getConstraint()
 					&& ((WatershedVertex) verts[i].getClosestVertex())
@@ -148,6 +147,9 @@ public class MedialAxisExtracter {
 			v1.getCoordinate();
 			MedialLineIntersector mli = new MedialLineIntersector(v0.getCoordinate(), v1.getCoordinate(),
 					v0.getClosestVertex().getCoordinate(), v1.getClosestVertex().getCoordinate());
+			// EXPERIMENTAL: closestVertexFinder
+//			MedialLineIntersector mli = new MedialLineIntersector(v0.getCoordinate(), v1.getCoordinate(),
+//					v0.getClosestCoordinate(), v1.getClosestCoordinate());
 			return mli.getMedialCoordinate();
 		}
 

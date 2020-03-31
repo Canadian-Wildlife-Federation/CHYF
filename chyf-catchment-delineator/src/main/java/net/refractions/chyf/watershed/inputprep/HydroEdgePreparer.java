@@ -158,6 +158,9 @@ public class HydroEdgePreparer {
 		if (v == null) {
 			v = new WatershedVertex(pt);
 			v.setClosestVertex(v);
+			// EXPERIMENTAL: closestVertexFinder
+			//v.setClosestCoordinate(v.getCoordinate());
+			
 		}
 		// save to HydroNode, if needed
 		if (isEndpoint && nodeVert == null) {

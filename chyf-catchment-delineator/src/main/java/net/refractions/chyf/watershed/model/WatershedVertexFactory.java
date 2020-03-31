@@ -86,6 +86,8 @@ public class WatershedVertexFactory implements ConstraintVertexFactory {
 		if (watershedConstraint != null) {
 			v.setConstraint(watershedConstraint.getEdge());
 			v.setClosestVertex(v);
+			// EXPERIMENTAL: closestVertexFinder
+			//v.setClosestCoordinate(v.getCoordinate());
 		}
 		return v;
 	}

@@ -12,10 +12,16 @@
             <directory>src/test/resources/testdata</directory>
             <outputDirectory>/testdata/</outputDirectory>
         </fileSet>
-        
+        <fileSet>
+            <directory>${project.basedir}</directory>
+            <includes>
+        		<include>*.bat</include>
+        		<include>*.sh</include>
+			</includes>
+			<filtered>true</filtered>
+			<outputDirectory>/</outputDirectory>
+        </fileSet>
     </fileSets>
-    
-    
     <files>
         <file>
             <source>README.txt</source>
@@ -26,46 +32,6 @@
             <outputDirectory>/</outputDirectory>
             <destName>LICENSE.txt</destName>
         </file>
-       
-        <file>
-            <source>flowpath-constructor.bat</source>
-            <outputDirectory>/</outputDirectory>
-            <destName>flowpath-constructor.bat</destName>
-            <filtered>true</filtered>
-        </file>
-        <file>
-            <source>bank-only-constructor.bat</source>
-            <outputDirectory>/</outputDirectory>
-            <destName>bank-only-constructor.bat</destName>
-            <filtered>true</filtered>
-        </file>
-       
-        <file>
-            <source>catchment-delineator.bat</source>
-            <outputDirectory>/</outputDirectory>
-            <destName>catchment-delineator.bat</destName>
-            <filtered>true</filtered>
-        </file>
-        <file>
-            <source>flowpath-constructor.sh</source>
-            <outputDirectory>/</outputDirectory>
-            <destName>flowpath-constructor.sh</destName>
-            <filtered>true</filtered>            
-        </file>
-        <file>
-            <source>bank-only-constructor.sh</source>
-            <outputDirectory>/</outputDirectory>
-            <destName>bank-only-constructor.sh</destName>
-            <filtered>true</filtered>            
-        </file>
-       
-        <file>
-            <source>catchment-delineator.sh</source>
-            <outputDirectory>/</outputDirectory>
-            <destName>catchment-delineator.sh</destName>
-            <filtered>true</filtered>            
-        </file>
-        
     </files>
     <dependencySets>
         <dependencySet>
@@ -76,9 +42,6 @@
         </dependencySet>
         <dependencySet>
             <outputDirectory>lib-chyf</outputDirectory>
-            <excludes>
-                <exclude>${project.groupId}:${project.artifactId}:jar:*</exclude>
-            </excludes>
             <includes>
                 <include>${project.groupId}:*:jar:*</include>
             </includes>

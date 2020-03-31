@@ -53,7 +53,11 @@ public class WatershedVertex extends ConstraintVertex {
 
     private boolean   isRespected      = false;
     private double    height;
+    
+    // EXPERIMENTAL: closestVertexFinder
+    //private Coordinate closestCoordinate = null;
     private Vertex    closestVertex    = null;
+    
     private HydroNode hydroNode        = null;
     // private boolean isNode = false;
     private boolean   isOnHull         = false;
@@ -124,12 +128,23 @@ public class WatershedVertex extends ConstraintVertex {
         return Math.log(1.0 + dist);
     }
 
+    // EXPERIMENTAL: closestVertexFinder
+//    private double getBubbleBias() {
+//        if (closestCoordinate == null)
+//            return 0.0;
+//        double dist = closestCoordinate.distance(getCoordinate());
+//        // offset distance by one to ensure log is non-negative
+//        return Math.log(1.0 + dist);
+//    }
+
+    
     public Coordinate getCoordinateWithHeight() {
         Coordinate p = getCoordinate();
         p.setZ(getHeight());
         return p;
     }
 
+ // EXPERIMENTAL: closestVertexFinder
     public void setOnConstraint(boolean isOnConstraint) {
         super.setOnConstraint(isOnConstraint);
         if (isOnConstraint)
@@ -148,6 +163,15 @@ public class WatershedVertex extends ConstraintVertex {
     public Vertex getClosestVertex() {
         return closestVertex;
     }
+
+    // EXPERIMENTAL: closestVertexFinder
+//    public void setClosestCoordinate(Coordinate c) {
+//		 closestCoordinate = c;
+//	}
+//	
+//	public Coordinate getClosestCoordinate() {
+//	  return closestCoordinate;
+//	}
 
     public HydroNode getNode() {
         return hydroNode;

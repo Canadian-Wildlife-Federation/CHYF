@@ -33,13 +33,11 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineSegment;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Polygon;
-import org.locationtech.jts.precision.GeometryPrecisionReducer;
 import org.locationtech.jts.util.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.util.ProcessStatistics;
-import net.refractions.chyf.watershed.WatershedSettings;
 import net.refractions.chyf.watershed.model.HydroEdge;
 import net.refractions.chyf.watershed.model.WaterSide;
 
@@ -48,7 +46,6 @@ public class HydroEdgeLoader {
 	private DataManager dm;
 	private GeometryFactory gf;
 	private int nextDrainageId = 1;
-	List<HydroEdge> edges;
 	
 	private Map<LineSegment, HydroChainLink> segmentMap = new HashMap<LineSegment, HydroChainLink>();
 	private Set<Coordinate> nodeSet = new HashSet<Coordinate>();
@@ -58,11 +55,11 @@ public class HydroEdgeLoader {
 		gf = dm.getGeometryFactory();
 	}
 	
-	public void load() {
+	public List<HydroEdge> load() {
 		ProcessStatistics stats = new ProcessStatistics();
 		stats.reportStatus(logger, "Loading all hydro edges and assigning drainageIds");
 		dm.deleteHydroEdges();
-		edges = new ArrayList<HydroEdge>();
+		List<HydroEdge> edges = new ArrayList<HydroEdge>();
 		
 		// build a maximal envelope
 		Envelope overallEnv = new Envelope();
@@ -89,12 +86,9 @@ public class HydroEdgeLoader {
 		List<Catchment> waterbodies = dm.getWaterbodies();
 		for(Catchment w : waterbodies) {
 			Polygon poly = w.getPoly(); 
-			poly = (Polygon) GeometryPrecisionReducer.reduce(poly, WatershedSettings.getPrecisionModel());
-			
 			if(!poly.isValid()) {
 				poly = (Polygon) poly.buffer(0);
 			}
-			w.setPolygon(poly);
 			//for (int i = 0; i < g.getNumGeometries(); i++) {
 			//	Geometry geomN = g.getGeometryN(i);
 			//if (geomN instanceof Polygon) {
@@ -141,9 +135,9 @@ public class HydroEdgeLoader {
 		for(HydroChainLink link : segmentMap.values()) {
 			edges.add(link.edge);
 		}
-		dm.updateWaterbodies(waterbodies);
 		dm.writeHydroEdges(edges);
 		stats.reportStatus(logger, "Hydro edges loaded and drainageIds assigned.");
+		return edges;
 	}
 	
 	public void addSegments(LineString line, WaterSide side) {
@@ -205,10 +199,6 @@ public class HydroEdgeLoader {
 		}
 	}
 
-	public List<HydroEdge> getEdges() {
-		return edges;
-	}
-	
 }
 	
 class HydroChainLink {

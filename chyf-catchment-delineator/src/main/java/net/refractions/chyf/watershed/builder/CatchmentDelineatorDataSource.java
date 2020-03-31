@@ -27,6 +27,8 @@ import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.data.simple.SimpleFeatureWriter;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.geopkg.FeatureEntry;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.precision.GeometryPrecisionReducer;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.filter.Filter;
@@ -35,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.util.ProcessStatistics;
+import net.refractions.chyf.watershed.WatershedSettings;
 
 public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 	private static final Logger logger = LoggerFactory.getLogger(DataManager.class);
@@ -193,6 +196,25 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 			}
 		} catch(IOException ioe) {
 			throw new RuntimeException(ioe);
+		}
+	}
+
+	public void reprecisionAll() throws IOException {
+		ProcessStatistics stats = new ProcessStatistics();
+		for(FeatureEntry fe : geopkg.features()) {
+			int count = 0;
+			try(Transaction tx = new DefaultTransaction()) {
+				SimpleFeatureWriter writer = geopkg.writer(fe, false, Filter.INCLUDE, tx);
+				while(writer.hasNext()) {
+					count++;
+					SimpleFeature f = writer.next();
+					f.setDefaultGeometry(GeometryPrecisionReducer.reduce((Geometry)f.getDefaultGeometry(), WatershedSettings.getPrecisionModel()));
+					writer.write();
+				}
+				writer.close();
+				tx.commit();
+			}
+			stats.reportStatus(logger, "Precision reduction applied to layer " + fe.getTableName() + ": " + count + " features");
 		}
 	}
 
