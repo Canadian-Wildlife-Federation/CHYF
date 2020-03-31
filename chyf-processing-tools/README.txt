@@ -2,27 +2,26 @@
 CHyF Processing Tools
 ----------------------------------------------
 This application provides tools for processing hydrological datasets 
-generating a reuslting dataset that meets CHyF requirements.  This package
-includes tools to generate skeletons for waterbodies, directionalize datasets,
+generating a resulting dataset that meets CHyF requirements.  This package
+includes tools to generate skeletons for waterbodies, directionalize flowpaths,
 compute rank, and generate catchments.
 
 This software was developed by Refractions Research (www.refractions.net) for
 the Canada Center for Mapping and Earth Observation, Natural Resources Canada.
 
-More details can be found in the 
+More details can be found in the document:
 CHyF Tools: Flowpath Constructor and Catchment Delineator
-document.
 
 ----------------------------------------------
 --- Requirements ---
 ----------------------------------------------
-Java version 11 or newer must be installed and included on
+Java version 11 (or possibly newer) must be installed and included on
 the path.  To test "run java -version" from a command line.
 
 ---------------------------------------
 --- Sample Data ---
 ---------------------------------------
-A sample dataset exist in the packaged application that can
+A sample dataset is provided in the packaged application that can
 be used for testing the running of the application.
 
 * testdata/Richelieu.32618.gpkg
@@ -95,12 +94,12 @@ java -cp lib/*  net.refractions.chyf.flowpathconstructor.skeletonizer.bank.Bank[
 --- Catchment Delineator ---
 ---------------------------------------
 To run the catchment delineator you will need to have DEM data in the form of a 
-directory containing geotiff tiles. For the sample Richelieu are, the "CDEM" data can be
+directory containing GeoTIFF tiles. For the sample Richelieu are, the "CDEM" data can be
 obtained from NRCan at the URL below or by searching the web for "CDEM Download": 
 
 https://open.canada.ca/data/en/dataset/7f245e4d-76c2-4caa-951a-45d1d2051333
 
-The tiles nubmered 031A, 031H, and 031I are required to cover the sample area.
+The tiles numbered 031A, 031H, and 031I are required to cover the sample area.
 
 To run the catchment delineator use the catchment-delineator file.  For example to
 run on the sample data provided use the following command:
