@@ -2,6 +2,8 @@ package nrcan.cccmeo.chyf.db;
 
 import java.lang.reflect.Field;
 
+import org.locationtech.jts.geom.Polygon;
+
 public class Catchment {
 	private int id = 0;
 	private double area;
@@ -18,16 +20,16 @@ public class Catchment {
 	private double flat_pct = Double.NaN;
 	private double d2w2d_mean =  Double.NaN;
 	private double d2w2d_max =  Double.NaN;
-	private String linestring;
+	private Polygon catchment;
 	
 	Catchment() {
 
 	}
 	
-	Catchment(int id, double area, String linestring) {
+	Catchment(int id, double area, Polygon catchment) {
 		this.setId(id);
 		this.setArea(area);
-		this.setLinestring(linestring);
+		this.setCatchment(catchment);
 	}
 	
 	public Object getAttribute(String attrName, Object obj) throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException, SecurityException {
@@ -58,12 +60,12 @@ public class Catchment {
 		this.area = area;
 	}
 
-	public String getLinestring() {
-		return linestring;
+	public Polygon getCatchment() {
+		return catchment;
 	}
 
-	public void setLinestring(String linestring) {
-		this.linestring = linestring;
+	public void setCatchment(Polygon catchment) {
+		this.catchment = catchment;
 	}
 
 	public double getElv_min() {

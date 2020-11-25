@@ -1,22 +1,24 @@
 package nrcan.cccmeo.chyf.db;
 
+import org.locationtech.jts.geom.Polygon;
+
 public class Boundary {
 
-	private String linestring;
+	private Polygon boundary;
 
 	Boundary() {
 		
 	}
 	
-	Boundary(String linestring) {
-		this.setLinestring(linestring);
+	Boundary(Polygon boundary) {
+		this.setPolygon(boundary);
 	}
 
-	public String getLinestring() {
-		return linestring;
+	public Polygon getPolygon() {
+		return boundary;
 	}
 
-	public void setLinestring(String linestring) {
-		this.linestring = linestring;
+	public void setPolygon(Polygon boundary) {
+		this.boundary = boundary;
 	}
 }

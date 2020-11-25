@@ -1,5 +1,7 @@
 package nrcan.cccmeo.chyf.db;
 
+import org.locationtech.jts.geom.LineString;
+
 public class Flowpath {
 	
 	private String type;
@@ -7,18 +9,18 @@ public class Flowpath {
 	private String nameId;
 	private String name;
 	private double length;
-	private String linestring;
+	private LineString linestring;
 	
 	public Flowpath() {
 		
 	}
 	
-	public Flowpath(String type, String rank, String name, String nameId,  String Linestring) {
+	public Flowpath(String type, String rank, String name, String nameId,  LineString linestring) {
 		this.type = type;
 		this.rank = rank;
 		this.name = name;
 		this.nameId = nameId;
-		this.linestring = Linestring;
+		this.linestring = linestring;
 	}
 
 	public String getType() {
@@ -61,11 +63,11 @@ public class Flowpath {
 		this.length = length;
 	}
 
-	public String getLinestring() {
+	public LineString getLinestring() {
 		return linestring;
 	}
 
-	public void setLinestring(String linestring) {
+	public void setLinestring(LineString linestring) {
 		this.linestring = linestring;
 	}
 

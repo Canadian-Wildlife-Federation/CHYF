@@ -1,18 +1,21 @@
 package nrcan.cccmeo.chyf.db;
 
+import org.locationtech.jts.geom.Polygon;
+
 public class Waterbody {
+	
 	private int definition;
 	private double area = Double.NaN;
-	private String linestring;
+	private Polygon waterbody;
 
 	Waterbody() {
 		
 	}
 	
-	Waterbody(int definition, double area, String linestring) {
+	Waterbody(int definition, double area, Polygon waterbody) {
 		this.setDefinition(definition);
 		this.setArea(area);
-		this.setLinestring(linestring);
+		this.setPolygon(waterbody);
 	}
 
 	public int getDefinition() {
@@ -31,11 +34,11 @@ public class Waterbody {
 		this.area = area;
 	}
 
-	public String getLinestring() {
-		return linestring;
+	public Polygon getPolygon() {
+		return waterbody;
 	}
 
-	public void setLinestring(String linestring) {
-		this.linestring = linestring;
+	public void setPolygon(Polygon waterbody) {
+		this.waterbody = waterbody;
 	}
 }

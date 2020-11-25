@@ -39,6 +39,7 @@ public class ChyfGeoPackageReader extends ChyfDataReader{
 	public static final String BOUNDARY_LAYER = "Working_limit";
 	
 	private Path geopackageFile ;
+	
 	public ChyfGeoPackageReader(Path geopackageFile) {
 		this.geopackageFile = geopackageFile;
 	}

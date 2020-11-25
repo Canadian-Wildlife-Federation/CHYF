@@ -18,6 +18,7 @@ package net.refractions.chyf.rest;
 import java.nio.charset.Charset;
 import java.util.List;
 
+import net.refractions.chyf.rest.controllers.VectorTileController;
 import net.refractions.chyf.rest.messageconverters.GeoPackageConverter;
 import net.refractions.chyf.rest.messageconverters.HtmlResponseConverter;
 import net.refractions.chyf.rest.messageconverters.JsonErrorMessageConverter;
@@ -28,6 +29,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.ByteArrayHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.web.servlet.config.annotation.ContentNegotiationConfigurer;
 import org.springframework.web.servlet.config.annotation.DefaultServletHandlerConfigurer;
@@ -52,6 +54,7 @@ public class WebConfig extends WebMvcConfigurerAdapter {
 		converters.add(jsonpResponseConverter());
 		converters.add(htmlResponseConverter());
 		converters.add(geoPackageResponseConverter());
+		converters.add(new ByteArrayHttpMessageConverter());
 		super.configureMessageConverters(converters);
 	}	
 	
@@ -101,6 +104,7 @@ public class WebConfig extends WebMvcConfigurerAdapter {
 						new MediaType("application", "geopackage+sqlite3", Charset.forName("UTF-8")))
 				.mediaType("gpkg", 
 						new MediaType("application", "geopackage+sqlite3", Charset.forName("UTF-8")))
+				.mediaType(VectorTileController.MVT_FORMAT, VectorTileController.MVT_MEDIATYPE)
 				;
 	}
 	

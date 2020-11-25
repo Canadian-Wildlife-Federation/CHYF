@@ -55,6 +55,15 @@ public abstract class ChyfDataReader {
 
     public abstract void read(HyGraphBuilder builder)  throws Exception ;
     
+    protected CatchmentType findType(int intValue) {
+    	switch (intValue) {
+			case 1: return CatchmentType.WATER_CANAL;
+			case 4: return CatchmentType.WATER_LAKE;
+			case 6: return CatchmentType.WATER_RIVER;
+			case 9: return CatchmentType.WATER_POND;
+		}
+    	return CatchmentType.UNKNOWN;
+    }
 	protected void readWaterbody(FeatureReader<SimpleFeatureType, SimpleFeature> reader, HyGraphBuilder gb) throws Exception {
 
 		while (reader.hasNext()) {
@@ -68,7 +77,7 @@ public abstract class ChyfDataReader {
 				catchment = (Polygon) ((MultiPolygon)g).getGeometryN(0);
 			}
 			catchment = GeotoolsGeometryReprojector.reproject(catchment, reader.getFeatureType().getCoordinateReferenceSystem(), ChyfDatastore.BASE_CRS);
-			CatchmentType type = CatchmentType.UNKNOWN;
+			
 			Object def = feature.getAttribute("DEFINITION");
 			Integer intValue = -1;
 			if (def instanceof Integer) {
@@ -76,20 +85,8 @@ public abstract class ChyfDataReader {
 			}else if (def instanceof Long) {
 				intValue = ((Long)def).intValue();
 			}
-			switch (intValue) {
-			case 1:
-				type = CatchmentType.WATER_CANAL;
-				break;
-			case 4:
-				type = CatchmentType.WATER_LAKE;
-				break;
-			case 6:
-				type = CatchmentType.WATER_RIVER;
-				break;
-			case 9:
-				type = CatchmentType.WATER_POND;
-				break;
-			}
+			CatchmentType type = findType(intValue);
+			
 			double area = (double) feature.getAttribute("AREA");
 			
 			catchment = (Polygon) GeometryPrecisionReducer.reduce(catchment, ChyfDatastore.PRECISION_MODEL);

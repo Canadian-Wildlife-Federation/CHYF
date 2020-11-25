@@ -17,7 +17,7 @@ package net.refractions.chyf.rest;
 
 import java.io.File;
 
-import javax.annotation.PreDestroy;
+//import javax.annotation.PreDestroy;
 import javax.servlet.ServletContext;
 
 import net.refractions.chyf.ChyfDatastore;
@@ -66,9 +66,14 @@ public class ChyfApplication {
 		return chyfDatastore.getHyGraph();
 	}
 	
-	@PreDestroy
-	public void preDestroy() {
-		//chyfDatastore.close();
+	@Bean
+	public ChyfDatastore getDatastore() {
+		return chyfDatastore;
 	}
+	
+//	@PreDestroy
+//	public void preDestroy() {
+//		//chyfDatastore.close();
+//	}
 	
 }

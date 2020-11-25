@@ -27,7 +27,7 @@ public class SpringJdbcConfiguration {
 	private final String USER = "dbuser";
 	private final String DRIVER = "driver";
 	private final String PASSWORD = "dbpassword";
-	
+
 	@Bean
 	public DataSource dataSource(){
 		DriverManagerDataSource driverManagerDataSource = new DriverManagerDataSource();
@@ -74,7 +74,7 @@ public class SpringJdbcConfiguration {
 	public BoundaryDAO boundaryDAO() {
 		BoundaryDAOImpl boundaryDAO = new BoundaryDAOImpl();
 		boundaryDAO.setJdbcTemplate(jdbcTemplate());
-		boundaryDAO.setSqlQuery(env.getProperty("sql.select.boundary"));
+		boundaryDAO.setSqlQuery(env.getProperty("sql.select.workinglimit"));
 		return boundaryDAO;
 	}
 }

@@ -60,6 +60,7 @@ public class ChyfDatastore {
 	public static final int MAX_RESULTS = 50000;
 	
 	private HyGraph hyGraph;
+	private ChyfDataReader reader = null;
 
 	/**
 	 * Creates a new datastore reading input data from database
@@ -69,7 +70,7 @@ public class ChyfDatastore {
 			HyGraphBuilder gb = new HyGraphBuilder();
 			List<Geometry> boundaries = new ArrayList<>();
 
-			ChyfPostgresqlReader reader = new ChyfPostgresqlReader();
+			reader = new ChyfPostgresqlReader();
 			reader.read(gb);
 			boundaries = reader.getBoundaries();
 
@@ -77,6 +78,10 @@ public class ChyfDatastore {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+	
+	public ChyfDataReader getReader() {
+		return this.reader;
 	}
 	
 	/**

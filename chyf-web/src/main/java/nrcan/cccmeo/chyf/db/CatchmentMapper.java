@@ -3,25 +3,36 @@ package nrcan.cccmeo.chyf.db;
 import java.lang.reflect.Field;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.io.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.RowMapper;
 
 import net.refractions.chyf.ChyfDataReader;
+import net.refractions.chyf.ChyfPostgresqlReader;
 
 public class CatchmentMapper implements RowMapper<Catchment> {
 	
 	static final Logger logger = LoggerFactory.getLogger(ChyfDataReader.class.getCanonicalName());
-	
+
+	private int id = 0;
 	@Override
 	public Catchment mapRow(ResultSet resultSet, int x) {
 		Catchment catchment = new Catchment();
 		try {
-			catchment.setId(resultSet.getInt("id"));
-			catchment.setLinestring(resultSet.getString("Linestring"));
+			catchment.setId( id++ );
+			
+			try {
+				catchment.setCatchment( (Polygon)ChyfPostgresqlReader.READER.read(resultSet.getBytes("geometry")));
+			}catch (ParseException ex) {
+				throw new SQLException(ex);
+			}
+			
 			
 			List <String> fieldName = new ArrayList<>();
 			Field[] fields = catchment.getFieldsName();
