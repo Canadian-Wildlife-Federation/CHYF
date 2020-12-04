@@ -35,7 +35,6 @@ import org.geotools.data.simple.SimpleFeatureWriter;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.geopkg.FeatureEntry;
-import org.geotools.referencing.CRS;
 import org.geotools.util.factory.Hints;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -259,12 +258,14 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource{
 	 * @throws IOException
 	 */
 	public void updateWaterbodyGeometries(Collection<Polygon> polygons) throws IOException{
+		if (polygons.isEmpty()) return;
 		
+		FeatureEntry waterbodiesLayer = getEntry(Layer.ECATCHMENTS);
 		try(DefaultTransaction tx = new DefaultTransaction()){
 			try {
 				for (Polygon polygon : polygons) {
 					FeatureId fid = PolygonInfo.getFeatureId(polygon);
-					try(SimpleFeatureWriter writer = geopkg.writer(getEntry(Layer.ECATCHMENTS), false, ff.id(fid), tx)){
+					try(SimpleFeatureWriter writer = geopkg.writer(waterbodiesLayer, false, ff.id(fid), tx)){
 						if (polygon.getExteriorRing().getCoordinateSequence().getDimension() == 3) {
 							writer.getFeatureType().getGeometryDescriptor().getUserData().put(Hints.COORDINATE_DIMENSION, 3);
 						}else {

@@ -5,7 +5,7 @@
 	<parent>
     	<groupId>net.refractions.chyf</groupId>
     	<artifactId>chyf-root</artifactId>
-    	<version>1.0.0</version>
+    	<version>1.0.1</version>
   	</parent>
   	
 	<artifactId>chyf-core</artifactId>

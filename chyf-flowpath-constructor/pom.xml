@@ -5,13 +5,13 @@
 	<parent>
     	<groupId>net.refractions.chyf</groupId>
     	<artifactId>chyf-root</artifactId>
-    	<version>1.0.0</version>
+    	<version>1.0.1</version>
   	</parent>
   
 	<artifactId>chyf-flowpath-constructor</artifactId>
 	<packaging>jar</packaging>
 	<name>CHyF Flowpath Constructor</name>
-
+	
 	<dependencies>
 		<dependency>
 			<groupId>net.refractions.chyf</groupId>
