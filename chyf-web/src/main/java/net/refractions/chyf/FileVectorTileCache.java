@@ -68,6 +68,8 @@ public class FileVectorTileCache {
 	}
 	
 	private Path getFilePath(int z, int x, int y, VectorTileLayer layer) {
-		return root.resolve(layer.name()).resolve(String.valueOf(z)).resolve(String.valueOf(x) + "_" + String.valueOf(y) + ".mvt");
+		return root.resolve(layer.name()).resolve(String.valueOf(z))
+				.resolve(String.valueOf(x))
+				.resolve(String.valueOf(y) + ".mvt");
 	}
 }
