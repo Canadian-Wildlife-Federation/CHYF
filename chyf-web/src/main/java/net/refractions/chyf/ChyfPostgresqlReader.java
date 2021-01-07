@@ -55,8 +55,8 @@ import nrcan.cccmeo.chyf.db.WaterbodyDAO;
 /**
  * Reads source data from database.
  * 
- * @author Emily
  * @author Mark Lague
+ * @author Emily
  *
  */
 public class ChyfPostgresqlReader extends ChyfDataReader{
@@ -64,14 +64,20 @@ public class ChyfPostgresqlReader extends ChyfDataReader{
 	public static int SRID = 4326;
 	public static WKBReader READER = new WKBReader(new GeometryFactory(new PrecisionModel(), SRID));
 	
-	
 	protected List<Geometry> boundaries = new ArrayList<>();
 	
 	private AnnotationConfigApplicationContext context;
 	
+	private ResultSetExtractor<byte[]> tileResultMapper = new ResultSetExtractor<byte[]>() {
+		@Override
+		public byte[] extractData(ResultSet rs) throws SQLException, DataAccessException {
+			if (!rs.next()) return null;
+			return rs.getBytes(1);
+		}
+	};
+	
 	public ChyfPostgresqlReader() {
 		context = new AnnotationConfigApplicationContext(SpringJdbcConfiguration.class);
-
 	}
 	
 	public List<Geometry> getBoundaries(){
@@ -183,11 +189,8 @@ public class ChyfPostgresqlReader extends ChyfDataReader{
 	 * @param catchment if catchments are to be included in output
 	 * @return
 	 */
-	public byte[] getVectorTile(int z, int x, int y,
-			boolean flowpath, boolean waterbody, boolean catchment) {
-		
-		if (!flowpath && !waterbody && !catchment) return null;
-		
+	public byte[] getVectorTile(int z, int x, int y, VectorTileLayer layer) {
+				
 		//TODO: update to use st_tileenvelope in postgis 3
 		int numtiles = (int) Math.pow(2, z);
 
@@ -210,7 +213,9 @@ public class ChyfPostgresqlReader extends ChyfDataReader{
 		sb.append(" ), ");
 		sb.append("	mvtgeom AS (");
 		
-		if (waterbody) {
+		boolean union = false;
+		if (layer.isWaterbody()) {
+			union = true;
 			//waterbodies
 			sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
 			sb.append(" 'waterbody' as type, ");
@@ -222,8 +227,9 @@ public class ChyfPostgresqlReader extends ChyfDataReader{
 			sb.append("	WHERE st_intersects(t.geometry,  bounds.geom) ");
 		}
 		
-		if (flowpath) {
-			if (waterbody) sb.append(" UNION ");
+		if (layer.isFlowpath()) {
+			if (union) sb.append(" UNION ");
+			union = true;
 			//flowpath
 			sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
 			sb.append(" 'flowpath' as type, ");
@@ -236,8 +242,9 @@ public class ChyfPostgresqlReader extends ChyfDataReader{
 		}
 		
 		//elementary catchments
-		if (catchment) {
-			if (waterbody || flowpath) sb.append(" UNION ");
+		if (layer.isCatchment()) {
+			if (union)  sb.append(" UNION ");
+			union = true;
 			sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
 			sb.append(" 'elementary_catchment' as type, ");
 			sb.append(" area as size, ");
@@ -251,17 +258,9 @@ public class ChyfPostgresqlReader extends ChyfDataReader{
 		sb.append(")");
 		sb.append("	SELECT ST_AsMVT(mvtgeom.*) FROM mvtgeom");
 		
-		try(AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(SpringJdbcConfiguration.class)){
-			SpringJdbcConfiguration config = context.getBean(SpringJdbcConfiguration.class);
-			byte[] tile = config.jdbcTemplate().query(sb.toString(), new ResultSetExtractor<byte[]>() {
-	
-				@Override
-				public byte[] extractData(ResultSet rs) throws SQLException, DataAccessException {
-					if (!rs.next()) return null;
-					return rs.getBytes(1);
-				}});
 		
-			return tile;
-		}
+		SpringJdbcConfiguration config = context.getBean(SpringJdbcConfiguration.class);
+		byte[] tile = config.jdbcTemplate().query(sb.toString(), tileResultMapper);
+		return tile;
 	}
 }

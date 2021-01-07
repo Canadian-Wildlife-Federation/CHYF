@@ -15,9 +15,16 @@
  */
 package net.refractions.chyf.rest.controllers;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.MessageFormat;
 
+import org.apache.commons.io.IOUtils;
 import org.locationtech.jts.geom.Envelope;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -32,14 +39,21 @@ import org.springframework.web.bind.annotation.RestController;
 import net.refractions.chyf.ChyfDataReader;
 import net.refractions.chyf.ChyfDatastore;
 import net.refractions.chyf.ChyfPostgresqlReader;
+import net.refractions.chyf.FileVectorTileCache;
+import net.refractions.chyf.VectorTileLayer;
 
 @RestController
 @RequestMapping("/tiles")
 @CrossOrigin(allowCredentials="true",allowedHeaders="Autorization")
 public class VectorTileController {
 	
+	static final Logger logger = LoggerFactory.getLogger(VectorTileController.class.getCanonicalName());
+	
 	@Autowired
 	private ChyfDatastore datastore;
+	
+	@Autowired
+	private FileVectorTileCache cache;
 
 	//mvt media type
 	public static MediaType MVT_MEDIATYPE = new MediaType("application", "vnd.mapbox-vector-tile");
@@ -51,7 +65,6 @@ public class VectorTileController {
 	public static Envelope BOUNDS = new Envelope(-20026376.39, 20026376.39, -20048966.10, 20048966.10);
 	public static int SRID = 3857;
 
-	
 	@RequestMapping(value = "/water/{z}/{x}/{y}.{format}", 
 			method = {RequestMethod.GET},
 			produces = "application/vnd.mapbox-vector-tile")
@@ -61,7 +74,7 @@ public class VectorTileController {
 			@PathVariable("y") int y,
 			@PathVariable("format") String format) {
 		
-		return getTile(z, x, y, format, true, true, false);
+		return getTile(z, x, y, format, VectorTileLayer.WATER);
 	}
 	
 	@RequestMapping(value = "/ecatchment/{z}/{x}/{y}.{format}", 
@@ -72,14 +85,13 @@ public class VectorTileController {
 			@PathVariable("x") int x,
 			@PathVariable("y") int y,
 			@PathVariable("format") String format) {
-		return getTile(z, x, y, format, false, false, true);
+		return getTile(z, x, y, format, VectorTileLayer.CATCHMENT);
 		
 	}
 	
 	public ResponseEntity<byte[]> getTile(
 			int z, int x, int y,
-			String format, boolean flowpaths, 
-			boolean waterbodies, boolean ecatchments) {
+			String format, VectorTileLayer layer) {
 		
 		
 		ChyfDataReader source = datastore.getReader();
@@ -103,8 +115,26 @@ public class VectorTileController {
 		
 		//3. build query to get features		
 		ChyfPostgresqlReader rr = (ChyfPostgresqlReader)source;
-		byte[] tile = rr.getVectorTile(z, x, y, 
-				flowpaths, waterbodies, ecatchments);
+		
+		Path cached = cache.getVectorTile(z, x, y, layer);
+		if (cached != null) {
+			//return cached
+			try {
+				HttpHeaders headers = new HttpHeaders();
+			    headers.setContentType(MVT_MEDIATYPE);
+			    headers.setContentLength(Files.size(cached));
+			    byte[] data = null;
+			    try(InputStream is = Files.newInputStream(cached)){
+			    	 data = IOUtils.toByteArray(is);
+			    }
+			    return new ResponseEntity<byte[]>(data, headers, HttpStatus.OK);
+			}catch (IOException ex) {
+				logger.warn("Unable to return file from tilecache: " + ex.getMessage(), ex);
+			}
+		}
+		
+		byte[] tile = rr.getVectorTile(z, x, y, layer);
+		cache.writeVectorTile(z, x, y, layer, tile);
 		
 		HttpHeaders headers = new HttpHeaders();
 	    headers.setContentType(MVT_MEDIATYPE);
