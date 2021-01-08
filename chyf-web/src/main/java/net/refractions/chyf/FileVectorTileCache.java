@@ -24,7 +24,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * File based vector tile cache
+ * Simple File based vector tile cache.  This has been
+ * replaced by EHCache
  * 
  * @author Emily
  *

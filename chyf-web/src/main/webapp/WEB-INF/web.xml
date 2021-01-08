@@ -35,10 +35,5 @@
     	<!-- param-value is filestore or database -->
     	<param-value>database</param-value>
     </context-param>
-    
-    <context-param>
-    	<param-name>chyfVectorTileCacheDirectory</param-name>
-    	<!-- file location of vector tile cache -->
-    	<param-value>C:\data\CWF\data\vectortilecache\</param-value>
-    </context-param>
+ 
 </web-app>

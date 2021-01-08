@@ -15,17 +15,14 @@
  */
 package net.refractions.chyf.rest.controllers;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.text.MessageFormat;
 
-import org.apache.commons.io.IOUtils;
 import org.locationtech.jts.geom.Envelope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache.ValueWrapper;
+import org.springframework.cache.CacheManager;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -39,7 +36,6 @@ import org.springframework.web.bind.annotation.RestController;
 import net.refractions.chyf.ChyfDataReader;
 import net.refractions.chyf.ChyfDatastore;
 import net.refractions.chyf.ChyfPostgresqlReader;
-import net.refractions.chyf.FileVectorTileCache;
 import net.refractions.chyf.VectorTileLayer;
 
 @RestController
@@ -53,8 +49,8 @@ public class VectorTileController {
 	private ChyfDatastore datastore;
 	
 	@Autowired
-	private FileVectorTileCache cache;
-
+	private CacheManager cacheManager;
+	
 	//mvt media type
 	public static MediaType MVT_MEDIATYPE = new MediaType("application", "vnd.mapbox-vector-tile");
 
@@ -116,30 +112,28 @@ public class VectorTileController {
 		//3. build query to get features		
 		ChyfPostgresqlReader rr = (ChyfPostgresqlReader)source;
 		
-		Path cached = cache.getVectorTile(z, x, y, layer);
-		if (cached != null) {
-			//return cached
-			try {
-				HttpHeaders headers = new HttpHeaders();
-			    headers.setContentType(MVT_MEDIATYPE);
-			    headers.setContentLength(Files.size(cached));
-			    byte[] data = null;
-			    try(InputStream is = Files.newInputStream(cached)){
-			    	 data = IOUtils.toByteArray(is);
-			    }
-			    return new ResponseEntity<byte[]>(data, headers, HttpStatus.OK);
-			}catch (IOException ex) {
-				logger.warn("Unable to return file from tilecache: " + ex.getMessage(), ex);
-			}
-		}
-		
-		byte[] tile = rr.getVectorTile(z, x, y, layer);
-		cache.writeVectorTile(z, x, y, layer, tile);
-		
+		byte[] tile = getTileInternal(z, x, y, layer, rr);
+
 		HttpHeaders headers = new HttpHeaders();
 	    headers.setContentType(MVT_MEDIATYPE);
 	    headers.setContentLength(tile.length);
 		return new ResponseEntity<byte[]>(tile, headers, HttpStatus.OK);
 		
+	}
+	
+	public byte[] getTileInternal(int z, int x, int y, VectorTileLayer layer, ChyfPostgresqlReader rr) {
+		String key = getTileKey(z, x, y, layer);
+		ValueWrapper v = cacheManager.getCache("vectortilecache").get(key);
+		if (v != null && v.get() != null) return (byte[]) v.get();
+		
+		byte[] tile = rr.getVectorTile(z, x, y, layer);
+		if (tile.length == 0) return tile;
+		
+		cacheManager.getCache("vectortilecache").put(key, tile);
+		return tile;
+	}
+	
+	private String getTileKey(int z, int x, int y, VectorTileLayer layer) {
+		return layer.name() + "_" + z + "_" + x + "_" + y;
 	}
 }

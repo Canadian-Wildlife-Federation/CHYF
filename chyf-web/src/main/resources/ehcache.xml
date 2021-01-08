@@ -1,0 +1,31 @@
+<config
+        xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'
+        xmlns='http://www.ehcache.org/v3'
+        xsi:schemaLocation="http://www.ehcache.org/v3 http://www.ehcache.org/schema/ehcache-core-3.0.xsd">
+
+	<persistence directory="C:\data\CWF\data\vectortilecache2" />
+
+	<cache alias="vectortilecache">
+		<key-type>java.lang.String</key-type>
+		<value-type>byte[]</value-type>
+		
+<!-- 		<listeners> -->
+<!-- 			<listener> -->
+<!-- 				<class>net.refractions.chyf.CacheLog</class> -->
+<!-- 				<event-firing-mode>ASYNCHRONOUS</event-firing-mode> -->
+<!-- 				<event-ordering-mode>UNORDERED</event-ordering-mode> -->
+<!-- 				<events-to-fire-on>CREATED</events-to-fire-on> -->
+<!-- 				<events-to-fire-on>EXPIRED</events-to-fire-on> -->
+<!-- 				<events-to-fire-on>EVICTED</events-to-fire-on> -->
+<!-- 			</listener> -->
+<!-- 		</listeners> -->
+		
+		<resources>
+			<heap>1</heap>
+ 			<offheap unit="MB">100</offheap>
+			<disk persistent="true" unit="GB">2</disk>
+
+		</resources>
+
+	</cache>
+</config>

@@ -30,6 +30,7 @@ import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.precision.GeometryPrecisionReducer;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.ResultSetExtractor;

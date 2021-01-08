@@ -16,33 +16,31 @@
 package net.refractions.chyf.rest;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.net.URISyntaxException;
 
 //import javax.annotation.PreDestroy;
 import javax.servlet.ServletContext;
 
-import net.refractions.chyf.ChyfDataReader;
-import net.refractions.chyf.ChyfDatastore;
-import net.refractions.chyf.FileVectorTileCache;
-import net.refractions.chyf.hygraph.HyGraph;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.jcache.JCacheCacheManager;
+import org.springframework.cache.jcache.JCacheManagerFactoryBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
+import net.refractions.chyf.ChyfDataReader;
+import net.refractions.chyf.ChyfDatastore;
+import net.refractions.chyf.hygraph.HyGraph;
+
 @Component
+@EnableCaching
 public class ChyfApplication {
 	
 	static final Logger logger = LoggerFactory.getLogger(ChyfDataReader.class.getCanonicalName());
 
 	private ChyfDatastore chyfDatastore;
-	
-	private FileVectorTileCache tileCache;
 	
     @Autowired
 	public ChyfApplication(ServletContext servletContext) {
@@ -71,28 +69,8 @@ public class ChyfApplication {
     		
     	}
     
-    	//configure cache
-    	tileCache = new FileVectorTileCache();
-    	String cache = servletContext.getInitParameter("chyfVectorTileCacheDirectory");
-    	if (cache != null) {
-    		Path p = Paths.get(cache);
-    		if (!Files.exists(p)) {
-    			try {
-					Files.createDirectories(p);
-				} catch (IOException e) {
-					logger.debug(e.getMessage(), e);
-				}
-    		}
-    		if (Files.exists(p)) tileCache.setCacheLocation(p);
-    	}
-    	
-	}
+    }
     
-	@Bean 
-	public FileVectorTileCache getTileCache() {
-		return tileCache;
-	}
-	
 	@Bean
 	public HyGraph getHyGraph() {
 		return chyfDatastore.getHyGraph();
@@ -103,6 +81,20 @@ public class ChyfApplication {
 		return chyfDatastore;
 	}
 	
+    @Bean
+    public JCacheCacheManager jCacheCacheManager(JCacheManagerFactoryBean jCacheManagerFactoryBean){
+        JCacheCacheManager jCacheCacheManager = new JCacheCacheManager();
+        jCacheCacheManager.setCacheManager(jCacheManagerFactoryBean.getObject());
+        return jCacheCacheManager;
+    }
+
+    @Bean
+    public JCacheManagerFactoryBean jCacheManagerFactoryBean() throws URISyntaxException {
+        JCacheManagerFactoryBean jCacheManagerFactoryBean = new JCacheManagerFactoryBean();
+        jCacheManagerFactoryBean.setCacheManagerUri(getClass().getResource("/ehcache.xml").toURI());
+        return jCacheManagerFactoryBean;
+    }
+    
 //	@PreDestroy
 //	public void preDestroy() {
 //		//chyfDatastore.close();
