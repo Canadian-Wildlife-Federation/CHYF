@@ -18,18 +18,21 @@ package net.refractions.chyf.hygraph;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.IntersectionMatrix;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.index.quadtree.Quadtree;
+import org.locationtech.jts.index.strtree.STRtree;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +51,7 @@ public class HyGraphBuilder {
 	private List<EFlowpath> eFlowpaths;
 	private List<ECatchment> eCatchments;
 	private Quadtree nexusIndex;
+	private HashMap<Coordinate, Nexus> nexusIndex2;
 	private Quadtree eCatchmentIndex;
 
 	public HyGraphBuilder() {
@@ -60,6 +64,8 @@ public class HyGraphBuilder {
 		eCatchments = new ArrayList<ECatchment>(capacity);
 		nexusIndex = new Quadtree();
 		eCatchmentIndex = new Quadtree();
+		
+		nexusIndex2 = new HashMap<>();
 	}
 	
 	/**
@@ -88,6 +94,7 @@ public class HyGraphBuilder {
 				length, type, rank, name, nameId, getECatchment(lineString, type), lineString);
 	}
 
+
 	private EFlowpath addEFlowpath(Nexus fromNexus, Nexus toNexus, double length, FlowpathType type, Rank rank, String name,
 			UUID nameId, ECatchment catchment, LineString lineString) {
 		
@@ -115,10 +122,14 @@ public class HyGraphBuilder {
 			}
 			
 		} else {
-			logger.warn("EFlowpath " + eFlowpath.getId() + " is not contained by any catchment.");
+			
+			eFlowpaths.add(eFlowpath);
+			fromNexus.addDownFlow(eFlowpath);
+			toNexus.addUpFlow(eFlowpath);
+			//logger.warn("EFlowpath " + eFlowpath.getId() + " is not contained by any catchment.");
 		}
 		
-		return null;
+		return eFlowpath;
 	}
 
 	public ECatchment addECatchment(CatchmentType type, Double area, Polygon polygon) {
@@ -145,15 +156,25 @@ public class HyGraphBuilder {
 		ECatchment eCatchment = new ECatchment(nextCatchmentId++, type, area, polygon);
 		eCatchments.add(eCatchment);
 		eCatchmentIndex.insert(eCatchment.getEnvelope(), eCatchment);
+		
 		return eCatchment;
 	}
 
+	private STRtree c2 = null;
 	private ECatchment getECatchment(LineString lineString, FlowpathType type) {
+		if (c2 == null) {
+			c2 = new STRtree();
+			for (ECatchment c : eCatchments) {
+				c2.insert(c.getEnvelope(), c);
+			}
+			c2.build();
+		}
 		@SuppressWarnings("unchecked")
-		List<ECatchment> possibleCatchments = eCatchmentIndex.query(lineString.getEnvelopeInternal());
+		List<ECatchment> possibleCatchments = c2.query(lineString.getEnvelopeInternal());
 		ECatchment c = null;
 		int count = 0;
 		for(ECatchment catchment : possibleCatchments) {
+//			if (!catchment.getEnvelope().intersects(lineString.getEnvelopeInternal())) continue;
 			if(catchment.getPolygon().contains(lineString)) {
 				c = catchment;
 				count++;
@@ -180,12 +201,17 @@ public class HyGraphBuilder {
 	}
 	
 	private Nexus getNexus(Point point) {
-		@SuppressWarnings("unchecked")
-		List<Nexus> possibleNodes = nexusIndex.query(point.getEnvelopeInternal());
-		for(Nexus node : possibleNodes) {
-			if(point.equals(node.getPoint())) {
-				return node;
-			}
+//		@SuppressWarnings("unchecked")
+//		List<Nexus> possibleNodes = nexusIndex.query(point.getEnvelopeInternal());
+//		for(Nexus node : possibleNodes) {
+//			
+//			if(point.equals(node.getPoint())) {
+//				return node;
+//			}
+//		}
+		Nexus node = nexusIndex2.get(point.getCoordinate());
+		if (node != null) {
+			return node;
 		}
 		return addNexus(point);
 	}
@@ -194,6 +220,7 @@ public class HyGraphBuilder {
 		Nexus node = new Nexus(nextNexusId++, point);
 		nexuses.add(node);
 		nexusIndex.insert(node.getPoint().getEnvelopeInternal(),node);
+		nexusIndex2.put(point.getCoordinate(), node);
 		return node;
 	}
 

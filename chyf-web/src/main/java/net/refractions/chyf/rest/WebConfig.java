@@ -37,8 +37,9 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 
 @Configuration
-@ComponentScan("net.refractions.chyf.rest")
+@ComponentScan({"net.refractions.chyf.rest", "nrcan.cccmeo.chyf.db"})
 @EnableWebMvc
+
 public class WebConfig extends WebMvcConfigurerAdapter {
 			
     @Override

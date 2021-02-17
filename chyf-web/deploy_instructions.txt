@@ -1,7 +1,14 @@
+#------ CWF CHyF Deploy Instructions -----------
+
+#----- Tomcat configuration -----
+The CWF CHyF app requires a database for data.  The database connection configuration is done in the tomct server.xml
+It requires a jdni resource named jdbc/cabd-db, which means postgresql jdbc (postgresql-42.2.18) jar
+must be placed in the server lib directory.
+<Resource name="jdbc/cabd-db" auth="Container" type="javax.sql.DataSource" driverClassName="org.postgresql.Driver" url="jdbc:postgresql://localhost:8447/cadb" username="XXXX"  password="XXX"/>
 
 1) All the missing tomcat details in the your maven .m2/settings.xml file
 <profile>
-	<id>chyf</id>
+	<id>cwf-chyf</id>
 	<properties>
 		<tomcatManagerUrl>MANAGER URL</tomcatManagerUrl>
 		<tomcatManagerUsername>USERNAME</tomcatManagerUsername>
@@ -9,9 +16,6 @@
 	</properties>
 </profile>
 
-
 2) Ensure the jar file version is correct in the pom.xml
 
-3) Ensure the target web application path is correct in the webapp/META-INF/context.xml file
-
-4) run:  "mvn install -PtomcatDeploy,chyf" 
+3) run:  "mvn install -PtomcatDeploy,cwf-chyf" 

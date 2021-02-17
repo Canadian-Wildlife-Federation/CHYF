@@ -80,10 +80,6 @@ public class ChyfDatastore {
 		}
 	}
 	
-	public ChyfDataReader getReader() {
-		return this.reader;
-	}
-	
 	/**
 	 * Creates a new datastore reading input data from the data folder provided.  This will
 	 * read all input datasets in this folder and subfolders (including shape and geopackage).
@@ -119,6 +115,11 @@ public class ChyfDatastore {
 		}
 	}
 
+	
+	public ChyfDataReader getReader() {
+		return this.reader;
+	}
+	
 	public HyGraph getHyGraph() {
 		return hyGraph;
 	}

@@ -25,6 +25,7 @@ public enum CatchmentType {
 	WATER_POND("Water", "Pond"),
 	WATER_RIVER("Water", "River"),
 	WATER_CANAL("Water", "Canal"),
+	WATER_UNKNOWN("Water", "Unknown"),
 	EMPTY("EmptyCatchment", null),
 	UNKNOWN("Unknown", null);
 	
@@ -41,7 +42,8 @@ public enum CatchmentType {
 	public boolean isWaterbody() {
 		return this == CatchmentType.WATER_LAKE || 
 				this == CatchmentType.WATER_POND || 
-				this == CatchmentType.WATER_RIVER || 
+				this == CatchmentType.WATER_RIVER ||
+				this == CatchmentType.WATER_UNKNOWN || 
 				this == CatchmentType.WATER_CANAL;
 	}
 	

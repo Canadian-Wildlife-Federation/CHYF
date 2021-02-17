@@ -61,6 +61,7 @@ public abstract class ChyfDataReader {
 			case 4: return CatchmentType.WATER_LAKE;
 			case 6: return CatchmentType.WATER_RIVER;
 			case 9: return CatchmentType.WATER_POND;
+			case -1: return CatchmentType.WATER_UNKNOWN;
 		}
     	return CatchmentType.UNKNOWN;
     }

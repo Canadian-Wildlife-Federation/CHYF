@@ -30,10 +30,10 @@ import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.precision.GeometryPrecisionReducer;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.stereotype.Component;
 
 import net.refractions.chyf.enumTypes.CatchmentType;
 import net.refractions.chyf.enumTypes.FlowpathType;
@@ -60,6 +60,7 @@ import nrcan.cccmeo.chyf.db.WaterbodyDAO;
  * @author Emily
  *
  */
+@Component
 public class ChyfPostgresqlReader extends ChyfDataReader{
 
 	public static int SRID = 4326;
@@ -145,6 +146,7 @@ public class ChyfPostgresqlReader extends ChyfDataReader{
 		FlowpathDAO flow = (FlowpathDAO) context.getBean(FlowpathDAO.class);
 
 		List<Flowpath> flowpaths = flow.getFlowpaths();
+		int i = 0;
 		for (Flowpath fp : flowpaths) {
 			LineString flowP = fp.getLinestring();
 			flowP = GeotoolsGeometryReprojector.reproject(flowP, dbCRS, ChyfDatastore.BASE_CRS);
@@ -164,6 +166,8 @@ public class ChyfPostgresqlReader extends ChyfDataReader{
 			flowP = (LineString) GeometryPrecisionReducer.reduce(flowP, ChyfDatastore.PRECISION_MODEL);
 			gb.addEFlowpath(type, rank, name, nameId, length, (LineString) flowP);
 
+			i++;
+			if (i % 1000 == 0) logger.info("Loading Flowpaths: " + i + "/" + flowpaths.size());
 		}
 
 		// read and add Boundaries

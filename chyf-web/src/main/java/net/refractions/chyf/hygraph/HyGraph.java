@@ -129,6 +129,11 @@ public class HyGraph {
 						}
 					}
 			}
+		}else {
+			//not catchments; lets try to find the nearsest flowpath instead
+			List<EFlowpath> items = findEFlowpaths(point, 1, 1.0, null);
+			if (items.size() > 0) return items.get(0);
+
 		}
 		return flowpath;
 	}
@@ -287,6 +292,7 @@ public class HyGraph {
 			case WATER_LAKE:
 			case WATER_POND:
 			case WATER_RIVER:
+			case WATER_UNKNOWN:
 				results.add(catchment);
 				break;
 			}

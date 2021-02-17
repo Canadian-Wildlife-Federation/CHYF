@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Government of Canada
+ * Copyright 2020 Canadian Wildlife Federation
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); 
  * you may not use this file except in compliance with the License. 
@@ -123,8 +123,10 @@ public class VectorTileController {
 	
 	public byte[] getTileInternal(int z, int x, int y, VectorTileLayer layer, ChyfPostgresqlReader rr) {
 		String key = getTileKey(z, x, y, layer);
+		
 		ValueWrapper v = cacheManager.getCache("vectortilecache").get(key);
 		if (v != null && v.get() != null) return (byte[]) v.get();
+		
 		
 		byte[] tile = rr.getVectorTile(z, x, y, layer);
 		if (tile.length == 0) return tile;

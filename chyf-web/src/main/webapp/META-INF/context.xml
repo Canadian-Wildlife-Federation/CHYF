@@ -1,1 +1,6 @@
-<Context path="chyf"/>
+<Context path="chyf">
+	<ResourceLink 
+		name="jdbc/chyf-db" 
+		global="jdbc/chyf-db" 
+		type="javax.sql.DataSource"/>		
+</Context>
