@@ -30,4 +30,4 @@ jobs:
         app-name: 'chyf-web'
         slot-name: 'production'
         publish-profile: ${{ secrets.AzureAppService_PublishProfile_e3c4f667fff246f9a8348cb2737f816a }}
-        package: '${{ github.workspace }}/target/*.war'
+        package: '${{ github.workspace }}/chyf-web/target/*.war'
