@@ -27,7 +27,7 @@ jobs:
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
     - name: Build with Maven
-      run: mvn clean install -DskipTests
+      run: mvn clean install --no-transfer-progress -DskipTests
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
