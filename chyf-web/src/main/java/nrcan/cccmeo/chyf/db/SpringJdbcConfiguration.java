@@ -8,7 +8,7 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.PropertySources;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jndi.JndiObjectFactoryBean;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.stereotype.Component;
 
 //Inspired by http://www.topjavatutorial.com/frameworks/spring/spring-jdbc/spring-jdbc-using-annotation-based-configuration/
@@ -16,22 +16,35 @@ import org.springframework.stereotype.Component;
 @PropertySources({@PropertySource("classpath:queries.properties")})
 public class SpringJdbcConfiguration {
 	
+	//database connection variables
+	private static final String DB_URL_ENV = "CHYF_DB_URL";
+	private static final String DB_USER_ENV = "CHYF_DB_USER";
+	private static final String DB_PASS_ENV = "CHYF_DB_PASSWORD";
+		
 	@Autowired
 	Environment env;
 
 	@Bean
 	public DataSource dataSource() {
-		try {
-			JndiObjectFactoryBean bean = new JndiObjectFactoryBean();
-			
-			bean.setJndiName("java:comp/env/jdbc/chyf-db");
-			bean.setProxyInterface(DataSource.class);
-			bean.setLookupOnStartup(false);
-			bean.afterPropertiesSet();
-			return (DataSource) bean.getObject();
-		}catch (Exception ex) {
-			throw new RuntimeException(ex);
-		}
+		String url = System.getProperty(DB_URL_ENV);
+    	if (url == null) url = System.getenv(DB_URL_ENV);
+    	
+    	String user = System.getProperty(DB_USER_ENV);
+    	if (user == null) user = System.getenv(DB_USER_ENV);
+    	
+    	String password = System.getProperty(DB_PASS_ENV);
+    	if (password == null) password= System.getenv(DB_PASS_ENV);
+    	
+    	if (url == null || user == null || password == null) {
+    		throw new IllegalStateException("The db connection environment variables (" + DB_URL_ENV + ", " + DB_USER_ENV + ", " + DB_PASS_ENV + ") are not configured.");
+    	}
+    	
+		DriverManagerDataSource driverManagerDataSource = new DriverManagerDataSource();
+		driverManagerDataSource.setDriverClassName("org.postgresql.Driver");
+		driverManagerDataSource.setUrl(url);
+		driverManagerDataSource.setUsername(user);
+		driverManagerDataSource.setPassword(password);
+		return driverManagerDataSource;
 	}
 	
 	@Bean
