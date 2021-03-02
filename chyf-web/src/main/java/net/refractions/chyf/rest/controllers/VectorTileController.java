@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Canadian Wildlife Federation
+ * Copyright 2021 Canadian Wildlife Federation
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); 
  * you may not use this file except in compliance with the License. 
