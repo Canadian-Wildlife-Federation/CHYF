@@ -33,7 +33,7 @@
 		<module>chyf-flowpath-constructor</module>
 		<module>chyf-catchment-delineator</module>
 		<module>chyf-processing-tools</module>
-		<!-- <module>chyf-web</module>  -->
+		<module>chyf-web</module> 
 	</modules>
 	
 	<build>
