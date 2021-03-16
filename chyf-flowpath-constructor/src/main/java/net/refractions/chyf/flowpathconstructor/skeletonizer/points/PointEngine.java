@@ -94,7 +94,7 @@ public class PointEngine {
 
 			logger.info("POINT GENERATOR: " + cnt);
 			cnt++;
-
+						
 			ftouch.clear();
 			ptouch.clear();
 			

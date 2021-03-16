@@ -32,7 +32,6 @@ import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.io.WKTReader;
 
 import net.refractions.chyf.datasource.FlowDirection;
-import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties.Property;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource.NodeType;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.ConstructionPoint;
@@ -70,7 +69,7 @@ public class PointGeneratorTest {
 		expected.add(new ConstructionPoint(new Coordinate(-91.3474269, 47.6426803),NodeType.HEADWATER,FlowDirection.INPUT, null));
 		expected.add(new ConstructionPoint(new Coordinate(-91.344514, 47.6441762),NodeType.TERMINAL,FlowDirection.OUTPUT, null));
 		expected.add(new ConstructionPoint(new Coordinate(-91.3487186, 47.6428251),NodeType.BANK,FlowDirection.INPUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-91.3510455, 47.647081),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-91.3430125, 47.6370375),NodeType.BANK,FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -225,7 +224,7 @@ public class PointGeneratorTest {
 		Set<ConstructionPoint> expected = new HashSet<>();
 		expected.add(new ConstructionPoint(new Coordinate(1125.2, 865.4),NodeType.TERMINAL,FlowDirection.OUTPUT, null));
 		expected.add(new ConstructionPoint(new Coordinate(615.2, 888.9),NodeType.FLOWPATH,FlowDirection.INPUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(778.6, 744.4),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(923.1, 983.0),NodeType.BANK,FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -703,7 +702,7 @@ public class PointGeneratorTest {
 		Set<ConstructionPoint> expected = new HashSet<>();
 		expected.add(new ConstructionPoint(new Coordinate(-73.3160047, 45.5521535), NodeType.HEADWATER, FlowDirection.INPUT, null));
 		expected.add(new ConstructionPoint(new Coordinate(-73.3142681, 45.550576), NodeType.FLOWPATH, FlowDirection.OUTPUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.3145981, 45.5514674), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3159578, 45.5508397), NodeType.BANK, FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -740,9 +739,9 @@ public class PointGeneratorTest {
 		List<ConstructionPoint> pnts = pg.getPoints(); 
 		
 		Set<ConstructionPoint> expected = new HashSet<>();
-		expected.add(new ConstructionPoint(new Coordinate(-73.3240431,45.5413862), NodeType.TERMINAL, FlowDirection.OUTPUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.3268319,45.5422723), NodeType.BANK, FlowDirection.INPUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.3268155,45.5393028), NodeType.HEADWATER, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3240431, 45.5413862), NodeType.TERMINAL, FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3268155, 45.5393028), NodeType.HEADWATER, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.322512, 45.5396022), NodeType.BANK, FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -756,8 +755,8 @@ public class PointGeneratorTest {
 		
 		expected = new HashSet<>();
 		expected.add(new ConstructionPoint(new Coordinate(-73.3389781, 45.5354423), NodeType.HEADWATER, FlowDirection.INPUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.345556,45.5413273), NodeType.TERMINAL, FlowDirection.OUTPUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.343272,45.5383907), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.345556, 45.5413273), NodeType.TERMINAL, FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.3408763, 45.5388913), NodeType.BANK, FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -773,7 +772,7 @@ public class PointGeneratorTest {
 		expected.add(new ConstructionPoint(new Coordinate(-73.1255718, 45.6092503), NodeType.HEADWATER, FlowDirection.INPUT, null));
 		expected.add(new ConstructionPoint(new Coordinate(-73.1280229, 45.6089073), NodeType.TERMINAL, FlowDirection.OUTPUT, null));
 		expected.add(new ConstructionPoint(new Coordinate(-73.1268408, 45.6093084), NodeType.BANK, FlowDirection.INPUT, null));
-		expected.add(new ConstructionPoint(new Coordinate(-73.1264731, 45.6086863), NodeType.BANK, FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-73.1273626, 45.6098771), NodeType.BANK, FlowDirection.INPUT, null));
 		
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
@@ -837,7 +836,53 @@ public class PointGeneratorTest {
 		polygonSetEquals(expectedWbs, pg.getUpdatedPolygons());
 	}
 	
+	@Test
+	public void testMultiOutHeadwater() throws Exception{
+		String wb = "POLYGON ((-55.82813399999997728 47.69994010000004891, -55.8282285999999317 47.69978800000006913, -55.82843439999993507 47.69970000000006394, -55.82884059999997817 47.69983920000004218, -55.82888569999994388 47.6999046000000817, -55.82869829999998501 47.69999040000004698, -55.82830449999994471 47.70008730000006381, -55.82813399999997728 47.69994010000004891))";
+		String line1 = "LINESTRING (-55.82830449999994471 47.70008730000006381, -55.82817109999996319 47.70019900000005464, -55.82819509999995944 47.70033100000006243, -55.82838689999994131 47.70067470000003595, -55.82823259999997845 47.70111620000005814, -55.82793529999997872 47.7013688000000684, -55.82789619999994102 47.70151450000003024, -55.82779089999996813 47.701661500000057, -55.82756779999994023 47.70171930000003613, -55.8274244999999496 47.70171660000005431)";
+		String line2 = "LINESTRING (-55.82813399999997728 47.69994010000004891, -55.82798889999997982 47.69989270000007764)";
+		
+		Polygon polygon = (Polygon)reader.read(wb);
+		
+		ArrayList<LineString> lines = new ArrayList<>();
+		ArrayList<Polygon> polys = new ArrayList<>();
+		
+		lines.add((LineString)reader.read(line1));
+		lines.add((LineString)reader.read(line2));
+		
+		PointGenerator pg = createPointGenerator();
+		pg.processPolygon(polygon, polys, lines);
+		Collection<ConstructionPoint> pnts = pg.getPoints();
+
+		ArrayList<ConstructionPoint> expected = new ArrayList<>();
+		expected.add(new ConstructionPoint(new Coordinate(-55.82813399999998, 47.69994010000005),NodeType.FLOWPATH,FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-55.828304499999945, 47.700087300000064),NodeType.FLOWPATH,FlowDirection.OUTPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-55.82884059999998, 47.69983920000004),NodeType.HEADWATER,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-55.828434399999935, 47.699700000000064),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(-55.82821924999996, 47.700013700000056),NodeType.BANK,FlowDirection.INPUT, null));
+		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
+		setEquals(expected, pnts);
+		
+		ArrayList<Polygon> expectedWbs = new ArrayList<>();
+		expectedWbs.add((Polygon)reader.read("POLYGON ((-55.82813399999998 47.69994010000005, -55.82822859999993 47.69978800000007, -55.828434399999935 47.699700000000064, -55.82884059999998 47.69983920000004, -55.828885699999944 47.69990460000008, -55.828698299999985 47.69999040000005, -55.828304499999945 47.700087300000064, -55.82821924999996 47.700013700000056, -55.82813399999998 47.69994010000005))"));
+		
+		polygonSetEquals(expectedWbs, pg.getUpdatedPolygons());
+	}
 	
+	
+
+	private boolean equals(ConstructionPoint a, ConstructionPoint b) {
+		 if (!a.getCoordinate().equals2D(b.getCoordinate())) return false;
+		 if (!a.getType().equals(b.getType())) return false;
+		 if (!a.getDirection().equals(b.getDirection())) return false;
+		 return true;
+	}
+	
+	private boolean equals(Polygon a, Polygon b) {
+		return a.equalsExact(b);
+	}
+	
+
 	private void setEquals(Collection<ConstructionPoint> expected, Collection<ConstructionPoint> actual) {
 		for (ConstructionPoint p : expected) {
 			boolean found = false;
@@ -852,7 +897,7 @@ public class PointGeneratorTest {
 			}
 		}
 	}
-
+	
 	private void polygonSetEquals(Collection<Polygon> expected, Collection<Polygon> actual) {
 		for (Polygon p : expected) {
 			boolean found = false;
@@ -867,15 +912,6 @@ public class PointGeneratorTest {
 			}
 		}
 	}
-	
-	private boolean equals(ConstructionPoint a, ConstructionPoint b) {
-		 if (!a.getCoordinate().equals2D(b.getCoordinate())) return false;
-		 if (!a.getType().equals(b.getType())) return false;
-		 if (!a.getDirection().equals(b.getDirection())) return false;
-		 return true;
-	}
-	
-	private boolean equals(Polygon a, Polygon b) {
-		return a.equalsExact(b);
-	}
+
+
 }

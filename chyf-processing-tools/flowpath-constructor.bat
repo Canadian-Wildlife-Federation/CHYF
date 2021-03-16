@@ -1,1 +1,1 @@
-java -cp lib/*;lib-chyf/chyf-core-${project.version}.jar;lib-chyf/chyf-flowpath-constructor-${project.version}.jar  net.refractions.chyf.flowpathconstructor.FlowpathConstructor %*
+java -cp lib/*;lib-chyf/chyf-core-${chyf.core.version}.jar;lib-chyf/chyf-flowpath-constructor-${flowpath.constructor.version}.jar  net.refractions.chyf.flowpathconstructor.FlowpathConstructor %*

@@ -391,7 +391,9 @@ public class PointGenerator {
 			cnt = (cnt+1) % (ls.getCoordinates().length - 1);
 		}
 		//find midpoint between first and cnt and create node
-		options.put(distance, findMidpoint(coords, false));
+		if (coords.size() > 1) {
+			options.put(distance, findMidpoint(coords, false));
+		}
 	
 		return options.get(options.keySet().stream().reduce(Math::max).get());
 	}
@@ -420,22 +422,23 @@ public class PointGenerator {
 	 */
 	private Set<ConstructionPoint> addBanks(Polygon waterbody, List<ConstructionPoint> flowpoints,  Set<Polygon> otherpolys) throws Exception{
 		if (flowpoints.isEmpty()) return Collections.emptySet();
-
-		
 		
 		Set<ConstructionPoint> banks = new HashSet<>();
 		
 		Set<Coordinate> flows = new HashSet<>();
-		boolean hasheadwater = false;
+		Coordinate skip = null;
 		for(ConstructionPoint p : flowpoints) {
 			flows.add(p.getCoordinate());
-			if (p.getType() == NodeType.HEADWATER) hasheadwater = true;
-			if (p.getType() == NodeType.TERMINAL) hasheadwater = true;
+			if (p.getType() == NodeType.HEADWATER) {
+				skip = p.getCoordinate(); 
+			}
+			if (p.getType() == NodeType.TERMINAL) {
+				if (skip == null) skip = p.getCoordinate();
+			}
 		}
 				
 		List<LineString> toprocess = new ArrayList<>();
 		toprocess.add(waterbody.getExteriorRing());
-		waterbody.getExteriorRing().setUserData(hasheadwater);
 		
 		for (int i = 0; i < waterbody.getNumInteriorRing(); i ++) {
 			toprocess.add(waterbody.getInteriorRingN(i));
@@ -469,7 +472,7 @@ public class PointGenerator {
 			Collection<LineString> items2 = merger.getMergedLineStrings();
 			
 			for (LineString i : items2) {
-				generateBanks(i, flows, (boolean)ls.getUserData(), banks);
+				generateBanks(i, flows, skip, banks);
 			}
 		}
 
@@ -481,12 +484,13 @@ public class PointGenerator {
 	 * 
 	 * @param the linestring representing the bank edit
 	 * @param flows set of coordinates where flows touch point
-	 * @param hasheadwater
+	 * @param skip if this coordinate is the start of the coordinates to add a bank to, no bank is added; this
+	 * is for headwaters where we don't want to add banks to both sides
 	 * @param interiorexteriortouch coordinates where interior rings touch exterior ring 
 	 * @param banks bank constructions point list to update
 	 * 
 	 */
-	private void generateBanks(LineString ls, Set<Coordinate> flows, boolean hasheadwater,  Set<ConstructionPoint> banks) throws Exception{
+	private void generateBanks(LineString ls, Set<Coordinate> flows, Coordinate skip, Set<ConstructionPoint> banks) throws Exception{
 		Coordinate[] cs = ls.getCoordinates();
 		
 		if (cs[0].equals2D(cs[cs.length - 1])) {  //linear ring
@@ -508,9 +512,11 @@ public class PointGenerator {
 				coords.add(n);
 				if (flows.contains(n)) {
 					//find the midpoint between first and cnt and create node
-					Coordinate bankPnt = findMidpoint(coords, false);
-					bankPnt = findCoordinate(coords, bankPnt);
-					banks.add(new ConstructionPoint(bankPnt,NodeType.BANK, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
+					if (skip == null || !coords.get(0).equals2D(skip)) {
+						Coordinate bankPnt = findMidpoint(coords, false);
+						bankPnt = findCoordinate(coords, bankPnt);
+						banks.add(new ConstructionPoint(bankPnt,NodeType.BANK, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
+					}
 					coords = new ArrayList<>();
 					coords.add(n);
 				}
@@ -518,21 +524,24 @@ public class PointGenerator {
 			}
 			//find midpoint between first and cnt and create node
 			coords.add(cs[start]);
-			if (coords.size() > 1 && !hasheadwater) banks.add(new ConstructionPoint(findMidpoint(coords, false),NodeType.BANK, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
+			if (skip == null || !coords.get(0).equals2D(skip)) banks.add(new ConstructionPoint(findMidpoint(coords, false),NodeType.BANK, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
+			
 		}else {
 			List<Coordinate> coords = new ArrayList<>();
 			for (int i = 0; i < cs.length; i ++) {
 				coords.add(cs[i]);
 				if (flows.contains(cs[i]) && i != 0) {
-					Coordinate bankPnt = findMidpoint(coords, false);
-					bankPnt = findCoordinate(coords, bankPnt);
-					banks.add(new ConstructionPoint(bankPnt,NodeType.BANK, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
+					if (skip == null || !coords.get(0).equals2D(skip)) {
+						Coordinate bankPnt = findMidpoint(coords, false);
+						bankPnt = findCoordinate(coords, bankPnt);
+						banks.add(new ConstructionPoint(bankPnt,NodeType.BANK, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
+					}
 					coords.clear();
 					coords.add(cs[i]);	
 					
 				}
 			}
-			if (!hasheadwater && coords.size() > 1) banks.add(new ConstructionPoint(findMidpoint(coords, false),NodeType.BANK, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
+			if ((skip == null || !coords.get(0).equals2D(skip)) && coords.size() > 1) banks.add(new ConstructionPoint(findMidpoint(coords, false),NodeType.BANK, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));
 		}
 	}
 	

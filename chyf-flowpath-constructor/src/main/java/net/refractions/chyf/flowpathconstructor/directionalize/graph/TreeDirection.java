@@ -96,7 +96,12 @@ public class TreeDirection {
 						break;
 					}
 					if (e.getNodeB() != sink) {
-						e.flip();
+						if (localSinks.contains(e.getNodeB())) {
+							logger.error("Potential loop detected at " + sink.toString() + " - both ends of this subnetwork are classified as sinks.");
+							break;
+						}else {
+							e.flip();
+						}
 					}else {
 						e.setKnown();
 					}

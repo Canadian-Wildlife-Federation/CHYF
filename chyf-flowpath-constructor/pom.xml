@@ -11,12 +11,13 @@
 	<artifactId>chyf-flowpath-constructor</artifactId>
 	<packaging>jar</packaging>
 	<name>CHyF Flowpath Constructor</name>
+	<version>${flowpath.constructor.version}</version>
 	
 	<dependencies>
 		<dependency>
 			<groupId>net.refractions.chyf</groupId>
 			<artifactId>chyf-core</artifactId>
-			<version>${project.version}</version>
+			<version>${chyf.core.version}</version>
 		</dependency>
 	</dependencies>
 

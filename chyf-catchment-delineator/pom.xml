@@ -11,12 +11,13 @@
 	<modelVersion>4.0.0</modelVersion>
 	<artifactId>chyf-catchment-delineator</artifactId>
 	<name>CHyF Catchment Delineator</name>
+	<version>${catchment.version}</version>
 	
 	<dependencies>		
 		<dependency>
 			<groupId>net.refractions.chyf</groupId>
 			<artifactId>chyf-core</artifactId>
-			<version>${project.version}</version>
+			<version>${chyf.core.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.geotools</groupId>

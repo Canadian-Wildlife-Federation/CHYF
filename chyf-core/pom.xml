@@ -10,6 +10,7 @@
   	
 	<artifactId>chyf-core</artifactId>
 	<packaging>jar</packaging>
+	<version>${chyf.core.version}</version>
 	<name>CHyF Core Library</name>
 	
 	<dependencies>

@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.geotools.filter.identity.FeatureIdImpl;
 import org.locationtech.jts.geom.Coordinate;
 import org.opengis.filter.identity.FeatureId;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
@@ -21,6 +22,7 @@ import net.refractions.chyf.flowpathconstructor.directionalize.graph.DEdge;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DGraph;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DNode;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DPath;
+import net.refractions.chyf.flowpathconstructor.directionalize.graph.EdgeInfo;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.Partition;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.PathDirectionalizer;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.SubGraph;
@@ -123,7 +125,6 @@ public class Directionalizer {
 		for (DNode n : sinkNodes) toProcess.add(n);
 		
 		while(!toProcess.isEmpty()) {
-			//logger.info("Processing sink.  Remaining: " + toProcess.size());
 			
 			DNode sink = toProcess.remove(0);
 			
@@ -141,6 +142,59 @@ public class Directionalizer {
 				}
 			}
 			
+			
+			if (localSinks.size() > 1) {
+				//we need at least one degree 3 node in the network otherwise it is basically a loop
+				boolean degree3 = false;
+				for (DNode n : sub.getNodes()) {
+					if (n.getDegree() > 2) {
+						degree3 = true;
+						break;
+					}
+				}
+				if (degree3) {
+					//generally not an error, but I've seen a lot of direction errors
+					//in the dataset when this is the case so warn user
+					StringBuilder sb = new StringBuilder();
+					sb.append("A sub network has multiple sinks: " );
+					for (DNode n : localSinks) sb.append(n.toString() + " " );
+					logger.warn(sb.toString());			
+				
+					//add a single sink node and join all sinks to that node
+					Coordinate c = localSinks.get(0).getCoordinate();
+					
+					DNode tempsink = new DNode(new Coordinate(c.x, c.y));
+					graph.getNodes().add(tempsink);
+					//link sink nodes to edges
+					for (DNode s : localSinks) {
+						DEdge temp = new DEdge(s,tempsink,s.getCoordinate(),tempsink.getCoordinate(), 
+								new EdgeInfo(s.getCoordinate(), s.getCoordinate(), tempsink.getCoordinate(), 
+										tempsink.getCoordinate(), EfType.REACH, new FeatureIdImpl("temp-sink-node"), 
+										0, DirectionType.KNOWN));
+						tempsink.addEdge(temp);
+						s.getEdges().add(temp);
+						graph.getEdges().add(temp);
+					}
+					
+					//the sink node needs to have only one in edge
+					DNode tempsink2 = new DNode(new Coordinate(c.x, c.y));
+					tempsink.setSink(true);
+					graph.getNodes().add(tempsink2);
+					DEdge temp = new DEdge(tempsink,tempsink2,tempsink.getCoordinate(),tempsink2.getCoordinate(), 
+							new EdgeInfo(tempsink.getCoordinate(), tempsink.getCoordinate(), tempsink2.getCoordinate(), 
+									tempsink2.getCoordinate(), EfType.REACH, new FeatureIdImpl("temp-sink-node2"), 0,
+									DirectionType.KNOWN));
+					tempsink.addEdge(temp);
+					tempsink2.getEdges().add(temp);
+					graph.getEdges().add(temp);
+					
+					
+					localSinks.clear();
+					localSinks.add(tempsink2);
+					sink = tempsink2;
+					sub = SubGraph.computeSubGraph(graph, sink);
+				}
+			}
 			//find bridge nodes
 			BridgeFinder bb = new BridgeFinder();
 			bb.computeBridges(sub, sink);

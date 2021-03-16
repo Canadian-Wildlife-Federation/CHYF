@@ -181,6 +181,7 @@ public class PathDirectionalizer {
 				path.nodes.forEach(n->n.pathnode = true);
 				if (!path.edges.isEmpty()) {
 					directionalizePath(path);				
+					path.edges.forEach(e->e.pathedge = true);
 					paths.add(path);
 				}
 			}else {
@@ -206,7 +207,6 @@ public class PathDirectionalizer {
 			if (temp == null ) {
 				temp = PathFinder.findPath(toprocess.getNodeB(), sinks, graph);
 			}
-//			DPath temp = PathFinder.findPath(toprocess.getNodeB(), sinks, graph);
 			
 			if (temp == null) {
 				//not path found
@@ -215,13 +215,13 @@ public class PathDirectionalizer {
 				continue;
 			}
 			//flag nodes as pathnodes
-			temp.nodes.forEach(n->n.pathnode = true);
+			
 			
 			//add start node/edge to path
 			temp.nodes.add(0, toprocess.getNodeA());
 			temp.edges.add(0, toprocess);
 			directionalizePath(temp);
-	
+			
 			boolean canflip = true;
 			//check for cycle and flip is necessary
 			if (Directionalizer.cycleCheck(temp, graph)) {
@@ -231,9 +231,45 @@ public class PathDirectionalizer {
 				Collections.reverse(temp.nodes);
 				for (DEdge e : temp.edges) e.flip();
 				if (Directionalizer.cycleCheck(temp, graph)) {
-					throw new Exception("Cannot add path as both directions for this path creates a cycle. " + temp.toString());
+					
+					//can we truncate this path
+					DPath temp2 = new DPath();
+					for (int i = 0; i < temp.edges.size(); i ++) {
+						if (temp.edges.get(i).getNodeB().pathnode) {
+							//stop here
+							temp2.getEdges().add(temp.getEdges().get(i));
+							if (i == 0) temp2.getNodes().add(temp.getEdges().get(i).getNodeA());
+							temp2.getNodes().add(temp.getEdges().get(i).getNodeB());
+							break;
+						}
+						
+						temp2.getEdges().add(temp.getEdges().get(i));
+						if (i == 0) temp2.getNodes().add(temp.getEdges().get(i).getNodeA());
+						temp2.getNodes().add(temp.getEdges().get(i).getNodeB());
+						
+	
+					}
+					if (temp.edges.size() > temp2.edges.size()) {
+						for (DEdge e : temp.edges) {
+							if (!temp2.edges.contains(e)) {
+								e.resetKnown();
+							}
+						}
+						if (Directionalizer.cycleCheck(temp2, graph)) {
+							throw new Exception("Cannot add path as both directions for this path creates a cycle. " + temp.toString());
+						}else {
+							System.out.println("USING TRUNCATED PATH");
+							temp = temp2;
+						}
+						
+					}else {
+						throw new Exception("Cannot add path as both directions for this path creates a cycle. " + temp.toString());
+					}
 				}
 			}
+			
+			temp.nodes.forEach(n->n.pathnode = true);
+			temp.edges.forEach(e->e.pathedge = true);
 			
 			if (canflip) {
 				
@@ -413,7 +449,7 @@ public class PathDirectionalizer {
 			}else {
 				path.edges.get(k).setKnown();
 			}
-			path.edges.get(k).pathedge = true;
+//			path.edges.get(k).pathedge = true;
 		}
 	}
 	
@@ -442,6 +478,7 @@ public class PathDirectionalizer {
 			double mangle = Double.MAX_VALUE;
 			DEdge lnextEdge = null;
 			DNode lnextNode = null;
+			
 			nextNode.pathvisited = true;
 			for (DEdge out : nextNode.getEdges()) {
 				if (out.getDType() == DirectionType.KNOWN) {

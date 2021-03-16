@@ -1,2 +1,2 @@
 #!/bin/sh
-java -cp lib\*:lib-chyf\chyf-core-${project.version}.jar;lib-chyf\chyf-catchment-delineator-${project.version}.jar net.refractions.chyf.util.gpkg.GeoPackageReprojector $@
+java -cp lib\*:lib-chyf\chyf-core-${chyf.core.version}.jar;lib-chyf\chyf-catchment-delineator-${catchment.version}.jar net.refractions.chyf.util.gpkg.GeoPackageReprojector $@
