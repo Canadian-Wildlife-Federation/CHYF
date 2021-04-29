@@ -58,7 +58,7 @@ public class VectorTileController {
 	public static final String MVT_FORMAT = "mvt";
 	
 	//tile spec bounds and epsg code
-	public static Envelope BOUNDS = new Envelope(-20026376.39, 20026376.39, -20048966.10, 20048966.10);
+	public static Envelope BOUNDS = new Envelope(-20037508.342789,20037508.342789,-20037508.342789,20037508.342789);
 	public static int SRID = 3857;
 
 	@RequestMapping(value = "/water/{z}/{x}/{y}.{format}", 
