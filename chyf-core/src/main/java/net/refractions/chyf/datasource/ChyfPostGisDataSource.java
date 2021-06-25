@@ -34,6 +34,7 @@ import org.geotools.data.Query;
 import org.geotools.data.Transaction;
 import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.data.util.NullProgressListener;
+import org.geotools.geometry.jts.JTS;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.jdbc.JDBCDataStoreFactory;
@@ -44,9 +45,13 @@ import org.opengis.feature.FeatureVisitor;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.filter.Filter;
+import org.opengis.filter.expression.PropertyName;
+import org.opengis.geometry.BoundingBox;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import net.refractions.chyf.util.ReprojectionUtils;
 
 /**
  * Reads a geopackage input dataset.  
@@ -357,106 +362,6 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
     public FeatureReader<SimpleFeatureType, SimpleFeature> getWaterbodies() throws IOException{
 		return getFeatureReader(Layer.ECATCHMENTS, getECatchmentTypeFilter(EcType.WATER), null);
 	}
-//    
-//    /**
-//     * The feature entry associated with the given layer
-//     * @param layer
-//     * @return
-//     * @throws IOException
-//     */
-//	protected synchronized FeatureEntry getEntry(Layer layer) throws IOException {
-//		return geopkg.feature(layer.getLayerName());
-//	}
-//
-//	public synchronized int getSrid(Layer layer) throws IOException {
-//		return geopkg.feature(layer.getLayerName()).getSrid();
-//	}
-//
-//	/**
-//	 * Ensures that the eflowpath, ecatchments, and ecoastline layers
-//	 * all have a internal_uuid attribute and that is is unique and populated
-//	 * for each feature.  If it doesn't exist a new field is added.  Any empty values
-//	 * are populated.  If not unique then an exception is thrown
-//	 * @throws SQLException 
-//	 * @throws IOException 
-//	 * @throws Exception 
-//	 */
-//	public synchronized void addInternalIdAttribute() throws IOException {
-//		
-//		//layers which need internal_ids
-//		Layer[] layers = new Layer[] {Layer.SHORELINES, Layer.EFLOWPATHS, Layer.ECATCHMENTS};
-//		
-//		List<FeatureEntry> featureEntries = new ArrayList<>();
-//		for (Layer l : layers) {
-//			FeatureEntry fe = getEntry(l);
-//			if (fe != null) featureEntries.add(fe);
-//		}
-//		
-//		//determine which layers need internal ids added
-//		List<FeatureEntry> addId = new ArrayList<>();
-//		for (FeatureEntry fe : featureEntries) {
-//			Name name = ChyfDataSource.findAttribute(getFeatureType(fe), ChyfAttribute.INTERNAL_ID);
-//			if (name == null) addId.add(fe);
-//		}
-//		
-//		try {
-//			//add the id
-//			Connection c = geopkg.getDataSource().getConnection();
-//			for (FeatureEntry layer : addId) {
-//				String query = "ALTER TABLE " + layer.getTableName() + " add column " + ChyfAttribute.INTERNAL_ID.getFieldName()  + " text ";
-//				c.createStatement().execute(query);
-//			}
-//			
-//			//ensure unique
-//			for (FeatureEntry layer : featureEntries) {
-//				
-//				StringBuilder sb = new StringBuilder();
-//				sb.append("SELECT count(*), ");
-//				sb.append(ChyfAttribute.INTERNAL_ID.getFieldName());
-//				sb.append(" FROM ");
-//				sb.append(layer.getTableName());
-//				sb.append(" WHERE ");
-//				sb.append(ChyfAttribute.INTERNAL_ID.getFieldName());
-//				sb.append(" is not null ");
-//				sb.append(" GROUP BY ");
-//				sb.append(ChyfAttribute.INTERNAL_ID.getFieldName());
-//				sb.append(" HAVING count(*) > 1");
-//				
-//				try(ResultSet rs = c.createStatement().executeQuery(sb.toString())){
-//					if (rs.next()) throw new RuntimeException("Provided internal ids are not unique.");
-//				}
-//			}
-//		} catch (SQLException sqle) {
-//			throw new IOException(sqle);
-//		}
-//		
-//		geopkg.close();
-//		read();
-//		
-//		//populate internal_id with uuids
-//		for (FeatureEntry layer : featureEntries) {
-//			try(DefaultTransaction tx = new DefaultTransaction()) {
-//				try {
-//					Filter blankFilter = ff.isNull(ff.property(ChyfAttribute.INTERNAL_ID.getFieldName()));
-//		
-//					try(SimpleFeatureWriter writer = geopkg.writer(layer, false, blankFilter, tx)){
-//						Name name = ChyfDataSource.findAttribute(writer.getFeatureType(), ChyfAttribute.INTERNAL_ID);
-//						
-//						while(writer.hasNext()) {
-//							SimpleFeature sf = writer.next();
-//							sf.setAttribute(name, UUID.randomUUID().toString());
-//							writer.write();
-//						}
-//					}
-//					tx.commit();
-//				} catch (IOException ioe) {
-//					tx.rollback();
-//					throw ioe;
-//				}
-//			}
-//		}
-//		
-//	}
 
 	@Override
 	public FeatureReader<SimpleFeatureType, SimpleFeature> query(Layer layer) throws IOException {
@@ -480,16 +385,12 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		String typeName = getTypeName(layer);
 		SimpleFeatureType schema = workingDataStore.getSchema(typeName);
 		
-		// usually "THE_GEOM" for shapefiles
-        
         List<Filter> filters = new ArrayList<>();
         filters.add(getAoiFilter(layer));
         
         if (bounds != null) {
-        	//TODO: fix this
         	String geometryPropertyName = schema.getGeometryDescriptor().getLocalName();
-        	Filter bboxfilter = ff.bbox(ff.property(geometryPropertyName), bounds);
-        	filters.add(bboxfilter);
+        	filters.add(filterFromEnvelope(bounds, ff.property(geometryPropertyName)));
         }
         
         if (filter != null) {
@@ -499,6 +400,16 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
         Query query = new Query( typeName, ff.and(filters));
         
 		return workingDataStore.getFeatureReader(query, Transaction.AUTO_COMMIT );
+	}
+	
+
+	
+	protected Filter filterFromEnvelope(ReferencedEnvelope env, PropertyName geomProp) {
+		BoundingBox bounds = ReprojectionUtils.reproject(env, getCoordinateReferenceSystem());
+		Filter filter1 = ff.bbox(geomProp, bounds);
+		Filter filter2 = ff.intersects(geomProp, ff.literal(JTS.toGeometry(bounds)));
+		Filter filter = ff.and(filter1, filter2);
+		return filter;
 	}
 	
 	protected Filter getAoiFilter(Layer layer) {

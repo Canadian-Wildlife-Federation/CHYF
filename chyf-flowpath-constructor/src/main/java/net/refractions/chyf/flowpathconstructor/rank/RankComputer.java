@@ -104,8 +104,9 @@ public class RankComputer {
 			Polygon wb = null;
 			FeatureId wbfid = null;
 			Point nodep = ((new GeometryFactory())).createPoint(node.getCoordinate());
-			
-			try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = source.query(Layer.ECATCHMENTS, new ReferencedEnvelope(nodep.getEnvelopeInternal(), sourceCRS), source.getWbTypeFilter())){
+			ReferencedEnvelope env = new ReferencedEnvelope(nodep.getEnvelopeInternal(), sourceCRS);
+			env.expandBy(0.01);
+			try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = source.query(Layer.ECATCHMENTS, env, source.getWbTypeFilter())){
 				while(reader.hasNext()) {
 					SimpleFeature sf = reader.next();
 					Polygon p = ChyfDataSource.getPolygon(sf);
