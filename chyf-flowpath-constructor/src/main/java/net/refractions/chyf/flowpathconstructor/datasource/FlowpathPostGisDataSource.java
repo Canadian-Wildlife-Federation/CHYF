@@ -16,8 +16,8 @@
 package net.refractions.chyf.flowpathconstructor.datasource;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -29,12 +29,15 @@ import java.util.UUID;
 
 import org.geotools.data.DataUtilities;
 import org.geotools.data.DefaultTransaction;
+import org.geotools.data.FeatureReader;
+import org.geotools.data.FeatureStore;
+import org.geotools.data.FeatureWriter;
+import org.geotools.data.Query;
 import org.geotools.data.Transaction;
 import org.geotools.data.simple.SimpleFeatureReader;
-import org.geotools.data.simple.SimpleFeatureWriter;
+import org.geotools.data.simple.SimpleFeatureStore;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
-import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
-import org.geotools.geopkg.FeatureEntry;
+import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.util.factory.Hints;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -53,7 +56,7 @@ import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
+import net.refractions.chyf.datasource.ChyfPostGisDataSource;
 import net.refractions.chyf.datasource.DirectionType;
 import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.datasource.FlowDirection;
@@ -69,28 +72,77 @@ import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkelLineStr
  * @author Emily
  *
  */
-public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource implements IFlowpathDataSource{
+public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements IFlowpathDataSource{
+
+	static final Logger logger = LoggerFactory.getLogger(FlowpathPostGisDataSource.class.getCanonicalName());
 	
-	static final Logger logger = LoggerFactory.getLogger(FlowpathGeoPackageDataSource.class.getCanonicalName());
-
-	public static final String CONSTRUCTION_PNTS_LAYER = "ConstructionPoints";
-
 	private boolean cIsMulti = false;
 	
 	private List<SkelLineString> skeletonWriteCache;
-	
-	public FlowpathGeoPackageDataSource(Path geopackageFile) throws Exception {
-		super(geopackageFile);
+
+	public static final String CONSTRUCTION_PNTS_TABLE = "construction_points";
+
+	public FlowpathPostGisDataSource(String aoi) throws Exception {
+		super(aoi);
 		
-		addInternalIdAttribute();
+		//addInternalIdAttribute();
 		if (ChyfDataSource.findAttribute(getFeatureType(Layer.EFLOWPATHS), ChyfAttribute.DIRECTION) == null) {
 			addDirectionAttribute();
 		}
 	}
 
+	protected void read() throws IOException {
+		super.read();
+		
+		SimpleFeatureType stype = null;
+		try{
+			stype = workingDataStore.getSchema(CONSTRUCTION_PNTS_TABLE);
+		}catch (Exception ex) {
+			
+		}
+		if (stype == null) {
+			StringBuilder sb = new StringBuilder();
+			
+			sb.append("CREATE TABLE " );
+			sb.append(workingSchema + "." + CONSTRUCTION_PNTS_TABLE);
+			sb.append("(");
+			sb.append(getAoiFieldName(null) + " uuid not null references " + getTableName(Layer.AOI) + "(" + getAoiFieldName(Layer.AOI) + "),");
+			sb.append(ChyfAttribute.INTERNAL_ID.getFieldName() + " uuid Primary Key,");
+			sb.append(CATCHMENT_INTERNALID_ATTRIBUTE + " UUID,");
+			sb.append(NODETYPE_ATTRIBUTE + " integer,");
+			sb.append(ChyfAttribute.FLOWDIRECTION.getFieldName() + " integer,");
+			sb.append(" the_geom GEOMETRY(POINT, 4326)");
+			sb.append(") ");
+			
+		    
+		    try {
+		    	getConnection().createStatement().executeUpdate(sb.toString());
+			} catch (SQLException e) {
+				throw new IOException(e);
+			}
+		}
+	}
+		
+	protected void prepareOutput() throws IOException {
+		
+		StringBuilder sb = new StringBuilder();
+    	sb.append("DELETE FROM ");
+		sb.append(workingSchema + "." + CONSTRUCTION_PNTS_TABLE);
+		sb.append(" WHERE aoi_id = ?");
+		try(PreparedStatement ps = getConnection().prepareStatement(sb.toString())){
+			ps.setObject(1, aoiUuid);
+			ps.executeUpdate();
+		} catch (SQLException e) {
+			throw new IOException(e);
+		}
+		
+		
+	}
 	
+		
 	public void updateCoastline(FeatureId fid, LineString newls, Transaction tx) throws IOException {
-		try(SimpleFeatureWriter writer = geopkg.writer(getEntry(Layer.SHORELINES), false, ff.id(fid), tx)){
+		
+		try(FeatureWriter<SimpleFeatureType, SimpleFeature> writer = workingDataStore.getFeatureWriter(getTypeName(Layer.SHORELINES), ff.id(fid), tx)){
 			if (newls.getCoordinateSequence().getDimension() == 3) {
 				writer.getFeatureType().getGeometryDescriptor().getUserData().put(Hints.COORDINATE_DIMENSION, 3);
 			}else {
@@ -121,7 +173,7 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	 */
 	public List<Point> getTerminalNodes() throws Exception{
 		List<Point> pnt = new ArrayList<>();
-		try(SimpleFeatureReader reader = getFeatureReader(Layer.TERMINALNODES, Filter.INCLUDE, null)){
+		try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = getFeatureReader(Layer.TERMINALNODES, getAoiFilter(Layer.TERMINALNODES), Transaction.AUTO_COMMIT)){
 			Name flowdirAttribute = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.FLOWDIRECTION);
 			while(reader.hasNext()){
 				SimpleFeature point = reader.next();
@@ -142,8 +194,8 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	 */
 	public Set<Coordinate> getOutputConstructionPoints() throws Exception{
 		Set<Coordinate> pnt = new HashSet<>();
-		Filter filter = ff.equals(ff.property(ChyfAttribute.FLOWDIRECTION.getFieldName()), ff.literal(FlowDirection.OUTPUT.getChyfValue()));
-		try(SimpleFeatureReader reader = geopkg.reader(geopkg.feature(CONSTRUCTION_PNTS_LAYER), filter, null)){
+		Query query = new Query( CONSTRUCTION_PNTS_TABLE, getAoiFilter(null));
+	    try(SimpleFeatureReader reader =  (SimpleFeatureReader) workingDataStore.getFeatureReader(query, Transaction.AUTO_COMMIT )){
 			while(reader.hasNext()){
 				SimpleFeature point = reader.next();
 				pnt.add(ChyfDataSource.getPoint(point).getCoordinate());
@@ -159,18 +211,23 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	 */
 	public void createConstructionsPoints(List<ConstructionPoint> points) throws IOException {
 		
-		SimpleFeatureTypeBuilder builder = new SimpleFeatureTypeBuilder();
-		builder.add("the_geom", Point.class, crs);
-		builder.add(ChyfAttribute.INTERNAL_ID.getFieldName(), String.class);
-		builder.add(CATCHMENT_INTERNALID_ATTRIBUTE, String.class);
-		builder.add("node_type", Integer.class);
-		builder.add(ChyfAttribute.FLOWDIRECTION.getFieldName(), Integer.class);
-		builder.setName("ConstructionPoints");
-		SimpleFeatureType pntType = builder.buildFeatureType();
+
+		//delete existing features
+		StringBuilder sb = new StringBuilder();
+		sb.append("DELETE FROM ");
+		sb.append(workingSchema + "." + CONSTRUCTION_PNTS_TABLE);
+		sb.append (" WHERE ");
+		sb.append(getAoiFieldName(null));
+		sb.append(" = ?");
 		
-		FeatureEntry entry = new FeatureEntry();
-		entry.setTableName(CONSTRUCTION_PNTS_LAYER);
-		entry.setM(false);
+		try(PreparedStatement ps = getConnection().prepareStatement(sb.toString())){
+			ps.setObject(1, aoiUuid);
+			ps.executeUpdate();
+		}catch (SQLException ex) {
+			throw new IOException(ex);
+		}
+		
+		SimpleFeatureType pntType = workingDataStore.getSchema(CONSTRUCTION_PNTS_TABLE);
 		List<SimpleFeature> features = new ArrayList<>();
 		SimpleFeatureBuilder featureBuilder = new SimpleFeatureBuilder(pntType);
 		GeometryFactory gf = new GeometryFactory();
@@ -178,6 +235,7 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 		for (ConstructionPoint pnt : points) {
 			String uuid = UUID.randomUUID().toString();
 			featureBuilder.set("the_geom", gf.createPoint(pnt.getCoordinate()));
+			featureBuilder.set(getAoiFieldName(null), aoiUuid);
 			featureBuilder.set(NODETYPE_ATTRIBUTE, pnt.getType().getChyfValue());
 			featureBuilder.set(ChyfAttribute.FLOWDIRECTION.getFieldName(), pnt.getDirection().getChyfValue());
 			featureBuilder.set(ChyfAttribute.INTERNAL_ID.getFieldName(), uuid);
@@ -185,7 +243,13 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 			SimpleFeature sf = featureBuilder.buildFeature(uuid);
 			features.add(sf);
 		}
-		geopkg.add(entry, DataUtilities.collection(features));
+						
+		try(Transaction t1 = new DefaultTransaction("transaction 1")){
+			FeatureStore store = (FeatureStore) workingDataStore.getFeatureSource(CONSTRUCTION_PNTS_TABLE);
+			store.setTransaction(t1);
+			store.addFeatures(DataUtilities.collection(features));
+			t1.commit();
+		}
 	}
 
 	/**
@@ -199,7 +263,10 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	public synchronized List<ConstructionPoint> getConstructionsPoints(Object catchmentId) throws IOException{
 		Filter filter = ff.equals(ff.property(CATCHMENT_INTERNALID_ATTRIBUTE), ff.literal(catchmentId));
 		List<ConstructionPoint> points = new ArrayList<>();
-		try(SimpleFeatureReader reader = geopkg.reader(geopkg.feature(CONSTRUCTION_PNTS_LAYER), filter, null)){
+		
+		Query query = new Query( CONSTRUCTION_PNTS_TABLE, ff.and(filter,getAoiFilter(null)));
+		
+		try(FeatureReader<SimpleFeatureType, SimpleFeature> reader =  workingDataStore.getFeatureReader(query, Transaction.AUTO_COMMIT)){
         	while(reader.hasNext()) {
         		SimpleFeature sf = reader.next();
         		
@@ -212,7 +279,9 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
         }
         return points;
 	}
+	
 
+	
 	/**
 	 * Updates the geometry of the give polygon.  The polygon must
 	 * have a user data set to PolygonInfo class.
@@ -222,13 +291,13 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	 */
 	public void updateWaterbodyGeometries(Collection<Polygon> polygons) throws IOException{
 		if (polygons.isEmpty()) return;
-		
-		FeatureEntry waterbodiesLayer = getEntry(Layer.ECATCHMENTS);
+
 		try(DefaultTransaction tx = new DefaultTransaction()){
 			try {
 				for (Polygon polygon : polygons) {
 					FeatureId fid = PolygonInfo.getFeatureId(polygon);
-					try(SimpleFeatureWriter writer = geopkg.writer(waterbodiesLayer, false, ff.id(fid), tx)){
+					try(FeatureWriter<SimpleFeatureType, SimpleFeature> writer = workingDataStore.getFeatureWriter(getTypeName(Layer.ECATCHMENTS), 
+							ff.id(fid), tx)){
 						if (polygon.getExteriorRing().getCoordinateSequence().getDimension() == 3) {
 							writer.getFeatureType().getGeometryDescriptor().getUserData().put(Hints.COORDINATE_DIMENSION, 3);
 						}else {
@@ -243,7 +312,7 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 							}
 							writer.write();
 						}else {
-							throw new IOException("No feature with fid " + fid.toString() + "found to update");
+							throw new IOException("No feature with internal_id " + fid.toString() + "found to update");
 						}
 					}
 				}
@@ -265,7 +334,8 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	public void writeRanks(Map<FeatureId, RankType> ranks) throws Exception{
 		
 		try(DefaultTransaction tx = new DefaultTransaction()){
-			try(SimpleFeatureWriter writer = geopkg.writer(getEntry(Layer.EFLOWPATHS), false, Filter.INCLUDE, tx)){
+			
+			try(FeatureWriter<SimpleFeatureType, SimpleFeature> writer = workingDataStore.getFeatureWriter(getTypeName(Layer.EFLOWPATHS), Filter.INCLUDE, tx)){
 				Name rankatt = ChyfDataSource.findAttribute(writer.getFeatureType(), ChyfAttribute.RANK);
 				while(writer.hasNext()) {
 					SimpleFeature sf = writer.next();
@@ -297,7 +367,8 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 		try(DefaultTransaction tx = new DefaultTransaction()){
 			try {
 				//do 3d first
-				try(SimpleFeatureWriter writer = geopkg.writer(getEntry(Layer.EFLOWPATHS), false, Filter.INCLUDE, tx)){
+				
+				try(FeatureWriter<SimpleFeatureType, SimpleFeature> writer = workingDataStore.getFeatureWriter(getTypeName(Layer.EFLOWPATHS), Filter.INCLUDE, tx)){
 
 					Name diratt = ChyfDataSource.findAttribute(writer.getFeatureType(), ChyfAttribute.DIRECTION);
 					writer.getFeatureType().getGeometryDescriptor().getUserData().put(Hints.COORDINATE_DIMENSION, 3);
@@ -333,7 +404,7 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 		try(DefaultTransaction tx = new DefaultTransaction()){
 			try {
 				//do everything else
-				try(SimpleFeatureWriter writer = geopkg.writer(getEntry(Layer.EFLOWPATHS), false, Filter.INCLUDE, tx)){
+				try(FeatureWriter<SimpleFeatureType, SimpleFeature> writer = workingDataStore.getFeatureWriter(getTypeName(Layer.EFLOWPATHS), Filter.INCLUDE, tx)){
 
 					Name diratt = ChyfDataSource.findAttribute(writer.getFeatureType(), ChyfAttribute.DIRECTION);
 					writer.getFeatureType().getGeometryDescriptor().getUserData().put(Hints.COORDINATE_DIMENSION, 2);
@@ -376,57 +447,72 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	 * @throws IOException
 	 */
 	public synchronized void writeSkeletons(Collection<SkelLineString> skeletons) throws IOException {
+		
 		if (skeletonWriteCache == null) skeletonWriteCache = new ArrayList<>();
 		skeletonWriteCache.addAll(skeletons);
 				
 		if (skeletonWriteCache.size() > 1000 || skeletons.isEmpty()) {
-			logger.info("Writing skeletons to geopackage");
+			logger.info("Writing skeletons to database");
 	
-			try(Transaction tx = new DefaultTransaction()) {	
-				try(SimpleFeatureWriter fw = geopkg.writer(getEntry(Layer.EFLOWPATHS), true, Filter.EXCLUDE, tx)){
-					//all skeletons are always 2d
-					fw.getFeatureType().getGeometryDescriptor().getUserData().put(Hints.COORDINATE_DIMENSION, 2);
-					
-					Name diratt = ChyfDataSource.findAttribute(fw.getFeatureType(), ChyfAttribute.DIRECTION);
-					Name eftypeatt = ChyfDataSource.findAttribute(fw.getFeatureType(), ChyfAttribute.EFTYPE);
-					Name idatt = ChyfDataSource.findAttribute(fw.getFeatureType(), ChyfAttribute.INTERNAL_ID);
-					Name rankatt = ChyfDataSource.findAttribute(fw.getFeatureType(), ChyfAttribute.RANK);
+			
+			List<SimpleFeature> features = new ArrayList<>();
+			
+			SimpleFeatureType skelType = getFeatureType(Layer.EFLOWPATHS);
+			SimpleFeatureBuilder featureBuilder = new SimpleFeatureBuilder(skelType);
+
+			Name diratt = ChyfDataSource.findAttribute(skelType, ChyfAttribute.DIRECTION);
+			Name eftypeatt = ChyfDataSource.findAttribute(skelType, ChyfAttribute.EFTYPE);
+			Name idatt = ChyfDataSource.findAttribute(skelType, ChyfAttribute.INTERNAL_ID);
+			Name rankatt = ChyfDataSource.findAttribute(skelType, ChyfAttribute.RANK);
 							
-					for (SkelLineString item : skeletonWriteCache) {
-						SimpleFeature fs = fw.next();
-						fs.setAttribute(eftypeatt, item.getEfType().getChyfValue() );
-						fs.setAttribute(diratt, DirectionType.UNKNOWN.getChyfValue());
-						fs.setAttribute(idatt, UUID.randomUUID().toString());
+			for (SkelLineString item : skeletonWriteCache) {
 						
-						if (rankatt != null && item.getEfType() == EfType.BANK) {
-							fs.setAttribute(rankatt, RankType.PRIMARY.getChyfValue());
-						}
-						if (diratt != null && item.getEfType() == EfType.BANK) {
-							//bank flowpaths are directionalized
-							fs.setAttribute(diratt, DirectionType.KNOWN.getChyfValue());
-						}
+				UUID uuid = UUID.randomUUID();
+				featureBuilder.set(getAoiFieldName(Layer.EFLOWPATHS), aoiUuid);
+				featureBuilder.set(eftypeatt, item.getEfType().getChyfValue() );
+				featureBuilder.set(diratt, DirectionType.UNKNOWN.getChyfValue());
+				featureBuilder.set(idatt, uuid);
 						
-						//copy over existing attributes
-						if (item.getFeature() != null) {
-							fs.setAttribute(diratt, DirectionType.KNOWN.getChyfValue());
-							for (AttributeDescriptor att : fw.getFeatureType().getAttributeDescriptors()) {
-								if (att.getName().equals(diratt) || att.getName().equals(eftypeatt) 
-										|| att.getName().equals(idatt) || att.getName().equals(rankatt)) {
-									continue;
-								}
-								fs.setAttribute(att.getName(), item.getFeature().getAttribute(att.getName()));
-							}
+				if (rankatt != null && item.getEfType() == EfType.BANK) {
+					featureBuilder.set(rankatt, RankType.PRIMARY.getChyfValue());
+				}else if (rankatt != null) {
+					featureBuilder.set(rankatt, null);
+				}
+				if (diratt != null && item.getEfType() == EfType.BANK) {
+					//bank flowpaths are directionalized
+					featureBuilder.set(diratt, DirectionType.KNOWN.getChyfValue());
+				}else if (diratt != null) {
+					featureBuilder.set(diratt, null);
+				}						
+				//copy over existing attributes
+				if (item.getFeature() != null) {
+					featureBuilder.set(diratt, DirectionType.KNOWN.getChyfValue());
+					for (AttributeDescriptor att : skelType.getAttributeDescriptors()) {
+						if (att.getName().equals(diratt) || att.getName().equals(eftypeatt) 
+								|| att.getName().equals(idatt) || att.getName().equals(rankatt)) {
+							continue;
 						}
-						
-						fs.setDefaultGeometry(item.getLineString());
-						fw.write();
+						featureBuilder.set(att.getName(), item.getFeature().getAttribute(att.getName()));
 					}
-					tx.commit();
-				} catch(Exception ioe) {
-					tx.rollback();
-					throw ioe;
+				}
+				
+				featureBuilder.set(skelType.getGeometryDescriptor().getName(), item.getLineString());
+				features.add(featureBuilder.buildFeature(uuid.toString()));
+			}
+		
+			
+			try(Transaction t1 = new DefaultTransaction("transaction 1")){
+				try {
+					SimpleFeatureStore store = ((SimpleFeatureStore)workingDataStore.getFeatureSource(getTypeName(Layer.EFLOWPATHS)));
+					store.setTransaction(t1);
+					store.addFeatures(DataUtilities.collection(features));
+					t1.commit();
+				}catch (Exception ex) {
+					t1.rollback();
+					throw new IOException(ex);
 				}
 			}
+			
 			skeletonWriteCache.clear();
 			logger.info("Finished skeleton write");
 		}
@@ -440,11 +526,12 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	 * 
 	 */
 	public void removeExistingSkeletons(boolean bankOnly) throws SQLException {
-		Connection c = geopkg.getDataSource().getConnection();
 		try {
+			Connection c = getConnection();
+			
 			StringBuilder sb = new StringBuilder();
 			sb.append("DELETE FROM ");
-			sb.append(getEntry(Layer.EFLOWPATHS).getTableName());
+			sb.append(getTableName(Layer.EFLOWPATHS));
 			sb.append(" WHERE ");
 			sb.append(ChyfAttribute.EFTYPE.getFieldName());
 			sb.append(" IN (" );
@@ -456,36 +543,35 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 			sb.append(")");
 			
 			c.createStatement().execute(sb.toString());
-		}catch (Exception ex) {
-			
+		}catch (IOException ex) {
+			throw new SQLException(ex);
 		}
+		
 	}
 	
 	
-	private void addDirectionAttribute() throws Exception{	
-		String tablename = getEntry(Layer.EFLOWPATHS).getTableName();
+	private void addDirectionAttribute() throws Exception{
 		
-		Connection c = geopkg.getDataSource().getConnection();
+		String tablename = getTableName(Layer.EFLOWPATHS);
+
+		Connection c = getConnection();
 		String query = "ALTER TABLE " + tablename + " add column " + ChyfAttribute.DIRECTION.getFieldName()  + " integer ";
 		c.createStatement().execute(query);
 		
 		query = "UPDATE TABLE " + tablename + " set " + ChyfAttribute.DIRECTION.getFieldName()  + " = " + DirectionType.UNKNOWN.getChyfValue();
 		c.createStatement().execute(query);
 		
-		geopkg.close();
-		read();
+		resetWorkingDataStore();
 	}
 	
-	public void addRankAttribute() throws Exception{	
-		String tablename = getEntry(Layer.EFLOWPATHS).getTableName();
-		Connection c = geopkg.getDataSource().getConnection();
+	public void addRankAttribute() throws Exception{		
+		String tablename = getTableName(Layer.EFLOWPATHS);
+
+		Connection c = getConnection();
 		String query = "ALTER TABLE " + tablename + " add column " + ChyfAttribute.RANK.getFieldName()  + " integer ";
 		c.createStatement().execute(query);
 		
-		geopkg.close();
-		read();
+		resetWorkingDataStore();
 	}
-	
-	
 
 }

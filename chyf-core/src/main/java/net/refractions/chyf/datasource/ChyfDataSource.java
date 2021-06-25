@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.geotools.data.FeatureReader;
 import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.geometry.jts.ReferencedEnvelope;
@@ -55,7 +56,7 @@ public interface ChyfDataSource extends AutoCloseable {
 	 * @return a SimpleFeatureReader with all features from the specified Layer
 	 * @throws IOException
 	 */
-	SimpleFeatureReader query(Layer layer) throws IOException;
+	FeatureReader<SimpleFeatureType, SimpleFeature> query(Layer layer) throws IOException;
 	
 	/**
 	 * Queries the specified layer using the bounds provided. 
@@ -65,7 +66,7 @@ public interface ChyfDataSource extends AutoCloseable {
 	 * @return a SimpleFeatureReader with the matched features from the specified Layer
 	 * @throws IOException
 	 */
-	SimpleFeatureReader query(Layer layer, ReferencedEnvelope bounds) throws IOException;
+	FeatureReader<SimpleFeatureType, SimpleFeature> query(Layer layer, ReferencedEnvelope bounds) throws IOException;
 
 	/**
 	 * Queries the specified layer using the filter provided. 
@@ -75,7 +76,7 @@ public interface ChyfDataSource extends AutoCloseable {
 	 * @return a SimpleFeatureReader with the matched features from the specified Layer
 	 * @throws IOException
 	 */
-	SimpleFeatureReader query(Layer layer, Filter filter) throws IOException;
+	FeatureReader<SimpleFeatureType, SimpleFeature> query(Layer layer, Filter filter) throws IOException;
 
 	/**
 	 * Queries the specified layer using the bounds and filter provided. 
@@ -86,7 +87,18 @@ public interface ChyfDataSource extends AutoCloseable {
 	 * @return a SimpleFeatureReader with the matched features from the specified Layer
 	 * @throws IOException
 	 */
-	SimpleFeatureReader query(Layer layer, ReferencedEnvelope bounds, Filter filter) throws IOException;
+	FeatureReader<SimpleFeatureType, SimpleFeature> query(Layer layer, ReferencedEnvelope bounds, Filter filter) throws IOException;
+		
+    /**
+     * 
+     * @return all catchments of water type
+     * 
+     * @throws IOException
+     */
+	FeatureReader<SimpleFeatureType, SimpleFeature> getWaterbodies() throws IOException;
+
+	public SimpleFeatureType getFeatureType(Layer layer) throws IOException;
+
 		
 	/**
 	 * 

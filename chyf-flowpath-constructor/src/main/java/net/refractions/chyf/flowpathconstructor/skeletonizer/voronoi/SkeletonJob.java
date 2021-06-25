@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.WaterbodyIterator;
 
 /**
@@ -39,7 +40,7 @@ public class SkeletonJob implements Runnable{
 
 	static final Logger logger = LoggerFactory.getLogger(SkeletonJob.class.getCanonicalName());
 
-	private FlowpathGeoPackageDataSource dataSource;
+	private IFlowpathDataSource dataSource;
 	private SkeletonGenerator generator;
 	private WaterbodyIterator iterator;
 	
@@ -47,7 +48,7 @@ public class SkeletonJob implements Runnable{
 	private List<Exception> exerrors;
 	private List<String> skelerrors;
 	
-	public SkeletonJob(FlowpathGeoPackageDataSource dataSource, WaterbodyIterator iterator, SkeletonGenerator generator) {
+	public SkeletonJob(IFlowpathDataSource dataSource, WaterbodyIterator iterator, SkeletonGenerator generator) {
 		this.dataSource = dataSource;
 		this.generator = generator;
 		this.iterator = iterator;
@@ -69,7 +70,8 @@ public class SkeletonJob implements Runnable{
 			SimpleFeature toProcess = null;
 			while((toProcess = iterator.getNextWaterbody()) != null) {
 				logger.info(toProcess.getIdentifier().toString());
-				String catchmentId = (String) toProcess.getAttribute(ChyfAttribute.INTERNAL_ID.getFieldName());
+				
+				Object catchmentId = toProcess.getAttribute(ChyfAttribute.INTERNAL_ID.getFieldName());
 				try {
 					Polygon workingPolygon = ChyfDataSource.getPolygon(toProcess);
 					SkeletonResult result = generator.generateSkeleton(workingPolygon, dataSource.getConstructionsPoints(catchmentId));

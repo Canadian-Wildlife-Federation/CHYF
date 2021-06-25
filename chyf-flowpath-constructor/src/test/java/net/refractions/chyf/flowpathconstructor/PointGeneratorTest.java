@@ -33,7 +33,7 @@ import org.locationtech.jts.io.WKTReader;
 
 import net.refractions.chyf.datasource.FlowDirection;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties.Property;
-import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource.NodeType;
+import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource.NodeType;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.ConstructionPoint;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.PointGenerator;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.PolygonInfo;

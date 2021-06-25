@@ -187,10 +187,10 @@ public class SkeletonGenerator {
 				Coordinate c1 = p.getCoordinates()[j-1];
 				Coordinate c2 = p.getCoordinates()[j];
 				
-				int loc = outer.locate(c1);
-				boolean in1 = (loc == Location.INTERIOR || loc == Location.BOUNDARY);
-				loc = outer.locate(c2);
-				boolean in2 = (loc == Location.INTERIOR || loc == Location.BOUNDARY);
+				int loc1 = outer.locate(c1);
+				boolean in1 = (loc1 == Location.INTERIOR || loc1 == Location.BOUNDARY);
+				int loc2 = outer.locate(c2);
+				boolean in2 = (loc2 == Location.INTERIOR || loc2 == Location.BOUNDARY);
 		
 				if (in1 && in2) {
 					if (segInPoly.testSegment(c1, c2)) {
@@ -199,7 +199,10 @@ public class SkeletonGenerator {
 						inoutsegments.add(createSegment(c1, c2));	
 					}
 				}else if (in1 || in2) {
-					inoutsegments.add(createSegment(c1, c2));
+					//TODO: figure this out - not sure about this
+//					if (loc1 == Location.INTERIOR || loc2 == Location.INTERIOR) {
+						inoutsegments.add(createSegment(c1, c2));
+//					}
 				}
 			}
 		}

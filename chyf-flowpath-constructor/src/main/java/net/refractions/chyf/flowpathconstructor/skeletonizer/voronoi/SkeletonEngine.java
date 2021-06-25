@@ -29,6 +29,8 @@ import org.slf4j.LoggerFactory;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.WaterbodyIterator;
 
 /**
@@ -47,7 +49,7 @@ public class SkeletonEngine {
 		}
 	}
 
-	public static void doWork(FlowpathGeoPackageDataSource dataSource, ChyfProperties properties, int cores) throws Exception {
+	public static void doWork(IFlowpathDataSource dataSource, ChyfProperties properties, int cores) throws Exception {
 		if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 
 		dataSource.removeExistingSkeletons(false);
@@ -85,12 +87,15 @@ public class SkeletonEngine {
 	
 	public static void main(String[] args) throws Exception {
 		FlowpathArgs runtime = new FlowpathArgs("SkeletonEngine");
-		if (!runtime.parseArguments(args)) return;
+//		if (!runtime.parseArguments(args)) return;
 		
-		runtime.prepareOutput();
+//		runtime.prepareOutput();
 		
 		long now = System.nanoTime();
-		SkeletonEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile(), runtime.getCores());
+//		SkeletonEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile(), runtime.getCores());
+		try(FlowpathPostGisDataSource ds = new FlowpathPostGisDataSource("NS")){
+			SkeletonEngine.doWork(ds, runtime.getPropertiesFile(), runtime.getCores());
+		}
 		long then = System.nanoTime();
 		
 		System.out.println("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );

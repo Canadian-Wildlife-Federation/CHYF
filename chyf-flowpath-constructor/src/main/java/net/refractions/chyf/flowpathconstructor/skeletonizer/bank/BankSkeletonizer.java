@@ -40,7 +40,7 @@ import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.datasource.FlowDirection;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties.Property;
-import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource.NodeType;
+import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource.NodeType;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.ConstructionPoint;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkelLineString;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkeletonGenerator;

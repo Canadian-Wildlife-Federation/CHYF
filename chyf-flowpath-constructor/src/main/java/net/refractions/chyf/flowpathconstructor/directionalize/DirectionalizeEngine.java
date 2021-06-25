@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.geotools.data.FeatureReader;
 import org.geotools.data.simple.SimpleFeatureReader;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
@@ -28,6 +29,7 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.prep.PreparedPolygon;
 import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.Name;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
@@ -42,6 +44,7 @@ import net.refractions.chyf.datasource.Layer;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DEdge;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DGraph;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DNode;
@@ -64,7 +67,7 @@ public class DirectionalizeEngine {
 		
 	}
 	
-	public static void doWork(FlowpathGeoPackageDataSource dataSource, ChyfProperties properties) throws Exception {
+	public static void doWork(IFlowpathDataSource dataSource, ChyfProperties properties) throws Exception {
 		CoordinateReferenceSystem sourceCRS = null;	
 
 		List<EdgeInfo> edges = new ArrayList<>();
@@ -77,7 +80,7 @@ public class DirectionalizeEngine {
 
 		logger.info("loading flowpaths");
 		
-		try(SimpleFeatureReader reader = dataSource.query(Layer.EFLOWPATHS)){
+		try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = dataSource.query(Layer.EFLOWPATHS)){
 			sourceCRS = reader.getFeatureType().getCoordinateReferenceSystem();
 			Name eftypeatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.EFTYPE);
 			Name direatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.DIRECTION);
@@ -160,7 +163,7 @@ public class DirectionalizeEngine {
 	 * - and flow edge that intersects the coastline
 	 * 
 	 */
-	private static List<Coordinate> getSinkPoints(FlowpathGeoPackageDataSource source, DGraph graph) throws Exception {
+	private static List<Coordinate> getSinkPoints(IFlowpathDataSource source, DGraph graph) throws Exception {
 		List<Coordinate> sinks = new ArrayList<>();
 		for (Point p : source.getTerminalNodes()) {
 			if ( ((FlowDirection)p.getUserData()) == FlowDirection.OUTPUT ) {
@@ -170,7 +173,7 @@ public class DirectionalizeEngine {
 		
 		//add coastline sinks
 		Set<Coordinate> clc = new HashSet<>();
-		try(SimpleFeatureReader reader = source.query(Layer.SHORELINES)){
+		try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = source.query(Layer.SHORELINES)){
 			if (reader != null) {
 				while(reader.hasNext()) {
 					SimpleFeature sf = reader.next();

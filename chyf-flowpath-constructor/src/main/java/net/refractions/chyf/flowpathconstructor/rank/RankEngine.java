@@ -19,8 +19,10 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.geotools.data.FeatureReader;
 import org.geotools.data.simple.SimpleFeatureReader;
 import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.Name;
 import org.opengis.filter.identity.FeatureId;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
@@ -34,6 +36,7 @@ import net.refractions.chyf.datasource.RankType;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 
 /**
  * Main class for computing Rank in dataset
@@ -50,7 +53,7 @@ public class RankEngine {
 		}
 	}
 	
-	public static void doWork(FlowpathGeoPackageDataSource dataSource, ChyfProperties properties) throws Exception {
+	public static void doWork(IFlowpathDataSource dataSource, ChyfProperties properties) throws Exception {
 		logger.info("build graph");
 		RGraph graph = new RGraph();
 		CoordinateReferenceSystem crs;
@@ -66,7 +69,7 @@ public class RankEngine {
 		}
 		
 		logger.info("loading flowpaths");
-		try(SimpleFeatureReader reader = dataSource.query(Layer.EFLOWPATHS)){
+		try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = dataSource.query(Layer.EFLOWPATHS)){
 			
 			Name eftypeatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.EFTYPE);
 			crs = reader.getFeatureType().getCoordinateReferenceSystem();

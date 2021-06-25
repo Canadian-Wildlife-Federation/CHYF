@@ -18,7 +18,7 @@ package net.refractions.chyf.flowpathconstructor.skeletonizer.points;
 import org.locationtech.jts.geom.Coordinate;
 
 import net.refractions.chyf.datasource.FlowDirection;
-import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource.NodeType;
+import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource.NodeType;
 
 /**
  * Represents a skeleton input/ouput point

@@ -58,8 +58,6 @@ import net.refractions.chyf.util.ReprojectionUtils;
 public class ChyfGeoPackageDataSource implements ChyfDataSource{
 
 	static final Logger logger = LoggerFactory.getLogger(ChyfGeoPackageDataSource.class.getCanonicalName());
-	
-	public static FilterFactory2 ff = CommonFactoryFinder.getFilterFactory2();
 
 	protected Path geopackageFile;
 	protected GeoPackage geopkg;

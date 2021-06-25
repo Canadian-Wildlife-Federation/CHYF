@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.geotools.data.FeatureReader;
 import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.locationtech.jts.geom.Coordinate;
@@ -33,6 +34,7 @@ import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.linearref.LengthIndexedLine;
 import org.locationtech.jts.operation.distance.DistanceOp;
 import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.filter.identity.FeatureId;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
@@ -104,7 +106,7 @@ public class RankComputer {
 			FeatureId wbfid = null;
 			Point nodep = ((new GeometryFactory())).createPoint(node.getCoordinate());
 			
-			try(SimpleFeatureReader reader = source.query(Layer.ECATCHMENTS, new ReferencedEnvelope(nodep.getEnvelopeInternal(), sourceCRS), source.getWbTypeFilter())){
+			try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = source.query(Layer.ECATCHMENTS, new ReferencedEnvelope(nodep.getEnvelopeInternal(), sourceCRS), source.getWbTypeFilter())){
 				while(reader.hasNext()) {
 					SimpleFeature sf = reader.next();
 					Polygon p = ChyfDataSource.getPolygon(sf);
@@ -125,7 +127,7 @@ public class RankComputer {
 			List<LineString> tempparts = new ArrayList<>();
 				
 			//break waterbody parts where they intersect with another waterbody or the coastline
-			try(SimpleFeatureReader reader = source.query(Layer.ECATCHMENTS, new ReferencedEnvelope(wb.getEnvelopeInternal(), sourceCRS), source.getWbTypeFilter())){
+			try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = source.query(Layer.ECATCHMENTS, new ReferencedEnvelope(wb.getEnvelopeInternal(), sourceCRS), source.getWbTypeFilter())){
 				while(reader.hasNext()) {
 					SimpleFeature sf = reader.next();
 					if (sf.getIdentifier().equals(wbfid)) continue;
@@ -149,7 +151,7 @@ public class RankComputer {
 				}
 			}
 			//do the some thing with the coastline
-			try(SimpleFeatureReader reader = source.query(Layer.SHORELINES, new ReferencedEnvelope(wb.getEnvelopeInternal(), sourceCRS), null)){
+			try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = source.query(Layer.SHORELINES, new ReferencedEnvelope(wb.getEnvelopeInternal(), sourceCRS), null)){
 				if (reader != null) {
 					while(reader.hasNext()) {
 						SimpleFeature sf = reader.next();
