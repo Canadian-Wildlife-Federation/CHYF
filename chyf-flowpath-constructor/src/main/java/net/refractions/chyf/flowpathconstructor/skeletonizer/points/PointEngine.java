@@ -16,6 +16,7 @@
 package net.refractions.chyf.flowpathconstructor.skeletonizer.points;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -23,7 +24,6 @@ import java.util.List;
 
 import org.geotools.data.DefaultTransaction;
 import org.geotools.data.FeatureReader;
-import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
@@ -43,14 +43,16 @@ import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
+import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.datasource.DirectionType;
 import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.datasource.FlowDirection;
 import net.refractions.chyf.datasource.Layer;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
-import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties.Property;
+import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.WaterbodyIterator;
 
@@ -378,13 +380,33 @@ public class PointEngine {
 
 		FlowpathArgs runtime = new FlowpathArgs("PointEngine");
 		if (!runtime.parseArguments(args)) return;
-		
-		runtime.prepareOutput();
-		
+			
 		long now = System.nanoTime();
-		PointEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
+		IFlowpathDataSource dataSource = null;
+		try{
+			if (runtime.isGeopackage()) {
+				Path input = Paths.get(runtime.getInput());
+				Path output = Paths.get(runtime.getOutput());
+				ChyfGeoPackageDataSource.prepareOutput(input, output);
+				
+				dataSource = new FlowpathGeoPackageDataSource(output);
+			}else if (runtime.isPostigs()){
+				
+				dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput(), runtime.getAoi());
+				if (runtime.getAoi() == null || runtime.getAoi().isEmpty()) {
+					System.err.println("An aoi argument must be provided to use this option");
+					return;
+				}
+			}
+			ChyfProperties prop = runtime.getPropertiesFile();
+			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+			PointEngine.doWork(dataSource, prop);
+			
+		}finally {
+			if (dataSource != null) dataSource.close();
+		}
 		long then = System.nanoTime();
-		
 		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );
+	
 	}
 }

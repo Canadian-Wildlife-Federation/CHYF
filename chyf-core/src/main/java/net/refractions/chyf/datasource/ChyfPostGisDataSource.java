@@ -58,10 +58,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 
 	static final Logger logger = LoggerFactory.getLogger(ChyfPostGisDataSource.class.getCanonicalName());
 	
-//	protected Path geopackageFile;
-//	protected GeoPackage geopkg;
 	protected CoordinateReferenceSystem crs;
-	
 	
 	protected DataStore workingDataStore;
 
@@ -73,16 +70,49 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	
 	private Map<String, Object> connectionParameters;
 	
-	public ChyfPostGisDataSource(String aoi) throws IOException {
+	public ChyfPostGisDataSource(String connectionString, String inschema, String outschema, String aoi) throws IOException {
 		this.aoiId = aoi;
+		this.rawSchema = inschema;
+		this.workingSchema = outschema;
 		
 		try {
 			this.crs = CRS.decode("EPSG:4326");
 		} catch (Exception e) {
 			throw new IOException (e);
 		}
+		int port = 5432;
+		String host = null;
+		String dbname = null;
+		String user = null;
+		String password = null;
+		
+		String[] bits = connectionString.split(";");
+		for (String bit : bits) {
+			if (bit.toLowerCase().contains("host=")) {
+				host = bit.substring("host=".length());
+			}else if (bit.toLowerCase().contains("db=")) {
+				dbname = bit.substring("db=".length());
+			}else if (bit.toLowerCase().contains("user=")) {
+				user = bit.substring("user=".length());
+			}else if (bit.toLowerCase().contains("password=")) {
+				password = bit.substring("password=".length());
+			}else if (bit.toLowerCase().contains("port=")) {
+				String sport = bit.substring("port=".length());
+				port = Integer.valueOf(sport);
+			}
+		}
+		connectionParameters = new HashMap<>();
+		connectionParameters.put("dbtype", "postgis");
+		connectionParameters.put("host", host);
+		connectionParameters.put("port", port);
+		connectionParameters.put("schema", rawSchema);
+		connectionParameters.put("database", dbname);
+		connectionParameters.put("user", user);
+		connectionParameters.put("passwd", password);
+
+		connectionParameters.put(JDBCDataStoreFactory.EXPOSE_PK.key, Boolean.TRUE);
+		
 		read();
-		prepareOutput();
 	}
 	
 	/**
@@ -108,28 +138,8 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	
 	
 	protected void read() throws IOException {
-//		geopkg = new GeoPackage(geopackageFile.toFile());
-//		geopkg.init();
-//		
-//		for (Layer l : Layer.values()) {
-//			SimpleFeatureType ft = getFeatureType(l);
-//			if (ft == null) continue;
-//			if (crs == null) {
-//				crs = ft.getCoordinateReferenceSystem();
-//			}else if (!CRS.equalsIgnoreMetadata(crs,  ft.getCoordinateReferenceSystem())) {
-//				throw new RuntimeException("All layers must have the same projection.");
-//			}
-//		}
-		connectionParameters = new HashMap<>();
-		connectionParameters.put("dbtype", "postgis");
-		connectionParameters.put("host", "localhost");
-		connectionParameters.put("port", 8447);
-		connectionParameters.put("schema", rawSchema);
-		connectionParameters.put("database", "chyf");
-		connectionParameters.put("user", "smart");
-		connectionParameters.put("passwd", "smart");
 
-		connectionParameters.put(JDBCDataStoreFactory.EXPOSE_PK.key, Boolean.TRUE);
+		
 	    DataStore rawDataStore = DataStoreFinder.getDataStore(connectionParameters);
 	    
 	    
@@ -240,7 +250,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	    }
 	}
 	
-	protected void prepareOutput() throws IOException {
+	public void clearAoiOutputTables() throws IOException {
 	    connectionParameters.put("schema", workingSchema);
 	    workingDataStore = DataStoreFinder.getDataStore(connectionParameters);
 	    Connection c = ((JDBCDataStore)workingDataStore).getConnection(Transaction.AUTO_COMMIT);
@@ -476,6 +486,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
         filters.add(getAoiFilter(layer));
         
         if (bounds != null) {
+        	//TODO: fix this
         	String geometryPropertyName = schema.getGeometryDescriptor().getLocalName();
         	Filter bboxfilter = ff.bbox(ff.property(geometryPropertyName), bounds);
         	filters.add(bboxfilter);

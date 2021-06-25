@@ -16,13 +16,13 @@
 package net.refractions.chyf.flowpathconstructor.directionalize;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import org.geotools.data.FeatureReader;
-import org.geotools.data.simple.SimpleFeatureReader;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Point;
@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
+import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.datasource.DirectionType;
 import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.datasource.FlowDirection;
@@ -44,6 +45,7 @@ import net.refractions.chyf.datasource.Layer;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DEdge;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DGraph;
@@ -68,6 +70,8 @@ public class DirectionalizeEngine {
 	}
 	
 	public static void doWork(IFlowpathDataSource dataSource, ChyfProperties properties) throws Exception {
+		if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+
 		CoordinateReferenceSystem sourceCRS = null;	
 
 		List<EdgeInfo> edges = new ArrayList<>();
@@ -215,14 +219,32 @@ public class DirectionalizeEngine {
 	public static void main(String[] args) throws Exception {		
 		FlowpathArgs runtime = new FlowpathArgs("DirectionalizeEngine");
 		if (!runtime.parseArguments(args)) return;
-		
-		runtime.prepareOutput();
-		
+			
 		long now = System.nanoTime();
-		DirectionalizeEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
-		
+		IFlowpathDataSource dataSource = null;
+		try{
+			if (runtime.isGeopackage()) {
+				Path input = Paths.get(runtime.getInput());
+				Path output = Paths.get(runtime.getOutput());
+				ChyfGeoPackageDataSource.prepareOutput(input, output);
+				
+				dataSource = new FlowpathGeoPackageDataSource(output);
+			}else if (runtime.isPostigs()){
+				
+				dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput(), runtime.getAoi());
+				if (runtime.getAoi() == null || runtime.getAoi().isEmpty()) {
+					System.err.println("An aoi argument must be provided to use this option");
+					return;
+				}
+			}
+			ChyfProperties prop = runtime.getPropertiesFile();
+			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+			DirectionalizeEngine.doWork(dataSource, prop);
+
+		}finally {
+			if (dataSource != null) dataSource.close();
+		}
 		long then = System.nanoTime();
-		
 		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );
 	}
 }

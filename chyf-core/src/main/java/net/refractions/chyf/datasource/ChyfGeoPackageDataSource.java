@@ -18,6 +18,7 @@ package net.refractions.chyf.datasource;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -30,7 +31,6 @@ import org.geotools.data.DefaultTransaction;
 import org.geotools.data.Transaction;
 import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.data.simple.SimpleFeatureWriter;
-import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.geopkg.FeatureEntry;
@@ -41,7 +41,6 @@ import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.Name;
 import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
 import org.opengis.geometry.BoundingBox;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
@@ -62,6 +61,18 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	protected Path geopackageFile;
 	protected GeoPackage geopkg;
 	protected CoordinateReferenceSystem crs;
+	
+	
+	/**
+	 * Deletes any existing output files and copies the input
+	 * file to the output file
+	 * 
+	 * @throws Exception
+	 */
+	public static void prepareOutput(Path inputFile, Path outputFile) throws Exception{
+		ChyfGeoPackageDataSource.deleteOutputFile(outputFile);
+		Files.copy(inputFile, outputFile, StandardCopyOption.REPLACE_EXISTING);
+	}
 	
 	public ChyfGeoPackageDataSource(Path geopackageFile) throws IOException {
 		this.geopackageFile = geopackageFile;

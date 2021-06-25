@@ -52,13 +52,22 @@ public abstract class Args {
 	public void initOptions() {
 		options.addOption("p", true, "custom properties file");
 		options.addOption("c", true, "number of cores to use for multi-core processing (default 4)");
+		options.addOption("g", false, "use geopackage data source");
+		options.addOption("d", true, "use postgis data source");
+		options.addOption("a", true, "if postgis is using this specifies the aoi to process; if not specified the next unprocessed aoi will be processed until no more to process");
 	}
 	
-	protected Path inFile = null;
-	protected Path outFile = null;
+	protected String inData = null;
+	protected String outData = null;
 	protected Path prop = null;
 	protected int cores = 4;
 
+	protected boolean geopkg = false;
+	protected boolean postgis = false;
+	
+	protected String dbstring = "";
+	protected String aoi = "";
+	
 	/**
 	 * Parses the command line arguments.  Returns true
 	 * if parse completed successfully, false if error occurs.
@@ -75,19 +84,16 @@ public abstract class Args {
 			
 			parseOptions(cmd);
 			
-			String infile = null;
-			String outfile = null;
+			inData = null;
+			outData = null;
 			
 			if (cmd.getArgList().size() == 2) {
-				infile = cmd.getArgList().get(0);
-				outfile = cmd.getArgList().get(1);
+				inData = cmd.getArgList().get(0);
+				outData = cmd.getArgList().get(1);
 			}else {
 				printUsage();
 				return false;
 			}
-			
-			this.inFile = Paths.get(infile);
-			this.outFile = Paths.get(outfile);
 			
 			if (!validate()) return false;
 			return true;
@@ -106,13 +112,46 @@ public abstract class Args {
 	protected void parseOptions(CommandLine cmd) {
 		if (cmd.hasOption("p")) prop = Paths.get(cmd.getOptionValue("p"));
 		if (cmd.hasOption("c")) cores = Integer.parseInt(cmd.getOptionValue("c"));
+		if (cmd.hasOption("g")) geopkg = true;
+		if (cmd.hasOption("d")) {
+			postgis = true;
+			dbstring = cmd.getOptionValue("d");
+		}
+		if (cmd.hasOption("a")) {
+			aoi = cmd.getOptionValue("a");
+		}
 	}
 	
 	
 	protected boolean validate() {
-		if (!Files.exists(inFile)) {
-			System.err.println("Input file not found:" + inFile.toString());
-			return false;
+		if (geopkg && postgis) {
+			System.err.println("Can only specify one of geopkg OR postgis");
+		}
+		if (!geopkg && !postgis) {
+			System.err.println("Must specify one of geopkg OR postgis");
+		}
+		if (geopkg) {
+			Path inFile = Paths.get(inData);
+			if (!Files.exists(inFile)) {
+				System.err.println("Input file not found:" + inFile.toString());
+				return false;
+			}
+		}
+		if (postgis) {
+			//parse host string
+			String[] parts = dbstring.split(";");
+			boolean hostfound = false;
+			boolean dbfound = false;
+			boolean userfound = false;
+			for(String p : parts) {
+				if (p.toLowerCase().startsWith("host=")) hostfound = true;
+				if (p.toLowerCase().startsWith("db=")) dbfound = true;
+				if (p.toLowerCase().startsWith("user=")) userfound = true;
+			}
+			if (!hostfound || !dbfound || !userfound) {
+				System.err.println("Database connection string invalid. Must be of the form host=HOST;port=PORT;db=NAME;user=USERNAME;password=PASSWORD");
+				return false;
+			}
 		}
 		
 		if (prop != null) {
@@ -129,16 +168,37 @@ public abstract class Args {
 		return true;
 	}
 	
+
 	/**
-	 * Deletes any existing output files and copies the input
-	 * file to the output file
-	 * 
-	 * @throws Exception
+	 * @return if geopackage files are to be used
 	 */
-	public void prepareOutput() throws Exception{
-		ChyfGeoPackageDataSource.deleteOutputFile(getOutput());
-		Files.copy(getInput(), getOutput(), StandardCopyOption.REPLACE_EXISTING);
+	public boolean isGeopackage() {
+		return this.geopkg;
 	}
+	
+	/**
+	 * @return if postigs datasource to be used
+	 */
+	public boolean isPostigs() {
+		return this.postgis;
+	}
+	
+	/**
+	 * if postgis is being used then this returns the aoi to process
+	 * or null if just processes the next aoi in list
+	 * @return
+	 */
+	public String getAoi() {
+		return this.aoi;
+	}
+	
+	/**
+	 * @return the database connection string
+	 */
+	public String getDbConnectionString() {
+		return this.dbstring;
+	}
+	
 	
 	/**
 	 * 
@@ -150,18 +210,18 @@ public abstract class Args {
 	
 	/**
 	 * 
-	 * @return the input dataset argument
+	 * @return the input dataset argument (file or schema depending on datasource)
 	 */
-	public Path getInput() {
-		return this.inFile;
+	public String getInput() {
+		return this.inData;
 	}
 	
 	/**
 	 * 
-	 * @return the output data argument
+	 * @return the output data argument (file or schema depending on datasource)
 	 */
-	public Path getOutput() {
-		return this.outFile;
+	public String getOutput() {
+		return this.outData;
 	}
 	
 	/**
@@ -172,7 +232,7 @@ public abstract class Args {
 	public abstract IChyfProperties getPropertiesFile() throws Exception;
 	
 	private void printUsage() {
-		new HelpFormatter().printHelp(mainClass + " [OPTIONS] <INFILE> <OUTFILE>", options);
+		new HelpFormatter().printHelp(mainClass + " [OPTIONS] <IN> <OUT>", options);
 	}
 
 }

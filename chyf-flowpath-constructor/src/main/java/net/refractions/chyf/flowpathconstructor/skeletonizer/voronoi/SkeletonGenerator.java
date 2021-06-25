@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import org.locationtech.jts.algorithm.Angle;
 import org.locationtech.jts.algorithm.locate.IndexedPointInAreaLocator;
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineSegment;
@@ -62,7 +63,9 @@ public class SkeletonGenerator {
 
 		VoronoiDiagramBuilder builder = new VoronoiDiagramBuilder();
 		builder.setSites(points);
-		builder.setClipEnvelope(waterbody.getEnvelopeInternal());
+		Envelope env = new Envelope(waterbody.getEnvelopeInternal());
+		env.expandBy(1);
+		builder.setClipEnvelope(env);
 		Geometry voronoi = builder.getDiagram(waterbody.getFactory());
 		
 		Collection<LineSegment> segments = processVoronoi(waterbody, inoutPoints, voronoi);

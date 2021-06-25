@@ -34,10 +34,8 @@ import org.geotools.data.FeatureStore;
 import org.geotools.data.FeatureWriter;
 import org.geotools.data.Query;
 import org.geotools.data.Transaction;
-import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.data.simple.SimpleFeatureStore;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
-import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.util.factory.Hints;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -82,15 +80,17 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 
 	public static final String CONSTRUCTION_PNTS_TABLE = "construction_points";
 
-	public FlowpathPostGisDataSource(String aoi) throws Exception {
-		super(aoi);
+	public FlowpathPostGisDataSource(String connectionString, String inschema, String outschema, String aoi) throws Exception {
+
+		super(connectionString, inschema, outschema, aoi);
 		
-		//addInternalIdAttribute();
+		//TODO:
 		if (ChyfDataSource.findAttribute(getFeatureType(Layer.EFLOWPATHS), ChyfAttribute.DIRECTION) == null) {
 			addDirectionAttribute();
 		}
 	}
 
+	@Override
 	protected void read() throws IOException {
 		super.read();
 		
@@ -123,7 +123,8 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 		}
 	}
 		
-	protected void prepareOutput() throws IOException {
+	@Override
+	public void clearAoiOutputTables() throws IOException {
 		
 		StringBuilder sb = new StringBuilder();
     	sb.append("DELETE FROM ");
@@ -139,7 +140,7 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 		
 	}
 	
-		
+	@Override
 	public void updateCoastline(FeatureId fid, LineString newls, Transaction tx) throws IOException {
 		
 		try(FeatureWriter<SimpleFeatureType, SimpleFeature> writer = workingDataStore.getFeatureWriter(getTypeName(Layer.SHORELINES), ff.id(fid), tx)){
@@ -171,6 +172,7 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 	 * @return
 	 * @throws Exception
 	 */
+	@Override
 	public List<Point> getTerminalNodes() throws Exception{
 		List<Point> pnt = new ArrayList<>();
 		try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = getFeatureReader(Layer.TERMINALNODES, getAoiFilter(Layer.TERMINALNODES), Transaction.AUTO_COMMIT)){
@@ -192,10 +194,14 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 	 * @return
 	 * @throws Exception
 	 */
+	@Override
 	public Set<Coordinate> getOutputConstructionPoints() throws Exception{
 		Set<Coordinate> pnt = new HashSet<>();
-		Query query = new Query( CONSTRUCTION_PNTS_TABLE, getAoiFilter(null));
-	    try(SimpleFeatureReader reader =  (SimpleFeatureReader) workingDataStore.getFeatureReader(query, Transaction.AUTO_COMMIT )){
+		
+		Filter filter = ff.equals(ff.property(ChyfAttribute.FLOWDIRECTION.getFieldName()), ff.literal(FlowDirection.OUTPUT.getChyfValue()));
+		
+		Query query = new Query( CONSTRUCTION_PNTS_TABLE, ff.and(filter, getAoiFilter(null)));
+	    try(FeatureReader<SimpleFeatureType, SimpleFeature> reader =  workingDataStore.getFeatureReader(query, Transaction.AUTO_COMMIT )){
 			while(reader.hasNext()){
 				SimpleFeature point = reader.next();
 				pnt.add(ChyfDataSource.getPoint(point).getCoordinate());
@@ -209,9 +215,8 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 	 * @param points
 	 * @throws IOException
 	 */
+	@Override
 	public void createConstructionsPoints(List<ConstructionPoint> points) throws IOException {
-		
-
 		//delete existing features
 		StringBuilder sb = new StringBuilder();
 		sb.append("DELETE FROM ");
@@ -245,7 +250,7 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 		}
 						
 		try(Transaction t1 = new DefaultTransaction("transaction 1")){
-			FeatureStore store = (FeatureStore) workingDataStore.getFeatureSource(CONSTRUCTION_PNTS_TABLE);
+			FeatureStore<SimpleFeatureType, SimpleFeature> store = (FeatureStore<SimpleFeatureType, SimpleFeature>) workingDataStore.getFeatureSource(CONSTRUCTION_PNTS_TABLE);
 			store.setTransaction(t1);
 			store.addFeatures(DataUtilities.collection(features));
 			t1.commit();
@@ -260,6 +265,7 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 	 * @return
 	 * @throws IOException
 	 */
+	@Override
 	public synchronized List<ConstructionPoint> getConstructionsPoints(Object catchmentId) throws IOException{
 		Filter filter = ff.equals(ff.property(CATCHMENT_INTERNALID_ATTRIBUTE), ff.literal(catchmentId));
 		List<ConstructionPoint> points = new ArrayList<>();
@@ -289,6 +295,7 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 	 * @param polygon
 	 * @throws IOException
 	 */
+	@Override
 	public void updateWaterbodyGeometries(Collection<Polygon> polygons) throws IOException{
 		if (polygons.isEmpty()) return;
 
@@ -331,6 +338,7 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 	 * @param polygon
 	 * @throws IOException
 	 */
+	@Override
 	public void writeRanks(Map<FeatureId, RankType> ranks) throws Exception{
 		
 		try(DefaultTransaction tx = new DefaultTransaction()){
@@ -362,6 +370,7 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 	 * @param polygon
 	 * @throws IOException
 	 */
+	@Override
 	public void flipFlowEdges(Collection<FeatureId> pathstoflip, Collection<FeatureId> processed) throws Exception{
 		
 		try(DefaultTransaction tx = new DefaultTransaction()){
@@ -446,6 +455,7 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 	 * @param skeletons
 	 * @throws IOException
 	 */
+	@Override
 	public synchronized void writeSkeletons(Collection<SkelLineString> skeletons) throws IOException {
 		
 		if (skeletonWriteCache == null) skeletonWriteCache = new ArrayList<>();
@@ -525,6 +535,7 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 	 * @throws SQLException 
 	 * 
 	 */
+	@Override
 	public void removeExistingSkeletons(boolean bankOnly) throws SQLException {
 		try {
 			Connection c = getConnection();
@@ -549,7 +560,6 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 		
 	}
 	
-	
 	private void addDirectionAttribute() throws Exception{
 		
 		String tablename = getTableName(Layer.EFLOWPATHS);
@@ -564,7 +574,10 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 		resetWorkingDataStore();
 	}
 	
-	public void addRankAttribute() throws Exception{		
+	@Override
+	public void addRankAttribute() throws Exception{
+		if (ChyfDataSource.findAttribute(getFeatureType(Layer.EFLOWPATHS), ChyfAttribute.RANK) != null) return;
+
 		String tablename = getTableName(Layer.EFLOWPATHS);
 
 		Connection c = getConnection();

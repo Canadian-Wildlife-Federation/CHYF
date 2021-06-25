@@ -15,11 +15,16 @@
  */
 package net.refractions.chyf.flowpathconstructor;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.directionalize.DirectionalizeEngine;
 import net.refractions.chyf.flowpathconstructor.rank.RankEngine;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.PointEngine;
@@ -35,53 +40,45 @@ public class FlowpathConstructor {
 
 	static final Logger logger = LoggerFactory.getLogger(FlowpathConstructor.class.getCanonicalName());
 
-	
-//	public static void main(String[] args) throws Exception {		
-//		FlowpathArgs runtime = new FlowpathArgs("FlowpathConstructor");
-//		if (!runtime.parseArguments(args)) return;
-//		
-//		runtime.prepareOutput();
-//		
-//		long now = System.nanoTime();
-//		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(runtime.getOutput())){
-//			ChyfProperties prop = runtime.getPropertiesFile();
-//			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
-//			logger.info("Generating Constructions Points");
-//			PointEngine.doWork(dataSource, prop);
-//			logger.info("Generating Skeletons");
-//			SkeletonEngine.doWork(dataSource, prop, runtime.getCores());
-//			logger.info("Directionalizing Dataset");
-//			DirectionalizeEngine.doWork(dataSource, prop);
-//			logger.info("Computing Rank");
-//			RankEngine.doWork(dataSource, prop);
-//		}
-//		long then = System.nanoTime();
-//		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );
-//	}
 	public static void main(String[] args) throws Exception {
 		
 		FlowpathArgs runtime = new FlowpathArgs("FlowpathConstructor");
 		if (!runtime.parseArguments(args)) return;
 		
-//		runtime.prepareOutput();
-
-		//TODO: fixing clearning of existing data in this startup
-		//TODO: work on runtime arguments to provide regionid
-		//TODO: Working in blocks if regionid not provided 
-		try(FlowpathPostGisDataSource dataSource = new FlowpathPostGisDataSource("NS")){
-			System.out.println("OK");
-			
+		long now = System.nanoTime();
+		IFlowpathDataSource dataSource = null;
+		try{
+			if (runtime.isGeopackage()) {
+				Path input = Paths.get(runtime.getInput());
+				Path output = Paths.get(runtime.getOutput());
+				ChyfGeoPackageDataSource.prepareOutput(input, output);
+				
+				dataSource = new FlowpathGeoPackageDataSource(output);
+			}else if (runtime.isPostigs()){
+				
+				dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput(), runtime.getAoi());
+				((FlowpathPostGisDataSource)dataSource).clearAoiOutputTables();
+			}
+	
+			//TODO: fixing clearning of existing data in this startup
+			//TODO: work on runtime arguments to provide regionid
+			//TODO: Working in blocks if regionid not provided 
+		
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			logger.info("Generating Constructions Points");
 			PointEngine.doWork(dataSource, prop);
 			logger.info("Generating Skeletons");
 			SkeletonEngine.doWork(dataSource, prop, runtime.getCores());
-//			logger.info("Directionalizing Dataset");
-//			DirectionalizeEngine.doWork(dataSource, prop);
-//			logger.info("Computing Rank");
-//			RankEngine.doWork(dataSource, prop);
+			logger.info("Directionalizing Dataset");
+			DirectionalizeEngine.doWork(dataSource, prop);
+			logger.info("Computing Rank");
+			RankEngine.doWork(dataSource, prop);
+		}finally {
+			if (dataSource != null) dataSource.close();
 		}
+		long then = System.nanoTime();
+		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );
 	}
 
 }

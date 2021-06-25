@@ -20,7 +20,6 @@ import java.util.HashSet;
 import java.util.List;
 
 import org.geotools.data.FeatureReader;
-import org.geotools.data.simple.SimpleFeatureReader;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.prep.PreparedPolygon;
