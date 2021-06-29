@@ -16,7 +16,10 @@
 package net.refractions.chyf.watershed.builder;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
@@ -28,6 +31,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.datasource.EcType;
 import net.refractions.chyf.util.ProcessStatistics;
 import net.refractions.chyf.watershed.model.HydroEdge;
@@ -54,13 +58,32 @@ public class CatchmentDelineator {
     }
     
     public CatchmentDelineator(Args args) throws IOException {
-		Path inputPath = args.getInput();
-		Path inputTiffDir = args.getTiffDir();
-		Path outputPath = args.getOutput();
+    	
+    	ICatchmentDelineatorDataSource dataSource = null;
+    	
+    	Path inputTiffDir = args.getTiffDir();
     	numThreads = args.getCores();
-    	recover = args.getRecover();
+		recover = args.getRecover();
 		
-    	dm = new DataManager(inputTiffDir, inputPath, outputPath, recover);
+    	if (args.geopkg) {
+    		Path inputPath = Paths.get(args.getInput());
+    		Path outputPath = Paths.get(args.getOutput());
+			
+    		if (!recover) {
+    			ChyfGeoPackageDataSource.deleteOutputFile(outputPath);
+    			Files.copy(inputPath, outputPath, StandardCopyOption.REPLACE_EXISTING);
+    		}
+    		dataSource = new CatchmentDelineatorGeoPackageDataSource(outputPath);
+    	}else {
+    		if (!args.hasAoi()) return;
+    		dataSource = new CatchmentDelineatorPostgisDataSource(args.dbstring, args.getInput(), args.getOutput());
+    		((CatchmentDelineatorPostgisDataSource)dataSource).setAoi(args.getAoi());
+    		if (!recover) {
+    			((CatchmentDelineatorPostgisDataSource)dataSource).clearOutputTables();
+    		}
+    	}
+		
+    	dm = new DataManager(dataSource, inputTiffDir, recover);
     }
     
     public void build() {

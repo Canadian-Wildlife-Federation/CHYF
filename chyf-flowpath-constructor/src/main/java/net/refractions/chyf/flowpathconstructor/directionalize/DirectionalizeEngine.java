@@ -230,12 +230,9 @@ public class DirectionalizeEngine {
 				
 				dataSource = new FlowpathGeoPackageDataSource(output);
 			}else if (runtime.isPostigs()){
-				
-				dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput(), runtime.getAoi());
-				if (runtime.getAoi() == null || runtime.getAoi().isEmpty()) {
-					System.err.println("An aoi argument must be provided to use this option");
-					return;
-				}
+				if (!runtime.hasAoi()) return;
+				dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+				((FlowpathPostGisDataSource)dataSource).setAoi(runtime.getAoi());
 			}
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());

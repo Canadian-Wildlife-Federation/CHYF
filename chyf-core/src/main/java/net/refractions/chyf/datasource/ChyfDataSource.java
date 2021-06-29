@@ -36,6 +36,7 @@ import org.opengis.feature.type.AttributeDescriptor;
 import org.opengis.feature.type.Name;
 import org.opengis.filter.Filter;
 import org.opengis.filter.FilterFactory2;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 
 /**
@@ -49,6 +50,7 @@ public interface ChyfDataSource extends AutoCloseable {
 	
 	public static final FilterFactory2 ff = CommonFactoryFinder.getFilterFactory2();
 
+	public CoordinateReferenceSystem getCoordinateReferenceSystem() ;
 
 	/**
 	 * Queries the specified layer. 

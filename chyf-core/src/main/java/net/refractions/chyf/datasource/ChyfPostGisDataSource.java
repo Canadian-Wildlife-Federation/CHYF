@@ -20,6 +20,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,8 +28,11 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
+import javax.swing.plaf.basic.BasicTreeUI;
+
 import org.geotools.data.DataStore;
 import org.geotools.data.DataStoreFinder;
+import org.geotools.data.DefaultTransaction;
 import org.geotools.data.FeatureReader;
 import org.geotools.data.Query;
 import org.geotools.data.Transaction;
@@ -66,6 +70,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	protected CoordinateReferenceSystem crs;
 	
 	protected DataStore workingDataStore;
+	protected DataStore rawDataStore;
 
 	protected String aoiId;
 	protected UUID aoiUuid;
@@ -74,9 +79,16 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	protected String workingSchema = "working";
 	
 	private Map<String, Object> connectionParameters;
+		
+	public enum State {
+		FP_PROCESSING,
+		READY,
+		FP_DONE,
+		ERROR
+	};
 	
-	public ChyfPostGisDataSource(String connectionString, String inschema, String outschema, String aoi) throws IOException {
-		this.aoiId = aoi;
+	public ChyfPostGisDataSource(String connectionString, String inschema, 
+			String outschema) throws IOException {
 		this.rawSchema = inschema;
 		this.workingSchema = outschema;
 		
@@ -117,7 +129,9 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 
 		connectionParameters.put(JDBCDataStoreFactory.EXPOSE_PK.key, Boolean.TRUE);
 		
-		read();
+		rawDataStore = DataStoreFinder.getDataStore(connectionParameters);
+		
+		createWorkingTables();
 	}
 	
 	/**
@@ -127,12 +141,91 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		return crs;
 	}
 	
+	/**
+	 * Finds the next aoi in the raw.aoi table with
+	 * a state of ready.  Updates the state to processing.
+	 * @return null if no more items to process
+	 */
+	public String getNextAoiToProcess() throws IOException{
+		String laoiId = null;
+		Transaction tx = new DefaultTransaction();
+		try {
+			Connection c = ((JDBCDataStore)workingDataStore).getConnection(tx);
+				
+			String aoitable = rawSchema + "." + getTypeName(Layer.AOI);
+			try(Statement stmt = c.createStatement()){
+				stmt.executeUpdate("LOCK TABLE " + aoitable);
+				
+				//find the next aoi to process
+				StringBuilder sb = new StringBuilder();
+				sb.append("SELECT name FROM ");
+				sb.append(aoitable);
+				sb.append(" WHERE status = '");
+				sb.append(State.READY.name());
+				sb.append("'");
+					
+				try(ResultSet rs = stmt.executeQuery(sb.toString())){
+					if (rs.next()) {
+						laoiId  = rs.getString(1);
+					}
+				}
+			}
+			tx.commit();
+		}catch (SQLException ex) {
+			tx.rollback();
+			throw new IOException(ex);
+		}
+		
+		return laoiId;
+	}
+	/**
+	 * Updates the state of the aoi processing
+	 * @param state
+	 * @throws IOException 
+	 */
+	public void setState(State state) throws IOException {
+		Transaction tx = new DefaultTransaction();
+		try {
+			Connection c = getConnection(tx);
+				
+			String aoitable = workingSchema + "." + getTypeName(Layer.AOI);
+			try(Statement stmt = c.createStatement()){
+				stmt.executeUpdate("LOCK TABLE " + aoitable);
+				
+				StringBuilder sb = new StringBuilder();
+				sb.append("UPDATE ");
+				sb.append(rawSchema + "." + getTypeName(Layer.AOI));
+				sb.append(" SET status = ? ");
+				sb.append(" WHERE ");
+				sb.append(getAoiFieldName(Layer.AOI));
+				sb.append(" = ? ");
+				
+				try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+					ps.setString(1, state.name());
+					ps.setObject(2, aoiUuid);
+				
+					ps.executeUpdate();
+				}catch (Exception ex) {
+					throw new IOException(ex);
+				}
+			}
+			tx.commit();
+		}catch (SQLException ex) {
+			tx.rollback();
+			throw new IOException(ex);
+		}
+	}
+	
 	protected String getTableName(Layer layer) {
 		return workingSchema + "." + getTypeName(layer);
 	}
 	
 	protected Connection getConnection() throws IOException {
-		return ((JDBCDataStore)workingDataStore).getConnection(Transaction.AUTO_COMMIT);
+		return getConnection(Transaction.AUTO_COMMIT);
+	}
+	
+	protected Connection getConnection(Transaction tx) throws IOException {
+		return ((JDBCDataStore)workingDataStore).getConnection(tx);
 	}
 	
 	protected void resetWorkingDataStore() throws IOException {
@@ -141,21 +234,8 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		workingDataStore = DataStoreFinder.getDataStore(connectionParameters);
 	}
 	
-	
-	protected void read() throws IOException {
-
-		
-	    DataStore rawDataStore = DataStoreFinder.getDataStore(connectionParameters);
-	    
-	    
-	    //ensure raw tables exist
-	    for (Layer l : Layer.values()) {
-	    	
-	    	SimpleFeatureType stype = rawDataStore.getSchema(getTypeName(l));
-	    	if (stype == null) throw new IOException("No raw data table for layer :" + l.getLayerName());
-	    }
-	    
-	    //query aoi table for aoi id
+	public void setAoi(String aoiId) throws IOException {
+		  //query aoi table for aoi id
 	    Connection c = ((JDBCDataStore)rawDataStore).getConnection(Transaction.AUTO_COMMIT);
 	    StringBuilder sb = new StringBuilder();
 	    sb.append("SELECT id FROM ");
@@ -175,98 +255,29 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	    if (aoiUuid == null) {
 	    	throw new IOException("Not aoi found with id " + aoiId);
 	    }
-	    rawDataStore.dispose();
 	    
-	    
-	    connectionParameters.put("schema", workingSchema);
-	    workingDataStore = DataStoreFinder.getDataStore(connectionParameters);
-	    c = ((JDBCDataStore)workingDataStore).getConnection(Transaction.AUTO_COMMIT);
-	    
-	    //check if working tables exist;
-	    List<Layer> toProcess = new ArrayList<>();
-	    toProcess.add(Layer.AOI);
-	    for (Layer l : Layer.values()) {
-	    	if (l == Layer.AOI) continue;
-	    	toProcess.add(l);
-	    }
-	    
-	    for (Layer l : toProcess) {
-	    	SimpleFeatureType stype = null;
-	    
-	    	try {
-	    		stype = workingDataStore.getSchema(getTypeName(l));
-	    	}catch (IOException ex) {
-	    		//not found
-	    	}
-	    	if (stype == null) {
-		    	sb = new StringBuilder();
-		    	//create new table
-		    	sb.append("CREATE TABLE ");
-		    	sb.append(getTableName(l));
-		    	sb.append(" AS SELECT ");
-		    	if (l != Layer.AOI) {
-		    		sb.append("uuid_generate_v4() as " + ChyfAttribute.INTERNAL_ID.getFieldName());
-		    		sb.append(",");
-		    	}
-		    	sb.append(" a.* ");
-		    	sb.append(" FROM " + rawSchema + "." + getTypeName(l) + " a ");
-		    	sb.append(" WHERE ");
-		    	sb.append(getAoiFieldName(l));
-		    	sb.append(" = " );
-		    	sb.append (" ? ");
-		    		
-		    	try(PreparedStatement ps = c.prepareStatement(sb.toString())){
-		    		ps.setObject(1, aoiUuid);
-		    		ps.executeUpdate();
-		    	}catch(SQLException ex) {
-		    		throw new IOException(ex);
-		    	}
-		    		
-		    	try {
-			    	if (l == Layer.AOI) {
-			    		sb = new StringBuilder();
-			    		sb.append("ALTER TABLE ");
-			    		sb.append(getTableName(l));
-			    		sb.append(" ADD PRIMARY KEY (id) ");
-			    		c.createStatement().executeUpdate(sb.toString());
-			    	}else {
-			    		sb = new StringBuilder();
-			    		sb.append("ALTER TABLE ");
-			    		sb.append(getTableName(l));
-			    		sb.append(" ADD PRIMARY KEY ( ");
-			    		sb.append(ChyfAttribute.INTERNAL_ID.getFieldName());
-			    		sb.append(")");
-			    		c.createStatement().executeUpdate(sb.toString());
-			    		
-			    		sb = new StringBuilder();
-			    		sb.append("CREATE INDEX ON ");
-			    		sb.append(getTableName(l));
-			    		sb.append(" ( ");
-			    		sb.append(getAoiFieldName(l));
-			    		sb.append(")");
-			    		c.createStatement().executeUpdate(sb.toString());
-			    	}
-			    	
-			    		
-		    	}catch(SQLException ex) {
-		    		throw new IOException(ex);
-		    	}	   
-	    	}
-	    }
+	    clearAoiOutputTables();
 	}
 	
-	public void clearAoiOutputTables() throws IOException {
-	    connectionParameters.put("schema", workingSchema);
+	/**
+	 * clears existing aoi data from working tables and 
+	 * copies raw data into the working tables
+	 * @throws IOException
+	 */
+	protected void clearAoiOutputTables() throws IOException {
+
+		connectionParameters.put("schema", workingSchema);
 	    workingDataStore = DataStoreFinder.getDataStore(connectionParameters);
 	    Connection c = ((JDBCDataStore)workingDataStore).getConnection(Transaction.AUTO_COMMIT);
 	    
+	    
 	    //check if working tables exist;
 	    List<Layer> toProcess = new ArrayList<>();
-	    toProcess.add(Layer.AOI);
 	    for (Layer l : Layer.values()) {
 	    	if (l == Layer.AOI) continue;
 	    	toProcess.add(l);
 	    }
+	    toProcess.add(Layer.AOI);
 	    
 	    for (Layer l : toProcess) {
 
@@ -277,7 +288,6 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
     		sb.append(" WHERE ");
     		sb.append(getAoiFieldName(l));
     		sb.append(" = ? ");
-	    		
 	    		
     		try(PreparedStatement ps = c.prepareStatement(sb.toString())){
     			ps.setObject(1, aoiUuid);
@@ -309,32 +319,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
     		}	    		   
 	    }
 	}
-//	
-//	/**
-//	 * 
-//	 * @param layer
-//	 * @return the feature type associated with a given layer
-//	 * @throws IOException
-//	 */
-//	public synchronized SimpleFeatureType getFeatureType(Layer layer) throws IOException{
-//		return getFeatureType(getEntry(layer));
-//	}
-//
-//	
-//    /**
-//     * 
-//     * @param layer
-//     * @return the feature type associated with a given feature entry
-//     * @throws IOException
-//     */
-//	protected synchronized SimpleFeatureType getFeatureType(FeatureEntry layer) throws IOException{
-//		if (layer == null) return null;
-//		dataStore.getFeatureSource(typeName)
-//		try(SimpleFeatureReader reader = geopkg.reader(layer, Filter.EXCLUDE, null)){
-//			return reader.getFeatureType();
-//		}
-//	}
-//	
+
 	/**
 	 * @return a feature reader for the given layer
 	 */
@@ -417,7 +402,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	}
 	
 	protected String getAoiFieldName(Layer layer) {
-		if (layer == Layer.AOI) return "id";
+		if (layer != null && layer == Layer.AOI) return "id";
 		return "aoi_id";
 	}
 	
@@ -431,29 +416,6 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		}
 		return null;
 	}
-	
-//	// Internal query interface allows subclasses to specify the featureEntry instead of using the fixed Layer Enum
-//	protected SimpleFeatureReader query(FeatureEntry fe, ReferencedEnvelope bounds, Filter filter) throws IOException {
-//		if(fe == null) return null;
-//		
-//		Filter netFilter = null;
-//		if(bounds != null) {
-//			netFilter = filterFromEnvelope(bounds, fe);
-//		}
-//		if(filter != null) {
-//			netFilter = ff.and(netFilter, filter);
-//		}
-//    	return geopkg.reader(fe, netFilter, null);
-//	}
-////	
-//	protected Filter filterFromEnvelope(ReferencedEnvelope env, FeatureEntry source) {
-//		BoundingBox bounds = ReprojectionUtils.reproject(env, ReprojectionUtils.srsCodeToCRS(source.getSrid()));
-//		String geom = source.getGeometryColumn();
-//		Filter filter1 = ff.bbox(ff.property(geom), bounds);
-//		Filter filter2 = ff.intersects(ff.property(geom), ff.literal(JTS.toGeometry(bounds)));
-//		Filter filter = ff.and(filter1, filter2);
-//		return filter;
-//	}
 
 	/**
 	 * Gets aoi layer as a list of polygons
@@ -489,4 +451,96 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		return workingDataStore.getSchema(getTypeName(layer));
 	}
 
+	
+	/**
+	 * Creates the database working tables if
+	 * they don't already exist.  Does not add/remove
+	 * any data from these tables.
+	 * 
+	 * @throws IOException
+	 */
+	protected void createWorkingTables() throws IOException {
+
+		//ensure raw tables exist
+	    for (Layer l : Layer.values()) {
+	    	SimpleFeatureType stype = rawDataStore.getSchema(getTypeName(l));
+	    	if (stype == null) throw new IOException("No raw data table for layer :" + l.getLayerName());
+	    }
+	    
+	    connectionParameters.put("schema", workingSchema);
+	    workingDataStore = DataStoreFinder.getDataStore(connectionParameters);
+	    Connection c = getConnection();
+	    
+	    //check if working tables exist;
+	    List<Layer> toProcess = new ArrayList<>();
+	    toProcess.add(Layer.AOI);
+	    for (Layer l : Layer.values()) {
+	    	if (l == Layer.AOI) continue;
+	    	toProcess.add(l);
+	    }
+	    
+	    for (Layer l : toProcess) {
+	    	SimpleFeatureType stype = null;
+	    
+	    	try {
+	    		stype = workingDataStore.getSchema(getTypeName(l));
+	    	}catch (IOException ex) {
+	    		//not found
+	    	}
+	    	if (stype == null) {
+		    	StringBuilder sb = new StringBuilder();
+		    	//create new table
+		    	sb.append("CREATE TABLE ");
+		    	sb.append(getTableName(l));
+		    	sb.append(" AS SELECT ");
+		    	if (l != Layer.AOI) {
+		    		sb.append("uuid_generate_v4() as " + ChyfAttribute.INTERNAL_ID.getFieldName());
+		    		sb.append(",");
+		    	}
+		    	sb.append(" a.* ");
+		    	sb.append(" FROM " + rawSchema + "." + getTypeName(l) + " a ");
+		    	sb.append(" WHERE ");
+		    	sb.append(getAoiFieldName(l));
+		    	sb.append(" = " );
+		    	sb.append (" ? ");
+		    		
+		    	try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+		    		ps.setObject(1, aoiUuid);
+		    		ps.executeUpdate();
+		    	}catch(SQLException ex) {
+		    		throw new IOException(ex);
+		    	}
+		    		
+		    	try {
+			    	if (l == Layer.AOI) {
+			    		sb = new StringBuilder();
+			    		sb.append("ALTER TABLE ");
+			    		sb.append(getTableName(l));
+			    		sb.append(" ADD PRIMARY KEY (id) ");
+			    		c.createStatement().executeUpdate(sb.toString());
+			    	}else {
+			    		sb = new StringBuilder();
+			    		sb.append("ALTER TABLE ");
+			    		sb.append(getTableName(l));
+			    		sb.append(" ADD PRIMARY KEY ( ");
+			    		sb.append(ChyfAttribute.INTERNAL_ID.getFieldName());
+			    		sb.append(")");
+			    		c.createStatement().executeUpdate(sb.toString());
+			    		
+			    		sb = new StringBuilder();
+			    		sb.append("CREATE INDEX ON ");
+			    		sb.append(getTableName(l));
+			    		sb.append(" ( ");
+			    		sb.append(getAoiFieldName(l));
+			    		sb.append(")");
+			    		c.createStatement().executeUpdate(sb.toString());
+			    	}
+			    	
+			    		
+		    	}catch(SQLException ex) {
+		    		throw new IOException(ex);
+		    	}	   
+	    	}
+	    }
+	}
 }

@@ -118,7 +118,9 @@ public abstract class Args {
 			dbstring = cmd.getOptionValue("d");
 		}
 		if (cmd.hasOption("a")) {
-			aoi = cmd.getOptionValue("a");
+			aoi = cmd.getOptionValue("a").trim();
+			if (aoi.isBlank()) aoi = null;
+			
 		}
 	}
 	
@@ -231,6 +233,13 @@ public abstract class Args {
 	 */
 	public abstract IChyfProperties getPropertiesFile() throws Exception;
 	
+	public boolean hasAoi() {
+		if (getAoi() == null || getAoi().isEmpty()) {
+			System.err.println("An aoi argument must be provided to use this option");
+			return false;
+		}
+		return true;
+	}
 	private void printUsage() {
 		new HelpFormatter().printHelp(mainClass + " [OPTIONS] <IN> <OUT>", options);
 	}

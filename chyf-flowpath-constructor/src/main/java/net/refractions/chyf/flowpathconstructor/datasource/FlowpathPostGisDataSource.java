@@ -80,9 +80,9 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 
 	public static final String CONSTRUCTION_PNTS_TABLE = "construction_points";
 
-	public FlowpathPostGisDataSource(String connectionString, String inschema, String outschema, String aoi) throws Exception {
+	public FlowpathPostGisDataSource(String connectionString, String inschema, String outschema) throws Exception {
 
-		super(connectionString, inschema, outschema, aoi);
+		super(connectionString, inschema, outschema);
 		
 		//TODO:
 		if (ChyfDataSource.findAttribute(getFeatureType(Layer.EFLOWPATHS), ChyfAttribute.DIRECTION) == null) {
@@ -91,8 +91,8 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 	}
 
 	@Override
-	protected void read() throws IOException {
-		super.read();
+	protected void createWorkingTables() throws IOException {
+		super.createWorkingTables();
 		
 		SimpleFeatureType stype = null;
 		try{
@@ -137,7 +137,8 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 			throw new IOException(e);
 		}
 		
-		
+
+		super.clearAoiOutputTables();
 	}
 	
 	@Override

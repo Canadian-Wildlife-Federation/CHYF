@@ -55,25 +55,30 @@ public class FlowpathConstructor {
 				
 				dataSource = new FlowpathGeoPackageDataSource(output);
 			}else if (runtime.isPostigs()){
+				if (!runtime.hasAoi()) return;
 				
-				dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput(), runtime.getAoi());
-				((FlowpathPostGisDataSource)dataSource).clearAoiOutputTables();
+				dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+				((FlowpathPostGisDataSource)dataSource).setAoi(runtime.getAoi());
+				
 			}
 	
-			//TODO: fixing clearning of existing data in this startup
-			//TODO: work on runtime arguments to provide regionid
-			//TODO: Working in blocks if regionid not provided 
-		
-			ChyfProperties prop = runtime.getPropertiesFile();
-			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
-			logger.info("Generating Constructions Points");
-			PointEngine.doWork(dataSource, prop);
-			logger.info("Generating Skeletons");
-			SkeletonEngine.doWork(dataSource, prop, runtime.getCores());
-			logger.info("Directionalizing Dataset");
-			DirectionalizeEngine.doWork(dataSource, prop);
-			logger.info("Computing Rank");
-			RankEngine.doWork(dataSource, prop);
+	
+			try {
+				ChyfProperties prop = runtime.getPropertiesFile();
+				if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+				logger.info("Generating Constructions Points");
+				PointEngine.doWork(dataSource, prop);
+				logger.info("Generating Skeletons");
+				SkeletonEngine.doWork(dataSource, prop, runtime.getCores());
+				logger.info("Directionalizing Dataset");
+				DirectionalizeEngine.doWork(dataSource, prop);
+				logger.info("Computing Rank");
+				RankEngine.doWork(dataSource, prop);
+			}catch (Exception ex) {
+				if (runtime.getAoi() == null) {
+					
+				}
+			}
 		}finally {
 			if (dataSource != null) dataSource.close();
 		}
