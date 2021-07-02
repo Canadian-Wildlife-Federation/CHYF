@@ -21,7 +21,7 @@ package net.refractions.chyf.datasource;
  * @author Emily
  *
  */
-public enum Layer{
+public enum Layer implements ILayer{
 	
 	EFLOWPATHS("EFlowpaths"),
 	ECATCHMENTS("ECatchments"),

@@ -84,7 +84,6 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 
 		super(connectionString, inschema, outschema);
 		
-		//TODO:
 		if (ChyfDataSource.findAttribute(getFeatureType(Layer.EFLOWPATHS), ChyfAttribute.DIRECTION) == null) {
 			addDirectionAttribute();
 		}
@@ -122,23 +121,80 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 			}
 		}
 	}
-		
+
 	@Override
+	public void setAoi(String aoi) throws IOException{
+		super.setAoi(aoi);
+		clearAoiOutputTables();
+	}
+	
+	/**
+	 * clears existing aoi data from working tables and 
+	 * copies raw data into the working tables
+	 * @throws IOException
+	 */
 	public void clearAoiOutputTables() throws IOException {
+		
+		Connection c = getConnection();
 		
 		StringBuilder sb = new StringBuilder();
     	sb.append("DELETE FROM ");
 		sb.append(workingSchema + "." + CONSTRUCTION_PNTS_TABLE);
 		sb.append(" WHERE aoi_id = ?");
-		try(PreparedStatement ps = getConnection().prepareStatement(sb.toString())){
+		try(PreparedStatement ps = c.prepareStatement(sb.toString())){
 			ps.setObject(1, aoiUuid);
 			ps.executeUpdate();
 		} catch (SQLException e) {
 			throw new IOException(e);
 		}
-		
 
-		super.clearAoiOutputTables();
+		    
+	    //check if working tables exist;
+	    List<Layer> toProcess = new ArrayList<>();
+	    for (Layer l : Layer.values()) {
+	    	if (l == Layer.AOI) continue;
+	    	toProcess.add(l);
+	    }
+	    toProcess.add(Layer.AOI);
+	    
+	    for (Layer l : toProcess) {
+	    	sb = new StringBuilder();
+    		//delete everything from aoi
+    		sb.append("DELETE FROM ");
+    		sb.append( workingSchema + "." + getTypeName(l) );
+    		sb.append(" WHERE ");
+    		sb.append(getAoiFieldName(l));
+    		sb.append(" = ? ");
+	    		
+    		try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+    			ps.setObject(1, aoiUuid);
+    			ps.executeUpdate();
+    		}catch(SQLException ex) {
+    			throw new IOException(ex);
+    		}
+	    		
+    		sb = new StringBuilder();
+    		sb.append("INSERT INTO ");
+    		sb.append(workingSchema + "." + getTypeName(l));
+    		sb.append(" SELECT ");
+    		if (l != Layer.AOI) {
+    			sb.append("uuid_generate_v4() as " + ChyfAttribute.INTERNAL_ID.getFieldName());
+    			sb.append(",");
+    		}
+    		sb.append(" a.* ");
+    		sb.append(" FROM " + rawSchema + "." + getTypeName(l) + " a ");
+    		sb.append(" WHERE ");
+    		sb.append(getAoiFieldName(l));
+    		sb.append(" = " );
+    		sb.append (" ? ");
+    		
+    		try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+    			ps.setObject(1, aoiUuid);
+    			ps.executeUpdate();
+    		}catch(SQLException ex) {
+    			throw new IOException(ex);
+    		}	    		   
+	    }
 	}
 	
 	@Override

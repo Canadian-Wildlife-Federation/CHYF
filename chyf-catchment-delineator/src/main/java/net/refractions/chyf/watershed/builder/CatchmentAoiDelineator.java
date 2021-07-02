@@ -16,10 +16,7 @@
 package net.refractions.chyf.watershed.builder;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
@@ -31,7 +28,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
+import net.refractions.chyf.datasource.ChyfPostGisDataSource.State;
 import net.refractions.chyf.datasource.EcType;
 import net.refractions.chyf.util.ProcessStatistics;
 import net.refractions.chyf.watershed.model.HydroEdge;
@@ -39,10 +36,14 @@ import net.refractions.chyf.watershed.model.HydroEdge;
 /**
  * The CatchmentDelineator is a Java application that can be used
  * to build catchment/watershed polygons from a DEM and hydrography linear constraints.
+ * 
+ * This version runs only on postgis and uses the aoi table to process aoi
+ * in order.
+ * 
  */
-public class CatchmentDelineator {
+public class CatchmentAoiDelineator {
 	
-    private static Logger logger = LoggerFactory.getLogger(CatchmentDelineator.class);
+    private static Logger logger = LoggerFactory.getLogger(CatchmentAoiDelineator.class);
     
     private int numThreads = 1;
     private int maxBlocks = Integer.MAX_VALUE;
@@ -51,40 +52,52 @@ public class CatchmentDelineator {
     private List<DataBlock> blocks;
     
     public static void main(String[] args) throws IOException {	
-    	Args a = Args.parseArguments(args, "CatchmentDelineator");
+    	Args a = Args.parseArguments(args, "CatchmentAoiDelineator");
 		if (a == null) return;
     	
-    	CatchmentDelineator cd = new CatchmentDelineator(a);
+    	CatchmentAoiDelineator cd = new CatchmentAoiDelineator(a);
     	cd.build();
     }
     
-    public CatchmentDelineator(Args args) throws IOException {
+    public CatchmentAoiDelineator(Args args) throws IOException {
     	
-    	ICatchmentDelineatorDataSource dataSource = null;
+    	CatchmentDelineatorPostgisDataSource dataSource = null;
     	
     	Path inputTiffDir = args.getTiffDir();
     	numThreads = args.getCores();
 		recover = args.getRecover();
 		
-    	if (args.geopkg) {
-    		Path inputPath = Paths.get(args.getInput());
-    		Path outputPath = Paths.get(args.getOutput());
-			
-    		if (!recover) {
-    			ChyfGeoPackageDataSource.deleteOutputFile(outputPath);
-    			Files.copy(inputPath, outputPath, StandardCopyOption.REPLACE_EXISTING);
-    		}
-    		dataSource = new CatchmentDelineatorGeoPackageDataSource(outputPath);
-    	}else {
-    		if (!args.hasAoi()) return;
-    		dataSource = new CatchmentDelineatorPostgisDataSource(args.dbstring, args.getInput(), args.getOutput());
-    		((CatchmentDelineatorPostgisDataSource)dataSource).setAoi(args.getAoi());
-    		if (!recover) {
-    			((CatchmentDelineatorPostgisDataSource)dataSource).clearOutputTables();
-    		}
-    	}
-		
-    	dm = new DataManager(dataSource, inputTiffDir, recover);
+    	if (args.geopkg) 
+    		throw new IOException("Geopackage not supported for CatchmentAoiDelineator. Use CatchmentDelineator instead.");
+    	
+    		
+    	if (args.hasAoi()) 
+    		throw new IOException("Single AOI processing not supported for CatchmentAoiDelineator.  Use CatchmentDelineator instead.");
+    	
+    	if (recover)
+    		throw new IOException("Recover option not supported for CatchmentAoiDelineator. Reset state in database or use CatchmentDelineator instead.");
+    
+    
+    	dataSource = new CatchmentDelineatorPostgisDataSource(args.dbstring, args.getInput(), args.getOutput());
+    	
+    	try {
+			while(true) {
+				String aoi = dataSource.getNextAoiToProcess(State.FP_DONE);
+				if (aoi == null) break;
+				
+				logger.info("Processing: " + aoi);
+				try {
+					dataSource.setAoi(aoi);
+					dm = new DataManager(dataSource, inputTiffDir, recover);
+		    		dataSource.setState(State.WS_DONE);
+				}catch (Exception ex) {
+					dataSource.setState(State.WS_ERROR);
+					ex.printStackTrace();
+				}
+			}
+		}finally {
+			if (dataSource != null) dataSource.close();
+		}
     }
     
     public void build() {

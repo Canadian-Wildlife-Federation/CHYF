@@ -395,8 +395,8 @@ public class BankSkeletonizer {
 			//TODO:
 			System.out.println("ERROR");
 			System.out.println(g.toText());
-			return (LineString)(((MultiLineString)g).getGeometryN(0));
-			//throw new RuntimeException("There is a problem with the existing skeletons and waterbodies near linestring " + ls.toText());
+			//return (LineString)(((MultiLineString)g).getGeometryN(0));
+			throw new RuntimeException("There is a problem with the existing skeletons and waterbodies near linestring " + ls.toText());
 		}
 		return (LineString)g;
 	}

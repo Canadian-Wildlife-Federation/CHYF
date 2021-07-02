@@ -58,7 +58,7 @@ public class FlowpathAoiConstructor {
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			while(true) {
-				String aoi = dataSource.getNextAoiToProcess();
+				String aoi = dataSource.getNextAoiToProcess(State.READY);
 				if (aoi == null) break;
 				
 				logger.info("Processing: " + aoi);
@@ -76,7 +76,7 @@ public class FlowpathAoiConstructor {
 					
 					dataSource.setState(State.FP_DONE);
 				}catch (Exception ex) {
-					dataSource.setState(State.ERROR);
+					dataSource.setState(State.FP_ERROR);
 					ex.printStackTrace();
 				}
 			}

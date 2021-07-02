@@ -84,7 +84,10 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		FP_PROCESSING,
 		READY,
 		FP_DONE,
-		ERROR
+		WS_PROCESSING,
+		WS_DONE,
+		FP_ERROR,
+		WS_ERROR,
 	};
 	
 	public ChyfPostGisDataSource(String connectionString, String inschema, 
@@ -92,11 +95,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		this.rawSchema = inschema;
 		this.workingSchema = outschema;
 		
-		try {
-			this.crs = CRS.decode("EPSG:4326");
-		} catch (Exception e) {
-			throw new IOException (e);
-		}
+
 		int port = 5432;
 		String host = null;
 		String dbname = null;
@@ -131,6 +130,9 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		
 		rawDataStore = DataStoreFinder.getDataStore(connectionParameters);
 		
+	    connectionParameters.put("schema", workingSchema);
+	    workingDataStore = DataStoreFinder.getDataStore(connectionParameters);
+	    
 		createWorkingTables();
 	}
 	
@@ -146,7 +148,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	 * a state of ready.  Updates the state to processing.
 	 * @return null if no more items to process
 	 */
-	public String getNextAoiToProcess() throws IOException{
+	public String getNextAoiToProcess(State current) throws IOException{
 		String laoiId = null;
 		Transaction tx = new DefaultTransaction();
 		try {
@@ -161,7 +163,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 				sb.append("SELECT name FROM ");
 				sb.append(aoitable);
 				sb.append(" WHERE status = '");
-				sb.append(State.READY.name());
+				sb.append(current.name());
 				sb.append("'");
 					
 				try(ResultSet rs = stmt.executeQuery(sb.toString())){
@@ -216,7 +218,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		}
 	}
 	
-	protected String getTableName(Layer layer) {
+	protected String getTableName(ILayer layer) {
 		return workingSchema + "." + getTypeName(layer);
 	}
 	
@@ -255,70 +257,9 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	    if (aoiUuid == null) {
 	    	throw new IOException("Not aoi found with id " + aoiId);
 	    }
-	    
-	    clearAoiOutputTables();
 	}
 	
-	/**
-	 * clears existing aoi data from working tables and 
-	 * copies raw data into the working tables
-	 * @throws IOException
-	 */
-	protected void clearAoiOutputTables() throws IOException {
-
-		connectionParameters.put("schema", workingSchema);
-	    workingDataStore = DataStoreFinder.getDataStore(connectionParameters);
-	    Connection c = ((JDBCDataStore)workingDataStore).getConnection(Transaction.AUTO_COMMIT);
-	    
-	    
-	    //check if working tables exist;
-	    List<Layer> toProcess = new ArrayList<>();
-	    for (Layer l : Layer.values()) {
-	    	if (l == Layer.AOI) continue;
-	    	toProcess.add(l);
-	    }
-	    toProcess.add(Layer.AOI);
-	    
-	    for (Layer l : toProcess) {
-
-	    	StringBuilder sb = new StringBuilder();
-    		//delete everything from aoi
-    		sb.append("DELETE FROM ");
-    		sb.append( workingSchema + "." + getTypeName(l) );
-    		sb.append(" WHERE ");
-    		sb.append(getAoiFieldName(l));
-    		sb.append(" = ? ");
-	    		
-    		try(PreparedStatement ps = c.prepareStatement(sb.toString())){
-    			ps.setObject(1, aoiUuid);
-    			ps.executeUpdate();
-    		}catch(SQLException ex) {
-    			throw new IOException(ex);
-    		}
-	    		
-    		sb = new StringBuilder();
-    		sb.append("INSERT INTO ");
-    		sb.append(workingSchema + "." + getTypeName(l));
-    		sb.append(" SELECT ");
-    		if (l != Layer.AOI) {
-    			sb.append("uuid_generate_v4() as " + ChyfAttribute.INTERNAL_ID.getFieldName());
-    			sb.append(",");
-    		}
-    		sb.append(" a.* ");
-    		sb.append(" FROM " + rawSchema + "." + getTypeName(l) + " a ");
-    		sb.append(" WHERE ");
-    		sb.append(getAoiFieldName(l));
-    		sb.append(" = " );
-    		sb.append (" ? ");
-    		
-    		try(PreparedStatement ps = c.prepareStatement(sb.toString())){
-    			ps.setObject(1, aoiUuid);
-    			ps.executeUpdate();
-    		}catch(SQLException ex) {
-    			throw new IOException(ex);
-    		}	    		   
-	    }
-	}
+	
 
 	/**
 	 * @return a feature reader for the given layer
@@ -397,23 +338,21 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		return filter;
 	}
 	
-	protected Filter getAoiFilter(Layer layer) {
+	protected Filter getAoiFilter(ILayer layer) {
 		return ff.equals(ff.property(getAoiFieldName(layer)), ff.literal(aoiUuid));
 	}
 	
-	protected String getAoiFieldName(Layer layer) {
+	protected String getAoiFieldName(ILayer layer) {
 		if (layer != null && layer == Layer.AOI) return "id";
 		return "aoi_id";
 	}
 	
-	protected String getTypeName(Layer layer) {
-		switch(layer) {
-		case AOI: return "aoi";
-		case ECATCHMENTS: return "ecatchment";
-		case EFLOWPATHS: return "eflowpath";
-		case SHORELINES: return "shoreline";
-		case TERMINALNODES: return "terminal_node";		
-		}
+	protected String getTypeName(ILayer layer) {
+		if (layer == Layer.AOI) return "aoi";
+		if (layer == Layer.ECATCHMENTS) return "ecatchment";
+		if (layer == Layer.EFLOWPATHS) return "eflowpath";
+		if (layer == Layer.SHORELINES) return "shoreline";
+		if (layer == Layer.TERMINALNODES) return "terminal_node";
 		return null;
 	}
 
@@ -467,9 +406,32 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	    	if (stype == null) throw new IOException("No raw data table for layer :" + l.getLayerName());
 	    }
 	    
-	    connectionParameters.put("schema", workingSchema);
-	    workingDataStore = DataStoreFinder.getDataStore(connectionParameters);
 	    Connection c = getConnection();
+	    
+	    //read the srid from the eflowpath table
+		try {
+			StringBuilder sb = new StringBuilder();
+			sb.append("SELECT srid ");
+			sb.append("FROM geometry_columns ");
+			sb.append(" WHERE f_table_schema = ? AND f_table_name = ?");
+
+			try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+				ps.setString(1, rawSchema);
+				ps.setString(2, getTypeName(Layer.EFLOWPATHS));
+				try(ResultSet rs = ps.executeQuery()){
+					if (rs.next()) {
+						int srid = rs.getInt(1);
+						this.crs = CRS.decode("EPSG:" + srid);
+					}
+				}
+			}
+		} catch (Exception e) {
+			throw new IOException (e);
+		}
+		if (this.crs == null) {
+			throw new IOException("Could not determine srid of eflowpath table - ensure a valid srid exists in the geometry column tables for the eflowpath table");
+		}
+	    
 	    
 	    //check if working tables exist;
 	    List<Layer> toProcess = new ArrayList<>();
@@ -487,6 +449,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	    	}catch (IOException ex) {
 	    		//not found
 	    	}
+	    	
 	    	if (stype == null) {
 		    	StringBuilder sb = new StringBuilder();
 		    	//create new table

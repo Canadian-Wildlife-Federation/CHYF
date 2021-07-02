@@ -18,17 +18,17 @@ package net.refractions.chyf.watershed.builder;
 import org.locationtech.jts.geom.Polygon;
 
 public class Catchment {
-	private String internalId;
+	private Object internalId;
 	private int catchmentType;
 	private Polygon poly;
 
-	public Catchment(String internalId, int catchmentType, Polygon poly) {
+	public Catchment(Object internalId, int catchmentType, Polygon poly) {
 		this.internalId = internalId;
 		this.catchmentType = catchmentType;
 		this.poly = poly;
 	}
 	
-	public String getInternalId() {
+	public Object getInternalId() {
 		return internalId;
 	}
 

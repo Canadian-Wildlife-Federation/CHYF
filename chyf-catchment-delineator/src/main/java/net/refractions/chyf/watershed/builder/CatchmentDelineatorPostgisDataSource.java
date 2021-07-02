@@ -23,7 +23,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.UUID;
 import java.util.function.BiConsumer;
 
 import org.geotools.data.DefaultTransaction;
@@ -42,10 +41,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.ChyfPostGisDataSource;
+import net.refractions.chyf.datasource.ILayer;
 import net.refractions.chyf.datasource.Layer;
 import net.refractions.chyf.util.ProcessStatistics;
 import net.refractions.chyf.watershed.WatershedSettings;
 
+/**
+ * Postgis data source for catchment delineator.
+ * 
+ * @author Emily
+ *
+ */
 public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource implements ICatchmentDelineatorDataSource{
 
 	private static final Logger logger = LoggerFactory.getLogger(DataManager.class);
@@ -53,97 +59,131 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 	public CatchmentDelineatorPostgisDataSource(String connectionString, String inschema, 
 			String outschema) throws IOException {
 		super(connectionString, inschema, outschema);
-//		addInternalIdAttribute();
 	}
 	
-	
+	/**
+	 * Clears any existing data from the output tables 
+	 * 
+	 * @throws IOException
+	 */
 	public void clearOutputTables() throws IOException {
 		Connection c = getConnection();
 		
-		String[] dataTables = new String[] {ICatchmentDelineatorDataSource.BLOCK_LAYER, ICatchmentDelineatorDataSource.HYDRO_EDGE_LAYER, ICatchmentDelineatorDataSource.WATERSHED_BOUNDARY_LAYER};
-		for (String data : dataTables) {
-			StringBuilder sb = new StringBuilder();
-			sb.append("DELETE FROM ");
-			sb.append(workingSchema + "." + data);
-			sb.append(" WHERE ");
-			sb.append(getAoiFieldName(null));
-			sb.append(" = ? ");
+		for (CatchmentLayer l : CatchmentLayer.values()) {
 			
-			try(PreparedStatement ps = c.prepareStatement(sb.toString())){
-				ps.setObject(1,  aoiUuid);
-				ps.executeUpdate();
-			}catch (SQLException ex) {
-				throw new IOException(ex);
+			SimpleFeatureType schema = null;
+			try{
+				schema = workingDataStore.getSchema(getTypeName(l));
+			}catch (Exception ex) {
+				
+			}
+			if (schema != null) {
+				StringBuilder sb = new StringBuilder();
+				sb.append("DELETE FROM ");
+				sb.append(getTableName(l));
+				sb.append(" WHERE ");
+				sb.append(getAoiFieldName(null));
+				sb.append(" = ? ");
+				
+				try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+					ps.setObject(1,  aoiUuid);
+					ps.executeUpdate();
+				}catch (SQLException ex) {
+					throw new IOException(ex);
+				}
 			}
 		}
 	}
 	
+	@Override
 	public SimpleFeatureType getHydroEdgeFT() {
 		// Build a featureType for the HydroEdge features
 		SimpleFeatureTypeBuilder sftBuilder = new SimpleFeatureTypeBuilder();
-		sftBuilder.setName(ICatchmentDelineatorDataSource.HYDRO_EDGE_LAYER);
+		sftBuilder.setName(getTypeName(CatchmentLayer.HYDRO_EDGE_LAYER));
 		sftBuilder.setCRS(crs);
 		sftBuilder.add("drainageId", Integer.class);
 		sftBuilder.add("waterSide", String.class);
-		sftBuilder.add(getAoiFieldName(null), UUID.class);
+//		sftBuilder.add(getAoiFieldName(null), UUID.class);
 		sftBuilder.add("geometry", LineString.class);
 		return sftBuilder.buildFeatureType();
 	}
 	
+	@Override
 	public SimpleFeatureType getBlockFT() {
 		// Build a featureType for the Block features
 		SimpleFeatureTypeBuilder sftBuilder = new SimpleFeatureTypeBuilder();
-		sftBuilder.setName(ICatchmentDelineatorDataSource.BLOCK_LAYER);
+		sftBuilder.setName(getTypeName(CatchmentLayer.BLOCK_LAYER));
 		sftBuilder.setCRS(crs);
 		sftBuilder.add("id", Integer.class);
 		sftBuilder.add("state", Integer.class);
-		sftBuilder.add(getAoiFieldName(null), UUID.class);
+//		sftBuilder.add(getAoiFieldName(null), UUID.class);
 		sftBuilder.add("geometry", Polygon.class);
-		return sftBuilder.buildFeatureType();
+		SimpleFeatureType type = sftBuilder.buildFeatureType();
+		
+//		AttributeDescriptor ad = type.getAttributeDescriptors().get(2);
+////		userData=(
+////				org.geotools.jdbc.nativeType ==> 1111
+////				org.geotools.jdbc.pk.column ==> true
+////				org.geotools.jdbc.nativeTypeName ==> uuid)
+//		ad.getUserData().put("org.geotools.jdbc.nativeTypeName", "uuid");
+//		ad.getUserData().put("org.geotools.jdbc.nativeType", 1111);
+		return type;
 	}
 
+	@Override
 	public SimpleFeatureType getWatershedBoundaryEdgeFT() {
 		// Build a featureType for the Catchment features
 		SimpleFeatureTypeBuilder sftBuilder = new SimpleFeatureTypeBuilder();
-		sftBuilder.setName(ICatchmentDelineatorDataSource.WATERSHED_BOUNDARY_LAYER);
+		sftBuilder.setName(getTypeName(CatchmentLayer.WATERSHED_BOUNDARY_LAYER));
 		sftBuilder.setCRS(crs);
 		sftBuilder.add("leftDrainageId", Integer.class);
 		sftBuilder.add("rightDrainageId", Integer.class);
-		sftBuilder.add(getAoiFieldName(null), UUID.class);
 		sftBuilder.add("geometry", LineString.class);
 		return sftBuilder.buildFeatureType();
 	}
 	
+	@Override
 	public synchronized boolean createLayer(SimpleFeatureType ft, ReferencedEnvelope workingExtent) {		
+
 		try {
-			//TODO: add aoi_id to this
 			workingDataStore.getSchema(ft.getTypeName());
 			return false;
 		}catch (IOException ex) {
 		}
 		try {
+			//workingDataStore.createSchema(ft) doesn't support UUID data types in postgis
+			//so instead of adding the aoi to the feature type builder I'm adding it as
+			//an alter table statement 
 			workingDataStore.createSchema(ft);
+			
+			Connection c = getConnection();
+			StringBuilder sb = new StringBuilder();
+			sb.append("ALTER TABLE ");
+			sb.append(workingSchema + "." + ft.getTypeName().toLowerCase());
+			sb.append(" ADD COLUMN ");
+			sb.append(getAoiFieldName(null));
+			sb.append(" uuid NOT NULL ");
+			
+			try(Statement s = c.createStatement()){
+				s.execute(sb.toString());
+			}catch(SQLException ex) {
+				throw new IOException (ex);
+			}
+			
 		}catch (IOException ioe) {
 			throw new RuntimeException(ioe);
 		}
 		return true;
 
 	}
-	
-	private Filter getAoiFilter(String layerName) {
-		String id = "aoi_id";
-		if (layerName.equals(Layer.AOI.getLayerName())) {
-			id = "id";
-		}
-		return ff.equals(ff.property(id), ff.literal(aoiUuid));
-	}
 
-	public synchronized FeatureReader<SimpleFeatureType, SimpleFeature> query(String layerName, ReferencedEnvelope bounds, Filter filter) throws IOException {
+	@Override
+	public synchronized FeatureReader<SimpleFeatureType, SimpleFeature> query(ILayer layer, ReferencedEnvelope bounds, Filter filter) throws IOException {
 		
-		SimpleFeatureType schema = workingDataStore.getSchema(layerName);
+		SimpleFeatureType schema = workingDataStore.getSchema(getTypeName(layer));
 		
         List<Filter> filters = new ArrayList<>();
-        filters.add(getAoiFilter(layerName));
+        filters.add(getAoiFilter(layer));
         
         if (bounds != null) {
         	String geometryPropertyName = schema.getGeometryDescriptor().getLocalName();
@@ -154,18 +194,45 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
         	filters.add(filter);
         }
         
-        Query query = new Query( layerName, ff.and(filters));
+        Query query = new Query( schema.getTypeName(), ff.and(filters));
         
 		return workingDataStore.getFeatureReader(query, Transaction.AUTO_COMMIT );
 	}
 
+	@Override
+	protected String getTypeName(ILayer layer) {
+		if (layer == CatchmentLayer.BLOCK_LAYER) return layer.getLayerName().toLowerCase();
+		if (layer == CatchmentLayer.HYDRO_EDGE_LAYER) return layer.getLayerName().toLowerCase();
+		if (layer == CatchmentLayer.WATERSHED_BOUNDARY_LAYER) return layer.getLayerName().toLowerCase();
+		return super.getTypeName(layer);
+	}
 
+	@Override
+	public synchronized void deleteFeatures(ILayer layer, Filter filter) {
 
-	public synchronized void deleteFeatures(String name, Filter filter) {
+		//might be more efficient IF you convert the filter to a where statement
+//		Connection c = getConnection(tx);
+//		
+//		StringBuilder sb = new StringBuilder();
+//		sb.append("DELETE FROM ");
+//		sb.append(getTableName(layer));
+//		sb.append( " WHERE ");
+//		sb.append(getAoiFieldName(null));
+//		sb.append(" = ? ");
+//		try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+//			ps.setObject(1, aoiUuid);
+//			ps.executeUpdate();
+//		}catch (SQLException ex) {
+//			throw new IOException(ex);
+//		}
+
 		ProcessStatistics stats = new ProcessStatistics();
-		stats.reportStatus(logger, "Deleting previous " + name + " features");
+		stats.reportStatus(logger, "Deleting previous " + layer.getLayerName() + " features");
 		try {
-			SimpleFeatureType ftype = workingDataStore.getSchema(name);
+			SimpleFeatureType ftype = null;
+			try{
+				ftype = workingDataStore.getSchema(getTypeName(layer));
+			}catch(Exception ex) {}
 			if (ftype == null) {
 				// nothing to delete
 				return;
@@ -175,7 +242,6 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 			}
 			Transaction tx = new DefaultTransaction();
 			try { 
-				
 				FeatureWriter<SimpleFeatureType, SimpleFeature> writer = workingDataStore.getFeatureWriter(ftype.getTypeName(), filter, tx);
 				int count = 0;
 				while(writer.hasNext()) {
@@ -185,24 +251,28 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 				}
 				writer.close();
 				tx.commit();
-				stats.reportStatus(logger, "Deleted " + count + " previous " + name + " features.");
+				stats.reportStatus(logger, "Deleted " + count + " previous " + layer.getLayerName() + " features.");
 			} catch(IOException ioe) {
 				tx.rollback();
 				throw new RuntimeException(ioe);
 			} finally {
 				tx.close();
 			}
+
 		} catch(IOException ioe) {
 			throw new RuntimeException(ioe);
 		}
 	}
 
-	public synchronized <T> void writeObjects(String layerName, Collection<T> data, BiConsumer<T,SimpleFeature> func) {
+	
+	public synchronized <T> void writeObjects(ILayer layer, Collection<T> data, BiConsumer<T,SimpleFeature> func) {
+		
+		
 		ProcessStatistics stats = new ProcessStatistics();
-		stats.reportStatus(logger, "Writing " + data.size() + " " + layerName + " features");
+		stats.reportStatus(logger, "Writing " + data.size() + " " + layer.getLayerName() + " features");
 		
 		try {
-			SimpleFeatureType type = workingDataStore.getSchema(layerName);
+			SimpleFeatureType type = workingDataStore.getSchema(getTypeName(layer));
 			
 			Transaction tx = new DefaultTransaction();
 			try {
@@ -210,7 +280,7 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 				for(T datum : data) {
 					SimpleFeature f = writer.next();
 					func.accept(datum, f);
-					f.setAttribute("aoi_id", aoiUuid);
+					f.setAttribute(getAoiFieldName(null), aoiUuid);
 					writer.write();
 				}
 				writer.close();
@@ -221,17 +291,18 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 			} finally {
 				tx.close();
 			}
-			stats.reportStatus(logger, layerName + " features written.");
+			stats.reportStatus(logger, layer.getLayerName() + " features written.");
 		} catch(IOException ioe) {
 			throw new RuntimeException(ioe);
 		}
 	}
 	
+	@Override
 	public synchronized void updateBlock(DataBlock dataBlock) {
 		logger.trace("Updating Block Status for " + dataBlock);
 		try {
 			
-			SimpleFeatureType ftype = workingDataStore.getSchema(BLOCK_LAYER);
+			SimpleFeatureType ftype = workingDataStore.getSchema(getTypeName(CatchmentLayer.BLOCK_LAYER));
 			Filter filter = ff.equals(ff.property("id"), ff.literal(dataBlock.getId()));
 			Transaction tx = new DefaultTransaction();
 			try { 
@@ -256,43 +327,39 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 		}
 	}
 
+	@Override
 	public void reprecisionAll() throws IOException {
 		
 		ProcessStatistics stats = new ProcessStatistics();
 		Connection c = getConnection();
 		
 		for (Layer layer : Layer.values()) {
+			
+			SimpleFeatureType fs = workingDataStore.getSchema(getTypeName(layer));
+			
 			StringBuilder sb = new StringBuilder();
 			sb.append("UPDATE ");
 			sb.append(getTableName(layer));
-			sb.append(" SET geometry = ST_ReducePrecision(geometry, ");
-			sb.append(WatershedSettings.getPrecisionModel().getScale() + ")");
+			sb.append(" SET ");
+			sb.append(fs.getGeometryDescriptor().getLocalName());
+//			sb.append(" = ST_SnapToGrid(");
+			sb.append(" = ST_ReducePrecision(");
+			sb.append(fs.getGeometryDescriptor().getLocalName());
+			sb.append(", ?)");
+			sb.append(" WHERE ");
+			sb.append (getAoiFieldName(layer));
+			sb.append(" = ? ");
 			
-			try(Statement s = c.createStatement()){
-				s.executeUpdate(sb.toString());
+			try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+				ps.setDouble(1, 1 / WatershedSettings.getPrecisionModel().getScale() );
+				ps.setObject(2, aoiUuid);
+				ps.executeUpdate();
 			}catch (SQLException ex) {
 				throw new IOException(ex);
 			}
 			
 			stats.reportStatus(logger, "Precision reduction applied to layer " + layer.name());
 		}
-		
-//		ProcessStatistics stats = new ProcessStatistics();
-//		for(FeatureEntry fe : geopkg.features()) {
-//			int count = 0;
-//			try(Transaction tx = new DefaultTransaction()) {
-//				SimpleFeatureWriter writer = geopkg.writer(fe, false, Filter.INCLUDE, tx);
-//				while(writer.hasNext()) {
-//					count++;
-//					SimpleFeature f = writer.next();
-//					f.setDefaultGeometry(GeometryPrecisionReducer.reduce((Geometry)f.getDefaultGeometry(), WatershedSettings.getPrecisionModel()));
-//					writer.write();
-//				}
-//				writer.close();
-//				tx.commit();
-//			}
-//			stats.reportStatus(logger, "Precision reduction applied to layer " + fe.getTableName() + ": " + count + " features");
-//		}
 	}
 
 }
