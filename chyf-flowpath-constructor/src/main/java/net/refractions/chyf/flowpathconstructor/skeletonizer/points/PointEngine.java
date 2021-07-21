@@ -130,13 +130,13 @@ public class PointEngine {
 				while(flowtouches.hasNext()) {
 					SimpleFeature t = flowtouches.next();
 					
-					EfType type = EfType.parseValue( (Integer)t.getAttribute(eftypeatt) );
+					EfType type = EfType.parseValue( ((Number)t.getAttribute(eftypeatt)).intValue() );
 					if (type == EfType.BANK || type == EfType.SKELETON) continue; //ignore existing skeletons
 					
 					
 					LineString temp = ChyfDataSource.getLineString(t);
 					if (workingPolygon.relate(temp, "FF*F0****")) {
-						DirectionType dtype = DirectionType.parseValue((Integer)t.getAttribute(diratt));
+						DirectionType dtype = DirectionType.parseValue( ((Number)t.getAttribute(diratt)).intValue());
 						ftouch.add(temp);
 						temp.setUserData(dtype);
 					}
@@ -272,7 +272,7 @@ public class PointEngine {
 				}
 				if (workingwb != null) {
 					Object id = ww.getAttribute(ChyfAttribute.INTERNAL_ID.getFieldName());
-					workingwb.setUserData(id);
+					workingwb.setUserData(new PolygonInfo(ww.getIdentifier(), id));
 					toupdate.add(workingwb);
 				}
 			}

@@ -567,4 +567,36 @@ public class VoronoiTest {
 		Assert.assertTrue("Skeleton returned errors", items.getErrors().isEmpty());
 		
 	}
+	
+	
+	@Test
+	public void testHeadwaterMultiOut() throws Exception{
+		String waterbody = "POLYGON((-55.82888570000000072 47.69990459999999644, "
+				+ "-55.82869829999999922 47.69999039999999724, "
+				+ "-55.82830449999999445 47.70008729999999986, "
+				+ "-55.82821924999999652 47.70001369999999952, "
+				+ "-55.82813399999999859 47.69994009999999918, "
+				+ "-55.82822859999999565 47.69978799999999808, "
+				+ "-55.82843439999999902 47.69969999999999999, "
+				+ "-55.82884059999999948 47.69983919999999955, "
+				+ "-55.82888570000000072 47.69990459999999644))";
+				
+		List<ConstructionPoint> riverPoints = new ArrayList<>();
+		
+		riverPoints.add(new ConstructionPoint(new Coordinate(-55.82822859999999565, 47.69978799999999808), NodeType.BANK,FlowDirection.INPUT, null));
+		riverPoints.add(new ConstructionPoint(new Coordinate(-55.82821924999999652, 47.70001369999999952), NodeType.BANK,FlowDirection.INPUT, null));
+		riverPoints.add(new ConstructionPoint(new Coordinate(-55.82813399999999859, 47.69994009999999918), NodeType.FLOWPATH, FlowDirection.OUTPUT, null));
+		riverPoints.add(new ConstructionPoint(new Coordinate(-55.82843439999999902, 47.69969999999999999), NodeType.HEADWATER, FlowDirection.INPUT, null));
+		riverPoints.add(new ConstructionPoint(new Coordinate(-55.82830449999999445, 47.70008729999999986), NodeType.FLOWPATH, FlowDirection.OUTPUT, null));
+		
+		Polygon polygon = (Polygon)reader.read(waterbody);
+		
+		SkeletonGenerator g = createGenerator(0.00001,0.00001,0.00001);
+		SkeletonResult items = g.generateSkeleton(polygon,  riverPoints);
+		
+		items.getSkeletons().forEach(ls->System.out.println(ls.getLineString().toText()));
+		items.getErrors().forEach(e->System.out.println(e));
+		Assert.assertTrue("Skeleton returned errors", items.getErrors().isEmpty());
+		
+	}
 }

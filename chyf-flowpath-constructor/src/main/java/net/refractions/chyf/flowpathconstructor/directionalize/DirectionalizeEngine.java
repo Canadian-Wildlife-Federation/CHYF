@@ -95,8 +95,8 @@ public class DirectionalizeEngine {
 				
 				for (PreparedPolygon p : aois) {
 					if (p.contains(ls) || p.getGeometry().relate(ls, "1********")) {
-						EfType eftype = EfType.parseValue((Integer)sf.getAttribute(eftypeatt));
-						DirectionType dtype = DirectionType.parseValue((Integer)sf.getAttribute(direatt));
+						EfType eftype = EfType.parseValue(((Number)sf.getAttribute(eftypeatt)).intValue());
+						DirectionType dtype = DirectionType.parseValue( (Number)sf.getAttribute(direatt) );
 						
 						EdgeInfo ei = new EdgeInfo(ls.getCoordinateN(0),
 								ls.getCoordinateN(1),
@@ -122,8 +122,8 @@ public class DirectionalizeEngine {
 		logger.info("build graph");
 		DGraph graph = DGraph.buildGraphLines(edges);
 		
-		//directionalized bank edges
-		logger.info("processing bank edges");
+//		//directionalized bank edges
+//		logger.info("processing bank edges");
 //		HashSet<Coordinate> nodec = new HashSet<>();
 //		for(DNode d : graph.nodes) nodec.add(d.getCoordinate());
 //		Set<FeatureId> bankstoflip = new HashSet<>();
@@ -142,7 +142,10 @@ public class DirectionalizeEngine {
 		//find sink nodes
 		logger.info("locating sink nodes");
 		List<Coordinate> sinks = getSinkPoints(dataSource, graph);
-
+//		for (Coordinate s : sinks) {
+//			System.out.println("POINT(" + s.x + " " + s.y + ")");
+//		}
+		
 		//directionalize dataset
 		logger.info("directionalizing network");
 		Directionalizer dd = new Directionalizer(sourceCRS, properties);

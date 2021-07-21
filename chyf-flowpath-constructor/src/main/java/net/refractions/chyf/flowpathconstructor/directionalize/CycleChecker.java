@@ -70,8 +70,8 @@ public class CycleChecker {
 				LineString ls = ChyfDataSource.getLineString(sf);
 				for (PreparedPolygon p : aois) {
 					if (p.contains(ls) || p.getGeometry().relate(ls, "1********")) {
-						EfType eftype = EfType.parseValue((Integer)sf.getAttribute(efatt));					
-						DirectionType dtype = DirectionType.parseValue((Integer)sf.getAttribute(diratt));
+						EfType eftype = EfType.parseValue( (Number)sf.getAttribute(efatt) );					
+						DirectionType dtype = DirectionType.parseValue((Number)sf.getAttribute(diratt));
 						if (dtype == DirectionType.UNKNOWN) throw new Exception("An unknown direction edge type found. Cannot check cycles when direction is unknown");					
 						EdgeInfo ei = new EdgeInfo(ls.getCoordinateN(0),
 								ls.getCoordinateN(1),

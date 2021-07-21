@@ -133,7 +133,7 @@ public class BankEngine {
 				while(flowtouches.hasNext()) {
 					SimpleFeature t = flowtouches.next();
 					if (! (((Geometry)t.getDefaultGeometry()).getEnvelopeInternal().intersects(workingPolygon.getEnvelopeInternal()))) continue; 
-					EfType type = EfType.parseValue( (Integer)t.getAttribute(efatt) );
+					EfType type = EfType.parseValue( ((Number)t.getAttribute(efatt)).intValue() );
 					if (type == EfType.BANK) continue;
 					
 					boolean isskel = false;

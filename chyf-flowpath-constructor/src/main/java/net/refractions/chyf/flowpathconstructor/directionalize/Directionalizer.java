@@ -195,10 +195,14 @@ public class Directionalizer {
 					sub = SubGraph.computeSubGraph(graph, sink);
 				}
 			}
+			try {
 			//find bridge nodes
 			BridgeFinder bb = new BridgeFinder();
 			bb.computeBridges(sub, sink);
-
+			}catch (Throwable t) {
+				t.printStackTrace();
+				throw t;
+			}
 			//partition graph at bridge nodes
 			Partition pp = new Partition();
 			pp.partion(sub);
@@ -273,7 +277,11 @@ public class Directionalizer {
 			logger.warn("An (isolated) subgraph without any defined sinks is larger then 5 edges in size (actual size: " + cnt + ") @ " + sub.nodes.get(0).toString() + ". These will be directionalized by computing a sink based on the network.");
 		}
 		
-
+//		for (DNode n : graph.getNodes()) {
+//			if (n.getCoordinate().equals2D(new Coordinate(-79.3183476941724, 46.74709614515086))) {
+//				System.out.println("break");
+//			}
+//		}
 		Set<DNode> sinks = new HashSet<>();
 		
 		//NOTE: we do not look for sinks from directionalized edges here
@@ -295,7 +303,9 @@ public class Directionalizer {
 					eo.setVisited(true);
 					DNode next = eo.getOtherNode(n);
 					if (next.getDegree() == 1) {
-						sinks.add(next);
+						if (next.getEdges().get(0).getSameEdges().isEmpty()) {
+							sinks.add(next);
+						}
 					}else {
 						toprocess.add(next);
 					}

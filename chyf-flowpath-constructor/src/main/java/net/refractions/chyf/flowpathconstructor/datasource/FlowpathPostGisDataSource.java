@@ -173,11 +173,14 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
     			throw new IOException(ex);
     		}
 	    		
+    		SimpleFeatureType rtype = rawDataStore.getSchema(getTypeName(l));
+    		Name internalidatt = ChyfDataSource.findAttribute(rtype, ChyfAttribute.INTERNAL_ID);
+    		
     		sb = new StringBuilder();
     		sb.append("INSERT INTO ");
     		sb.append(workingSchema + "." + getTypeName(l));
     		sb.append(" SELECT ");
-    		if (l != Layer.AOI) {
+    		if (l != Layer.AOI && internalidatt == null) {
     			sb.append("uuid_generate_v4() as " + ChyfAttribute.INTERNAL_ID.getFieldName());
     			sb.append(",");
     		}
@@ -237,7 +240,7 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 			while(reader.hasNext()){
 				SimpleFeature point = reader.next();
 				Point pg = ChyfDataSource.getPoint(point);
-				pg.setUserData(FlowDirection.parseValue( (Integer)point.getAttribute(flowdirAttribute)) );
+				pg.setUserData(FlowDirection.parseValue( ((Number)point.getAttribute(flowdirAttribute)).intValue() ));
 				pnt.add(pg);
 			}
 		}
@@ -334,8 +337,8 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
         		SimpleFeature sf = reader.next();
         		
         		Coordinate c = ((Point)sf.getDefaultGeometry()).getCoordinate();
-        		NodeType type = NodeType.parseValue((Integer)sf.getAttribute(NODETYPE_ATTRIBUTE));
-        		FlowDirection fd = FlowDirection.parseValue((Integer)sf.getAttribute(ChyfAttribute.FLOWDIRECTION.getFieldName()));
+        		NodeType type = NodeType.parseValue( ((Number)sf.getAttribute(NODETYPE_ATTRIBUTE)).intValue());
+        		FlowDirection fd = FlowDirection.parseValue(((Number)sf.getAttribute(ChyfAttribute.FLOWDIRECTION.getFieldName())).intValue());
         		ConstructionPoint p = new ConstructionPoint(c, type, fd, null);
         		points.add(p);
         	}

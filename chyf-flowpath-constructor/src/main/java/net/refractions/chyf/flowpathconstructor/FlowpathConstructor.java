@@ -75,9 +75,7 @@ public class FlowpathConstructor {
 				logger.info("Computing Rank");
 				RankEngine.doWork(dataSource, prop);
 			}catch (Exception ex) {
-				if (runtime.getAoi() == null) {
-					
-				}
+				ex.printStackTrace();
 			}
 		}finally {
 			if (dataSource != null) dataSource.close();

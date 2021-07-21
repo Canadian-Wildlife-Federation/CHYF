@@ -28,14 +28,12 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
-import javax.swing.plaf.basic.BasicTreeUI;
-
 import org.geotools.data.DataStore;
 import org.geotools.data.DataStoreFinder;
 import org.geotools.data.DefaultTransaction;
 import org.geotools.data.FeatureReader;
 import org.geotools.data.Query;
-import org.geotools.data.Transaction;
+import org.geotools.data.Transaction; 
 import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.data.util.NullProgressListener;
 import org.geotools.geometry.jts.JTS;
@@ -48,6 +46,7 @@ import org.opengis.feature.Feature;
 import org.opengis.feature.FeatureVisitor;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.feature.type.Name;
 import org.opengis.filter.Filter;
 import org.opengis.filter.expression.PropertyName;
 import org.opengis.geometry.BoundingBox;
@@ -95,7 +94,6 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		this.rawSchema = inschema;
 		this.workingSchema = outschema;
 		
-
 		int port = 5432;
 		String host = null;
 		String dbname = null;
@@ -129,6 +127,16 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		connectionParameters.put(JDBCDataStoreFactory.EXPOSE_PK.key, Boolean.TRUE);
 		
 		rawDataStore = DataStoreFinder.getDataStore(connectionParameters);
+		try(Transaction tx = new DefaultTransaction()){
+			try {
+				Connection c = ((JDBCDataStore)rawDataStore).getConnection(tx);
+				c.createStatement().execute("CREATE SCHEMA IF NOT EXISTS " + workingSchema);
+				tx.commit();
+			}catch (SQLException ex) {
+				tx.rollback();
+				throw new IOException(ex);
+			}
+		}
 		
 	    connectionParameters.put("schema", workingSchema);
 	    workingDataStore = DataStoreFinder.getDataStore(connectionParameters);
@@ -150,32 +158,49 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	 */
 	public String getNextAoiToProcess(State current) throws IOException{
 		String laoiId = null;
-		Transaction tx = new DefaultTransaction();
-		try {
-			Connection c = ((JDBCDataStore)workingDataStore).getConnection(tx);
-				
-			String aoitable = rawSchema + "." + getTypeName(Layer.AOI);
-			try(Statement stmt = c.createStatement()){
-				stmt.executeUpdate("LOCK TABLE " + aoitable);
-				
-				//find the next aoi to process
-				StringBuilder sb = new StringBuilder();
-				sb.append("SELECT name FROM ");
-				sb.append(aoitable);
-				sb.append(" WHERE status = '");
-				sb.append(current.name());
-				sb.append("'");
+		try(Transaction tx = new DefaultTransaction()){
+			try {
+				Connection c = ((JDBCDataStore)workingDataStore).getConnection(tx);
 					
-				try(ResultSet rs = stmt.executeQuery(sb.toString())){
-					if (rs.next()) {
-						laoiId  = rs.getString(1);
+				String aoitable = rawSchema + "." + getTypeName(Layer.AOI);
+				try(Statement stmt = c.createStatement()){
+					stmt.executeUpdate("LOCK TABLE " + aoitable);
+					
+					//find the next aoi to process
+					StringBuilder sb = new StringBuilder();
+					sb.append("SELECT id, name FROM ");
+					sb.append(aoitable);
+					sb.append(" WHERE status = '");
+					sb.append(current.name());
+					sb.append("'");
+						
+					UUID aoiId = null;
+					try(ResultSet rs = stmt.executeQuery(sb.toString())){
+						if (rs.next()) {
+							aoiId = (UUID) rs.getObject(1);
+							laoiId  = rs.getString(2);
+						}
+					}
+					
+					if (aoiId != null) {
+						sb = new StringBuilder();
+						sb.append("UPDATE ");
+						sb.append(aoitable);
+						sb.append(" SET status = ? ");
+						sb.append(" WHERE id = ?");
+						
+						try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+							ps.setString(1, State.FP_PROCESSING.name());
+							ps.setObject(2, aoiId);
+							ps.executeUpdate();
+						}
 					}
 				}
+				tx.commit();
+			}catch (SQLException ex) {
+				tx.rollback();
+				throw new IOException(ex);
 			}
-			tx.commit();
-		}catch (SQLException ex) {
-			tx.rollback();
-			throw new IOException(ex);
 		}
 		
 		return laoiId;
@@ -186,35 +211,36 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	 * @throws IOException 
 	 */
 	public void setState(State state) throws IOException {
-		Transaction tx = new DefaultTransaction();
-		try {
-			Connection c = getConnection(tx);
-				
-			String aoitable = workingSchema + "." + getTypeName(Layer.AOI);
-			try(Statement stmt = c.createStatement()){
-				stmt.executeUpdate("LOCK TABLE " + aoitable);
-				
-				StringBuilder sb = new StringBuilder();
-				sb.append("UPDATE ");
-				sb.append(rawSchema + "." + getTypeName(Layer.AOI));
-				sb.append(" SET status = ? ");
-				sb.append(" WHERE ");
-				sb.append(getAoiFieldName(Layer.AOI));
-				sb.append(" = ? ");
-				
-				try(PreparedStatement ps = c.prepareStatement(sb.toString())){
-					ps.setString(1, state.name());
-					ps.setObject(2, aoiUuid);
-				
-					ps.executeUpdate();
-				}catch (Exception ex) {
-					throw new IOException(ex);
+		try(Transaction tx = new DefaultTransaction()){
+			try {
+				Connection c = getConnection(tx);
+					
+				String aoitable = workingSchema + "." + getTypeName(Layer.AOI);
+				try(Statement stmt = c.createStatement()){
+					stmt.executeUpdate("LOCK TABLE " + aoitable);
+					
+					StringBuilder sb = new StringBuilder();
+					sb.append("UPDATE ");
+					sb.append(rawSchema + "." + getTypeName(Layer.AOI));
+					sb.append(" SET status = ? ");
+					sb.append(" WHERE ");
+					sb.append(getAoiFieldName(Layer.AOI));
+					sb.append(" = ? ");
+					
+					try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+						ps.setString(1, state.name());
+						ps.setObject(2, aoiUuid);
+					
+						ps.executeUpdate();
+					}catch (Exception ex) {
+						throw new IOException(ex);
+					}
 				}
+				tx.commit();
+			}catch (SQLException ex) {
+				tx.rollback();
+				throw new IOException(ex);
 			}
-			tx.commit();
-		}catch (SQLException ex) {
-			tx.rollback();
-			throw new IOException(ex);
 		}
 	}
 	
@@ -237,7 +263,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	}
 	
 	public void setAoi(String aoiId) throws IOException {
-		  //query aoi table for aoi id
+		//query aoi table for aoi id
 	    Connection c = ((JDBCDataStore)rawDataStore).getConnection(Transaction.AUTO_COMMIT);
 	    StringBuilder sb = new StringBuilder();
 	    sb.append("SELECT id FROM ");
@@ -443,6 +469,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	    
 	    for (Layer l : toProcess) {
 	    	SimpleFeatureType stype = null;
+	    	
 	    
 	    	try {
 	    		stype = workingDataStore.getSchema(getTypeName(l));
@@ -451,12 +478,16 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	    	}
 	    	
 	    	if (stype == null) {
+	    		
+	    		SimpleFeatureType rtype = rawDataStore.getSchema(getTypeName(l));
+	    		Name interalidatt = ChyfDataSource.findAttribute(rtype, ChyfAttribute.INTERNAL_ID);
+	    		
 		    	StringBuilder sb = new StringBuilder();
 		    	//create new table
 		    	sb.append("CREATE TABLE ");
 		    	sb.append(getTableName(l));
 		    	sb.append(" AS SELECT ");
-		    	if (l != Layer.AOI) {
+		    	if (l != Layer.AOI && interalidatt == null) {
 		    		sb.append("uuid_generate_v4() as " + ChyfAttribute.INTERNAL_ID.getFieldName());
 		    		sb.append(",");
 		    	}

@@ -36,10 +36,10 @@ public enum DirectionType {
 		return this.type;
 	}
 	
-	public static DirectionType parseValue(Integer type) throws Exception {
+	public static DirectionType parseValue(Number type) throws Exception {
 		if (type == null) return DirectionType.UNKNOWN;
 		for (DirectionType t : DirectionType.values()) {
-			if (t.type == type) return t;
+			if (t.type == type.intValue()) return t;
 		}
 		throw new Exception(type + " is an invalid value for direction attribute");
 	}
