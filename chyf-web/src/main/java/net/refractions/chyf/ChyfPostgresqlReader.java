@@ -218,51 +218,58 @@ public class ChyfPostgresqlReader extends ChyfDataReader{
 		sb.append(" ), ");
 		sb.append("	mvtgeom AS (");
 		
-		boolean union = false;
-		if (layer.isWaterbody()) {
-			union = true;
-			//waterbodies
+		if (layer.isWorkUnit()) {
+			//not combinable with other layers
 			sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
-			sb.append(" 'waterbody' as type, ");
-			sb.append(" area as size, ");
-			sb.append(" case when definition = 4 then 'Lake' when definition = 9 then 'Pond' when definition = 6 then 'River' when definition = 1 then 'Canel' else 'Unknown' end as sub_type,");
-			sb.append(" null as name,");
-			sb.append(" null as rank");
-			sb.append("	FROM chyf.waterbody t, bounds ");
+			sb.append(" id, major_drainage_area, sub_drainage_area, sub_sub_drainage_area ");
+			sb.append("	FROM chyf.nhn_workunit t, bounds ");
 			sb.append("	WHERE st_intersects(t.geometry,  bounds.geom) ");
-		}
-		
-		if (layer.isFlowpath()) {
-			if (union) sb.append(" UNION ");
-			union = true;
-			//flowpath
-			sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
-			sb.append(" 'flowpath' as type, ");
-			sb.append(" length as size, ");
-			sb.append(" type as sub_type,");
-			sb.append(" name as name,");
-			sb.append(" rank as rank");
-			sb.append("	FROM chyf.flowpath t, bounds ");
-			sb.append("	WHERE st_intersects(t.geometry,  bounds.geom) ");
-		}
-		
-		//elementary catchments
-		if (layer.isCatchment()) {
-			if (union)  sb.append(" UNION ");
-			union = true;
-			sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
-			sb.append(" 'elementary_catchment' as type, ");
-			sb.append(" area as size, ");
-			sb.append(" null as sub_type,");
-			sb.append(" null as name,");
-			sb.append(" null as rank");
-			sb.append("	FROM chyf.elementary_catchment t, bounds ");
-			sb.append("	WHERE st_intersects(t.geometry,  bounds.geom) ");
-		}
+		}else {
+			boolean union = false;
+			if (layer.isWaterbody()) {
+				union = true;
+				//waterbodies
+				sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
+				sb.append(" 'waterbody' as type, ");
+				sb.append(" area as size, ");
+				sb.append(" case when definition = 4 then 'Lake' when definition = 9 then 'Pond' when definition = 6 then 'River' when definition = 1 then 'Canel' else 'Unknown' end as sub_type,");
+				sb.append(" null as name,");
+				sb.append(" null as rank");
+				sb.append("	FROM chyf.waterbody t, bounds ");
+				sb.append("	WHERE st_intersects(t.geometry,  bounds.geom) ");
+			}
 			
+			if (layer.isFlowpath()) {
+				if (union) sb.append(" UNION ");
+				union = true;
+				//flowpath
+				sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
+				sb.append(" 'flowpath' as type, ");
+				sb.append(" length as size, ");
+				sb.append(" type as sub_type,");
+				sb.append(" name as name,");
+				sb.append(" rank as rank");
+				sb.append("	FROM chyf.flowpath t, bounds ");
+				sb.append("	WHERE st_intersects(t.geometry,  bounds.geom) ");
+			}
+			
+			//elementary catchments
+			if (layer.isCatchment()) {
+				if (union)  sb.append(" UNION ");
+				union = true;
+				sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
+				sb.append(" 'elementary_catchment' as type, ");
+				sb.append(" area as size, ");
+				sb.append(" null as sub_type,");
+				sb.append(" null as name,");
+				sb.append(" null as rank");
+				sb.append("	FROM chyf.elementary_catchment t, bounds ");
+				sb.append("	WHERE st_intersects(t.geometry,  bounds.geom) ");
+			}
+		}
+		
 		sb.append(")");
 		sb.append("	SELECT ST_AsMVT(mvtgeom.*) FROM mvtgeom");
-		
 		
 		SpringJdbcConfiguration config = context.getBean(SpringJdbcConfiguration.class);
 		byte[] tile = config.jdbcTemplate().query(sb.toString(), tileResultMapper);
