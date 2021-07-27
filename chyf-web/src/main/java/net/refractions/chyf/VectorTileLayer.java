@@ -25,7 +25,8 @@ package net.refractions.chyf;
 public enum VectorTileLayer{
 	
 	WATER,
-	CATCHMENT;
+	CATCHMENT,
+	NHNWORKUNIT;
 	
 	public boolean isWaterbody() {
 		return this == WATER;
@@ -37,5 +38,9 @@ public enum VectorTileLayer{
 	
 	public boolean isFlowpath() {
 		return this == WATER;
+	}
+	
+	public boolean isWorkUnit() {
+		return this == NHNWORKUNIT;
 	}
 }
