@@ -165,7 +165,6 @@ public class Args {
 	
 	public boolean hasAoi() {
 		if (getAoi() == null || getAoi().isEmpty()) {
-			System.err.println("An aoi argument must be provided to use this option");
 			return false;
 		}
 		return true;

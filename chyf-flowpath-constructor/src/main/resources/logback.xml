@@ -5,13 +5,15 @@
     	</encoder>
   	</appender>
 
+	<timestamp key="startTimestamp" datePattern="yyyyMMdd-HHmmss"/>
+
 	<appender name="ERRORFILE" class="ch.qos.logback.core.FileAppender">
-		<file>warnings.log</file>
+		<file>flowpathgenerator-${startTimestamp}.log</file>
 		<filter class="ch.qos.logback.classic.filter.ThresholdFilter">
          	<level>WARN</level>
       	</filter>
     	<encoder>
-    	  	<pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    	  	<pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
     	</encoder>
   	</appender>
 

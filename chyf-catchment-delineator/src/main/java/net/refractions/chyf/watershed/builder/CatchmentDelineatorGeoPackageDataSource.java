@@ -52,9 +52,7 @@ public class CatchmentDelineatorGeoPackageDataSource extends ChyfGeoPackageDataS
 
 	public CatchmentDelineatorGeoPackageDataSource(Path geopackageFile) throws IOException {
 		super(geopackageFile);
-		
 		addInternalIdAttribute();
-		
 	}
 	
 	@Override
@@ -227,5 +225,4 @@ public class CatchmentDelineatorGeoPackageDataSource extends ChyfGeoPackageDataS
 			stats.reportStatus(logger, "Precision reduction applied to layer " + fe.getTableName() + ": " + count + " features");
 		}
 	}
-
 }

@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.geotools.data.FeatureReader;
-import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.locationtech.jts.geom.Geometry;

@@ -16,9 +16,7 @@
 package net.refractions.chyf.watershed.builder;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -26,8 +24,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import org.geotools.data.FeatureReader;
-import org.geotools.data.simple.SimpleFeatureReader;
-import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.locationtech.jts.geom.Coordinate;
@@ -49,13 +45,11 @@ import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.datasource.EcType;
 import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.datasource.ILayer;
 import net.refractions.chyf.datasource.Layer;
 import net.refractions.chyf.util.ProcessStatistics;
-import net.refractions.chyf.util.ReprojectionUtils;
 import net.refractions.chyf.watershed.WatershedSettings;
 import net.refractions.chyf.watershed.builder.ICatchmentDelineatorDataSource.CatchmentLayer;
 import net.refractions.chyf.watershed.model.HydroEdge;
@@ -63,6 +57,7 @@ import net.refractions.chyf.watershed.model.WaterSide;
 import net.refractions.chyf.watershed.model.WatershedBoundaryEdge;
 
 public class DataManager {
+	
 	private static final Logger logger = LoggerFactory.getLogger(DataManager.class);
 
 	//private int srid;
@@ -76,18 +71,10 @@ public class DataManager {
 
 	public DataManager(ICatchmentDelineatorDataSource dataSource, Path geoTiffDirPath,
 			boolean recover) throws IOException {
-//		logger.info("Processing input file: " + inputGeopackagePath);
-		logger.info("Using DEM from dir: " + geoTiffDirPath);
-//		logger.info("Output to file " + outputGeopackagePath);
-		if(recover) {
-			logger.info("In recovery mode.");
-		} else {
-			logger.info("In normal processing mode.");
-		}
+
 		this.dataSource = dataSource;
 
 		// determine the srid/crs to use
-		
 		this.crs = dataSource.getCoordinateReferenceSystem();
 		
 		// load the appropriate properties
@@ -98,12 +85,13 @@ public class DataManager {
 		}
 		
 		gf = new GeometryFactory(WatershedSettings.getPrecisionModel());
-//		gf = new GeometryFactory(WatershedSettings.getPrecisionModel(), srid);
-
 		gridReader = new GeoTiffDirReader(geoTiffDirPath.toString(), crs);
 	}
 			
 
+	public ICatchmentDelineatorDataSource getDataSource() {
+		return this.dataSource;
+	}
 
 	public synchronized List<DataBlock> generateBlocks(List<HydroEdge> edges) {
 		STRtree edgeIndex = new STRtree();

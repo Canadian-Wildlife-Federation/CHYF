@@ -154,9 +154,11 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	/**
 	 * Finds the next aoi in the raw.aoi table with
 	 * a state of ready.  Updates the state to processing.
+	 * @param current the current state to search for
+	 * @param processing the state to update to to flag aoi as processing
 	 * @return null if no more items to process
 	 */
-	public String getNextAoiToProcess(State current) throws IOException{
+	public String getNextAoiToProcess(State current, State processing) throws IOException{
 		String laoiId = null;
 		try(Transaction tx = new DefaultTransaction()){
 			try {
@@ -190,7 +192,19 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 						sb.append(" WHERE id = ?");
 						
 						try(PreparedStatement ps = c.prepareStatement(sb.toString())){
-							ps.setString(1, State.FP_PROCESSING.name());
+							ps.setString(1, processing.name());
+							ps.setObject(2, aoiId);
+							ps.executeUpdate();
+						}
+						
+						sb = new StringBuilder();
+						sb.append("UPDATE ");
+						sb.append(workingSchema + "." + getTypeName(Layer.AOI));
+						sb.append(" SET status = ? ");
+						sb.append(" WHERE id = ?");
+						
+						try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+							ps.setString(1, processing.name());
 							ps.setObject(2, aoiId);
 							ps.executeUpdate();
 						}
@@ -206,7 +220,9 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		return laoiId;
 	}
 	/**
-	 * Updates the state of the aoi processing
+	 * Updates the state of the aoi processing (both the working 
+	 * and finish schema).
+	 * 
 	 * @param state
 	 * @throws IOException 
 	 */
@@ -215,25 +231,28 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 			try {
 				Connection c = getConnection(tx);
 					
-				String aoitable = workingSchema + "." + getTypeName(Layer.AOI);
-				try(Statement stmt = c.createStatement()){
-					stmt.executeUpdate("LOCK TABLE " + aoitable);
+				for (String schema : new String[] {workingSchema, rawSchema}) {
 					
-					StringBuilder sb = new StringBuilder();
-					sb.append("UPDATE ");
-					sb.append(rawSchema + "." + getTypeName(Layer.AOI));
-					sb.append(" SET status = ? ");
-					sb.append(" WHERE ");
-					sb.append(getAoiFieldName(Layer.AOI));
-					sb.append(" = ? ");
-					
-					try(PreparedStatement ps = c.prepareStatement(sb.toString())){
-						ps.setString(1, state.name());
-						ps.setObject(2, aoiUuid);
-					
-						ps.executeUpdate();
-					}catch (Exception ex) {
-						throw new IOException(ex);
+					String aoitable = schema + "." + getTypeName(Layer.AOI);
+					try(Statement stmt = c.createStatement()){
+						stmt.executeUpdate("LOCK TABLE " + aoitable);
+						
+						StringBuilder sb = new StringBuilder();
+						sb.append("UPDATE ");
+						sb.append(schema + "." + getTypeName(Layer.AOI));
+						sb.append(" SET status = ? ");
+						sb.append(" WHERE ");
+						sb.append(getAoiFieldName(Layer.AOI));
+						sb.append(" = ? ");
+						
+						try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+							ps.setString(1, state.name());
+							ps.setObject(2, aoiUuid);
+						
+							ps.executeUpdate();
+						}catch (Exception ex) {
+							throw new IOException(ex);
+						}
 					}
 				}
 				tx.commit();

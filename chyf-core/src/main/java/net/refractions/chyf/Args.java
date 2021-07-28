@@ -18,15 +18,12 @@ package net.refractions.chyf;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
-
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 
 /**
  * Class for parsing and validating input arguments for various CHyF tools.
@@ -235,7 +232,6 @@ public abstract class Args {
 	
 	public boolean hasAoi() {
 		if (getAoi() == null || getAoi().isEmpty()) {
-			System.err.println("An aoi argument must be provided to use this option");
 			return false;
 		}
 		return true;

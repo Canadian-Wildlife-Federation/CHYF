@@ -36,10 +36,13 @@ import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Polygon;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.feature.type.Name;
 import org.opengis.filter.Filter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.datasource.ChyfAttribute;
+import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfPostGisDataSource;
 import net.refractions.chyf.datasource.ILayer;
 import net.refractions.chyf.datasource.Layer;
@@ -61,15 +64,36 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 		super(connectionString, inschema, outschema);
 	}
 	
+	@Override
+	public void setAoi(String aoi) throws IOException{
+		setAoi(aoi, true);
+	}
+	
+	public void setAoi(String aoi, boolean clearOutput) throws IOException{
+		logger.warn("Processing AOI: " + aoi);
+		super.setAoi(aoi);
+		if (clearOutput) clearAoiOutputTables();
+	}
+	
 	/**
 	 * Clears any existing data from the output tables 
 	 * 
 	 * @throws IOException
 	 */
-	public void clearOutputTables() throws IOException {
+	private void clearAoiOutputTables() throws IOException {
 		Connection c = getConnection();
 		
+		List<ILayer> toProcess = new ArrayList<>();
+		for (Layer l : Layer.values()) {
+			if (l == Layer.AOI) continue;
+		    toProcess.add(l);
+		}
 		for (CatchmentLayer l : CatchmentLayer.values()) {
+			toProcess.add(l);
+		}
+		toProcess.add(Layer.AOI);
+		
+		for (ILayer l : toProcess) {
 			
 			SimpleFeatureType schema = null;
 			try{
@@ -82,7 +106,7 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 				sb.append("DELETE FROM ");
 				sb.append(getTableName(l));
 				sb.append(" WHERE ");
-				sb.append(getAoiFieldName(null));
+				sb.append(getAoiFieldName(l));
 				sb.append(" = ? ");
 				
 				try(PreparedStatement ps = c.prepareStatement(sb.toString())){
@@ -92,7 +116,42 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 					throw new IOException(ex);
 				}
 			}
+			
+			//copy over raw data
+			SimpleFeatureType rtype = null;
+			try{
+				rtype = rawDataStore.getSchema(getTypeName(l));
+			}catch (IOException ex) {
+				//not found
+			}
+			if (rtype != null) {
+	    		Name internalidatt = ChyfDataSource.findAttribute(rtype, ChyfAttribute.INTERNAL_ID);
+	    		
+	    		StringBuilder sb = new StringBuilder();
+	    		sb.append("INSERT INTO ");
+	    		sb.append(workingSchema + "." + getTypeName(l));
+	    		sb.append(" SELECT ");
+	    		if (l != Layer.AOI && internalidatt == null) {
+	    			sb.append("uuid_generate_v4() as " + ChyfAttribute.INTERNAL_ID.getFieldName());
+	    			sb.append(",");
+	    		}
+	    		sb.append(" a.* ");
+	    		sb.append(" FROM " + rawSchema + "." + getTypeName(l) + " a ");
+	    		sb.append(" WHERE ");
+	    		sb.append(getAoiFieldName(l));
+	    		sb.append(" = " );
+	    		sb.append (" ? ");
+	    		
+	    		try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+	    			ps.setObject(1, aoiUuid);
+	    			ps.executeUpdate();
+	    		}catch(SQLException ex) {
+	    			throw new IOException(ex);
+	    		}	    		   
+			}
 		}
+	
+		
 	}
 	
 	@Override
@@ -103,7 +162,8 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 		sftBuilder.setCRS(crs);
 		sftBuilder.add("drainageId", Integer.class);
 		sftBuilder.add("waterSide", String.class);
-//		sftBuilder.add(getAoiFieldName(null), UUID.class);
+		//see createLayer - uuid type not supported
+		//sftBuilder.add(getAoiFieldName(null), UUID.class);
 		sftBuilder.add("geometry", LineString.class);
 		return sftBuilder.buildFeatureType();
 	}
@@ -116,17 +176,10 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 		sftBuilder.setCRS(crs);
 		sftBuilder.add("id", Integer.class);
 		sftBuilder.add("state", Integer.class);
-//		sftBuilder.add(getAoiFieldName(null), UUID.class);
+		//see createLayer - uuid type not supported
+		//sftBuilder.add(getAoiFieldName(null), UUID.class);
 		sftBuilder.add("geometry", Polygon.class);
 		SimpleFeatureType type = sftBuilder.buildFeatureType();
-		
-//		AttributeDescriptor ad = type.getAttributeDescriptors().get(2);
-////		userData=(
-////				org.geotools.jdbc.nativeType ==> 1111
-////				org.geotools.jdbc.pk.column ==> true
-////				org.geotools.jdbc.nativeTypeName ==> uuid)
-//		ad.getUserData().put("org.geotools.jdbc.nativeTypeName", "uuid");
-//		ad.getUserData().put("org.geotools.jdbc.nativeType", 1111);
 		return type;
 	}
 
@@ -150,6 +203,7 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 			return false;
 		}catch (IOException ex) {
 		}
+		
 		try {
 			//workingDataStore.createSchema(ft) doesn't support UUID data types in postgis
 			//so instead of adding the aoi to the feature type builder I'm adding it as
@@ -201,9 +255,11 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 
 	@Override
 	protected String getTypeName(ILayer layer) {
-		if (layer == CatchmentLayer.BLOCK_LAYER) return layer.getLayerName().toLowerCase();
-		if (layer == CatchmentLayer.HYDRO_EDGE_LAYER) return layer.getLayerName().toLowerCase();
-		if (layer == CatchmentLayer.WATERSHED_BOUNDARY_LAYER) return layer.getLayerName().toLowerCase();
+		if (layer == CatchmentLayer.BLOCK_LAYER || 
+			layer == CatchmentLayer.HYDRO_EDGE_LAYER ||
+			layer == CatchmentLayer.WATERSHED_BOUNDARY_LAYER) { 
+			return layer.getLayerName().toLowerCase();
+		}
 		return super.getTypeName(layer);
 	}
 
@@ -226,6 +282,12 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 //			throw new IOException(ex);
 //		}
 
+		List<Filter> filters = new ArrayList<>();
+        filters.add(getAoiFilter(layer));
+        if (filter != null) {
+        	filters.add(filter);
+        }
+        
 		ProcessStatistics stats = new ProcessStatistics();
 		stats.reportStatus(logger, "Deleting previous " + layer.getLayerName() + " features");
 		try {
@@ -237,12 +299,10 @@ public class CatchmentDelineatorPostgisDataSource extends ChyfPostGisDataSource 
 				// nothing to delete
 				return;
 			}
-			if(filter == null) {
-				filter = Filter.INCLUDE;
-			}
+			
 			Transaction tx = new DefaultTransaction();
 			try { 
-				FeatureWriter<SimpleFeatureType, SimpleFeature> writer = workingDataStore.getFeatureWriter(ftype.getTypeName(), filter, tx);
+				FeatureWriter<SimpleFeatureType, SimpleFeature> writer = workingDataStore.getFeatureWriter(ftype.getTypeName(), ff.and(filters), tx);
 				int count = 0;
 				while(writer.hasNext()) {
 					count++;

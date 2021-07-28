@@ -22,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
+import net.refractions.chyf.datasource.ChyfPostGisDataSource.State;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
@@ -54,29 +55,17 @@ public class FlowpathConstructor {
 				ChyfGeoPackageDataSource.prepareOutput(input, output);
 				
 				dataSource = new FlowpathGeoPackageDataSource(output);
+				runDatasource(dataSource, runtime);
 			}else if (runtime.isPostigs()){
-				if (!runtime.hasAoi()) return;
-				
-				dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
-				((FlowpathPostGisDataSource)dataSource).setAoi(runtime.getAoi());
-				
-			}
-	
-	
-			try {
-				ChyfProperties prop = runtime.getPropertiesFile();
-				if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
-				logger.info("Generating Constructions Points");
-				PointEngine.doWork(dataSource, prop);
-				logger.info("Generating Skeletons");
-				SkeletonEngine.doWork(dataSource, prop, runtime.getCores());
-				logger.info("Directionalizing Dataset");
-				DirectionalizeEngine.doWork(dataSource, prop);
-				logger.info("Computing Rank");
-				RankEngine.doWork(dataSource, prop);
-			}catch (Exception ex) {
-				ex.printStackTrace();
-			}
+				if (runtime.hasAoi()) {
+					dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+					((FlowpathPostGisDataSource)dataSource).setAoi(runtime.getAoi());	
+					runDatasource(dataSource, runtime);
+				}else {
+					runAllAois(runtime);
+				}
+			}		
+			
 		}finally {
 			if (dataSource != null) dataSource.close();
 		}
@@ -84,4 +73,53 @@ public class FlowpathConstructor {
 		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );
 	}
 
+	private static void runDatasource(IFlowpathDataSource dataSource, FlowpathArgs runtime) {
+		try {
+			ChyfProperties prop = runtime.getPropertiesFile();
+			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+			logger.info("Generating Constructions Points");
+			PointEngine.doWork(dataSource, prop);
+			logger.info("Generating Skeletons");
+			SkeletonEngine.doWork(dataSource, prop, runtime.getCores());
+			logger.info("Directionalizing Dataset");
+			DirectionalizeEngine.doWork(dataSource, prop);
+			logger.info("Computing Rank");
+			RankEngine.doWork(dataSource, prop);
+		}catch (Exception ex) {
+			ex.printStackTrace();
+		}
+	}
+	
+	private static void runAllAois(FlowpathArgs runtime) throws Exception {
+		FlowpathPostGisDataSource dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+		try {
+			ChyfProperties prop = runtime.getPropertiesFile();
+			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+			while(true) {
+				String aoi = dataSource.getNextAoiToProcess(State.READY, State.FP_PROCESSING);
+				if (aoi == null) break;
+				
+				logger.info("Processing: " + aoi);
+				
+				try {
+					dataSource.setAoi(aoi);
+					logger.info("Generating Constructions Points");
+					PointEngine.doWork(dataSource, prop);
+					logger.info("Generating Skeletons");
+					SkeletonEngine.doWork(dataSource, prop, runtime.getCores());
+					logger.info("Directionalizing Dataset");
+					DirectionalizeEngine.doWork(dataSource, prop);
+					logger.info("Computing Rank");
+					RankEngine.doWork(dataSource, prop);
+					
+					dataSource.setState(State.FP_DONE);
+				}catch (Exception ex) {
+					dataSource.setState(State.FP_ERROR);
+					ex.printStackTrace();
+				}
+			}
+		}finally {
+			if (dataSource != null) dataSource.close();
+		}
+	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Government of Canada
+ * Copyright 2021 Canadian Wildlife Federation
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); 
  * you may not use this file except in compliance with the License. 
@@ -124,6 +124,7 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 
 	@Override
 	public void setAoi(String aoi) throws IOException{
+		logger.warn("Processing AOI: " + aoi);
 		super.setAoi(aoi);
 		clearAoiOutputTables();
 	}

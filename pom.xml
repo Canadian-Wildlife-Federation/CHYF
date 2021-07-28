@@ -10,13 +10,13 @@
 
 	<properties>
 		<!-- processing tools version (combines flowpath and catchments) -->
-		<chyf.processingtools.version>1.0.2</chyf.processingtools.version>
+		<chyf.processingtools.version>1.2.0</chyf.processingtools.version>
 		<!-- core library version -->
-		<chyf.core.version>1.0.1</chyf.core.version>
+		<chyf.core.version>1.2.0</chyf.core.version>
 		<!-- flowpath constructor version -->
-		<flowpath.constructor.version>1.0.2</flowpath.constructor.version>
+		<flowpath.constructor.version>1.1.0</flowpath.constructor.version>
 		<!-- catchment delineator version -->
-		<catchment.version>1.0.1</catchment.version>
+		<catchment.version>1.2.0</catchment.version>
 		
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<geotools.version>25.1</geotools.version>
@@ -25,7 +25,7 @@
 		<slf4j.version>1.7.25</slf4j.version>
 		<commonscli.version>1.4</commonscli.version>
 		<timestamp>${maven.build.timestamp}</timestamp>
-        	<maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
+        <maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
 	</properties>
 	
 	<modules>
