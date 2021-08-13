@@ -7,11 +7,14 @@ import java.util.Set;
 
 import org.geotools.filter.identity.FeatureIdImpl;
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
 import org.opengis.filter.identity.FeatureId;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.datasource.DirectionType;
 import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
@@ -114,7 +117,7 @@ public class Directionalizer {
 		
 		for (DEdge e : graph.edges) {
 			if (e.getDType() == DirectionType.UNKNOWN) {
-				logger.error("Edge not directionalized: " + e.toString());
+				ChyfLogger.INSTANCE.logError("Edge not directionalized", e.toGeometry(), Directionalizer.class);
 			}
 		}
 	}
@@ -155,10 +158,9 @@ public class Directionalizer {
 				if (degree3) {
 					//generally not an error, but I've seen a lot of direction errors
 					//in the dataset when this is the case so warn user
-					StringBuilder sb = new StringBuilder();
-					sb.append("A sub network has multiple sinks: " );
-					for (DNode n : localSinks) sb.append(n.toString() + " " );
-					logger.warn(sb.toString());			
+					List<Point> pnts = new ArrayList<>();
+					for (DNode n : localSinks) pnts.add((Point)n.toGeometry());
+					ChyfLogger.INSTANCE.logWarning("A sub network has multiple sinks.", (new GeometryFactory()).createMultiPoint(pnts.toArray(new Point[pnts.size()])), Directionalizer.class);
 				
 					//add a single sink node and join all sinks to that node
 					Coordinate c = localSinks.get(0).getCoordinate();
@@ -274,7 +276,7 @@ public class Directionalizer {
 			if (e.getType() != EfType.SKELETON ) cnt++;
 		}
 		if (cnt > 5) {
-			logger.warn("An (isolated) subgraph without any defined sinks is larger then 5 edges in size (actual size: " + cnt + ") @ " + sub.nodes.get(0).toString() + ". These will be directionalized by computing a sink based on the network.");
+			ChyfLogger.INSTANCE.logWarning("An (isolated) subgraph without any defined sinks is larger than 5 edges in size (actual size: " + cnt + "). These will be directionalized by computing a sink based on the network.", sub.nodes.get(0).toGeometry(), Directionalizer.class);
 		}
 		
 //		for (DNode n : graph.getNodes()) {

@@ -24,6 +24,7 @@ import java.util.List;
 
 import org.locationtech.jts.geom.Coordinate;
 
+import net.refractions.chyf.ExceptionWithLocation;
 import net.refractions.chyf.datasource.DirectionType;
 
 /**
@@ -135,7 +136,7 @@ public class DGraph {
 					}
 				} 
 				if (out1.getNodeA() == out1.getNodeB()){
-					throw new Exception("Circular reference found in graph: " + out1.getNodeA().toString());
+					throw new ExceptionWithLocation("Circular reference found in graph.", out1.getNodeA().toGeometry());
 				}
 			}
 		}
@@ -160,7 +161,6 @@ public class DGraph {
 			if (e.getDType() == DirectionType.KNOWN) continue;
 			//if one of the nodes is degree 1 never collapse
 			if (e.getNodeA().getDegree() == 1 || e.getNodeB().getDegree() == 1 ) continue;
-			
 			
 			if (e.getNodeA().getDegree() == 2 || e.getNodeB().getDegree() == 2 ) continue;
 

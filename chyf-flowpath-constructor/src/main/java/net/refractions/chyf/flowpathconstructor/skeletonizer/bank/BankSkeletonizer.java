@@ -28,7 +28,6 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineSegment;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.LinearRing;
-import org.locationtech.jts.geom.MultiLineString;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.operation.distance.DistanceOp;
 import org.locationtech.jts.operation.linemerge.LineMerger;
@@ -411,8 +410,10 @@ public class BankSkeletonizer {
 
 		//we need to use the skeletonizer as we need to navigate around curves or islands
 		SkeletonResult skels = gen.generateSkeleton(p.getPolygon(), points);
-		if (!skels.getErrors().isEmpty()) {
-			skels.getErrors().forEach(e->logger.warn(e));
+		if (!skels.getErrors().isEmpty()) {			
+			skels.getErrors().forEach(e->{
+				logger.warn(e.getMessage() + " " + e.getGeometry().toText());	
+			});
 			throw new IllegalStateException("Skeletonizer threw errors");
 		}
 		//build a graph from the skeletons and keep the shortest path between the points

@@ -50,6 +50,9 @@ import net.refractions.chyf.util.ProcessStatistics;
 import net.refractions.chyf.watershed.WatershedSettings;
 
 /**
+ * 
+ * NOT USED - this was too slow if the network connection to the database wasn't good
+ * 
  * Postgis data source for catchment delineator.
  * 
  * @author Emily

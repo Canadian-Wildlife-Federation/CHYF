@@ -140,7 +140,7 @@ public interface IFlowpathDataSource extends ChyfDataSource{
 	 * @throws SQLException 
 	 * 
 	 */
-	public void removeExistingSkeletons(boolean bankOnly) throws SQLException;
+	public void removeExistingSkeletons(boolean bankOnly) throws IOException;
 
 	/**
 	 * Reads construction points from geopackage for the catchment

@@ -19,6 +19,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
 
 /**
  * Represents a node in the directionalizer graph
@@ -87,5 +90,8 @@ public class DNode {
 		System.out.println(toString());
 	}
 	
+	public Geometry toGeometry() throws ParseException {
+		return (new WKTReader()).read(toString());
+	}
 	
 }

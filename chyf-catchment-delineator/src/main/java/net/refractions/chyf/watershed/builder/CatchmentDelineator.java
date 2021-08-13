@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.datasource.EcType;
-import net.refractions.chyf.datasource.ChyfPostGisDataSource.State;
+import net.refractions.chyf.datasource.ProcessingState;
 import net.refractions.chyf.util.ProcessStatistics;
 import net.refractions.chyf.watershed.model.HydroEdge;
 
@@ -70,21 +70,23 @@ public class CatchmentDelineator {
     private static void processAllAoi(Args args) throws IOException {
     	if (args.getRecover()) throw new IOException("Recover option is not supported for processing all AOIs");
     	
-    	CatchmentDelineatorPostgisDataSource dataSource = new CatchmentDelineatorPostgisDataSource(args.dbstring, args.getInput(), args.getOutput());
+    	CatchmentDelineatorLocalPostgisDataSource dataSource = new CatchmentDelineatorLocalPostgisDataSource(args.dbstring, args.getInput(), args.getOutput());
 
     	while(true) {
-			String aoi = dataSource.getNextAoiToProcess(State.FP_DONE, State.WS_PROCESSING);
+			String aoi = dataSource.getNextAoiToProcess(ProcessingState.FP_DONE, ProcessingState.WS_PROCESSING);
 			if (aoi == null) break;
 			try {
 				logger.info("Processing AOI: " + aoi);
 				dataSource.setAoi(aoi);
 				CatchmentDelineator cd = new CatchmentDelineator(dataSource, args);
 		    	cd.build();
-				dataSource.setState(State.WS_DONE);
+		    	dataSource.finish();
+				dataSource.setState(ProcessingState.WS_DONE);
 			}catch (Exception ex) {
 				logger.error("Could not process catchments for aoi (" + aoi + ")", ex);
-				dataSource.setState(State.WS_ERROR);
+				dataSource.setState(ProcessingState.WS_ERROR);
 			}
+			
 		}
     }
     
@@ -94,7 +96,7 @@ public class CatchmentDelineator {
      * @param args
      * @throws IOException
      */
-    public CatchmentDelineator(CatchmentDelineatorPostgisDataSource dataSource, Args args) throws IOException {
+    public CatchmentDelineator(CatchmentDelineatorLocalPostgisDataSource dataSource, Args args) throws IOException {
     	this(args);
     	dm = new DataManager(dataSource, args.getTiffDir(), args.getRecover());
     }
@@ -128,8 +130,8 @@ public class CatchmentDelineator {
 	    }else if (args.postgis){
 	    	if (args.hasAoi()) {
 	    		logger.info("Processing AOI: " + args.getAoi());
-	    		CatchmentDelineatorPostgisDataSource dataSource = new CatchmentDelineatorPostgisDataSource(args.dbstring, args.getInput(), args.getOutput());
-		    	((CatchmentDelineatorPostgisDataSource)dataSource).setAoi(args.getAoi(), !recover);
+	    		CatchmentDelineatorLocalPostgisDataSource dataSource = new CatchmentDelineatorLocalPostgisDataSource(args.dbstring, args.getInput(), args.getOutput());
+		    	((CatchmentDelineatorLocalPostgisDataSource)dataSource).setAoi(args.getAoi(), !recover);
 		    	dm = new DataManager(dataSource, inputTiffDir, recover);
 	    	}else {
 	    		//can't configure this here

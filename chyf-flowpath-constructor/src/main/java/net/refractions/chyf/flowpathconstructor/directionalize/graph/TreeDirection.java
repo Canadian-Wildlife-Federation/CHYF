@@ -19,9 +19,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.datasource.DirectionType;
 
 /**
@@ -37,8 +35,7 @@ import net.refractions.chyf.datasource.DirectionType;
  *
  */
 public class TreeDirection {
-	private static final Logger logger = LoggerFactory.getLogger(TreeDirection.class.getCanonicalName());
-
+	
 	/**
 	 * Order of the sinks matters, especially in cases where
 	 * most of the graph is not directionalized.
@@ -92,12 +89,12 @@ public class TreeDirection {
 						}
 					}
 					if (e == null) {
-						logger.error("Could not find an edge to walk up from sink node: " + localSinks.get(i).toString() + ".  An internal source node will be created at " + sink.toString());
+						ChyfLogger.INSTANCE.logError("Could not find an edge to walk up from sink node.  An internal source node will be created at ", sink.toGeometry(), TreeDirection.class);
 						break;
 					}
 					if (e.getNodeB() != sink) {
 						if (localSinks.contains(e.getNodeB())) {
-							logger.error("Potential loop detected at " + sink.toString() + " - both ends of this subnetwork are classified as sinks.");
+							ChyfLogger.INSTANCE.logWarning("Potential loop detected; both ends of this subnetwork are classified as sinks.", sink.toGeometry(), TreeDirection.class);
 							break;
 						}else {
 							e.flip();
@@ -121,7 +118,7 @@ public class TreeDirection {
 		
 		for (DEdge d : graph.edges) {
 			if (!d.visited) {
-				logger.error("Not all edges visited when directionalizing tree.  At least one eddge missed: " + d.toString());
+				ChyfLogger.INSTANCE.logError("Not all edges visited when directionalizing tree. At least one eddge missed. ", d.toGeometry(), TreeDirection.class);
 			}
 		}
 	}

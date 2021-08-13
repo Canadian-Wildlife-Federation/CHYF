@@ -27,11 +27,13 @@ import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
+import net.refractions.chyf.ExceptionWithLocation;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
-import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisLocalDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.WaterbodyIterator;
 
@@ -47,7 +49,15 @@ public class SkeletonEngine {
 	
 	public static void doWork(Path output, ChyfProperties props, int cores ) throws Exception {
 		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
-			doWork(dataSource, props, cores);
+			try {
+				doWork(dataSource, props, cores);
+			}catch (ExceptionWithLocation ex) {
+				ChyfLogger.INSTANCE.logException(ex);
+				throw ex;
+			}catch (Exception ex) {
+				ChyfLogger.INSTANCE.logException(ex);
+				throw ex;
+			}
 		}
 	}
 
@@ -76,14 +86,24 @@ public class SkeletonEngine {
 		//ensure all skeletons are written
 		dataSource.writeSkeletons(Collections.emptyList());
 		
-		
 		//check for errors
+		boolean haserrors = false;
 		for (SkeletonJob j : tasks) {
-			j.getExceptions().forEach(e->logger.error(e.getMessage(), e));
+			for (ExceptionWithLocation ex : j.getExceptions()) {
+				ChyfLogger.INSTANCE.logError("Skeleton Processing Error - " + ex.getMessage(), ex.getLocation(), ex, SkeletonEngine.class);
+				logger.error(ex.getMessage(), ex);
+				haserrors = true;
+			}
 		}
 		
 		for (SkeletonJob j : tasks) {
-			j.getErrors().forEach(e->logger.error(e));
+			for ( SkeletonResult.Error e : j.getErrors()) {
+				ChyfLogger.INSTANCE.logError(e.getMessage(), e.getGeometry(), SkeletonEngine.class);
+			}
+		}
+		
+		if (haserrors) {
+			throw new Exception("Error occured during skeletonizer process - see log for details");
 		}
 	}
 	
@@ -102,12 +122,12 @@ public class SkeletonEngine {
 				dataSource = new FlowpathGeoPackageDataSource(output);
 			}else if (runtime.isPostigs()){
 				if (!runtime.hasAoi()) return;
-				dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+				dataSource = new FlowpathPostGisLocalDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
 			}
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			SkeletonEngine.doWork(dataSource, prop, runtime.getCores());
-			
+			dataSource.finish();
 		}finally {
 			if (dataSource != null) dataSource.close();
 		}

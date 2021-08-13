@@ -35,6 +35,8 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
+import net.refractions.chyf.ExceptionWithLocation;
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
@@ -45,7 +47,7 @@ import net.refractions.chyf.datasource.Layer;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
-import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisLocalDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DEdge;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DGraph;
@@ -63,7 +65,15 @@ public class DirectionalizeEngine {
 
 	public static void doWork(Path output, ChyfProperties properties) throws Exception {
 		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
-			doWork(dataSource, properties);			
+			try {
+				doWork(dataSource, properties);
+			}catch (ExceptionWithLocation ex) {
+				ChyfLogger.INSTANCE.logException(ex);
+				throw ex;
+			}catch (Exception ex) {
+				ChyfLogger.INSTANCE.logException(ex);
+				throw ex;
+			}
 		}
 		
 		
@@ -234,13 +244,13 @@ public class DirectionalizeEngine {
 				dataSource = new FlowpathGeoPackageDataSource(output);
 			}else if (runtime.isPostigs()){
 				if (!runtime.hasAoi()) return;
-				dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
-				((FlowpathPostGisDataSource)dataSource).setAoi(runtime.getAoi());
+				dataSource = new FlowpathPostGisLocalDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+				((FlowpathPostGisLocalDataSource)dataSource).setAoi(runtime.getAoi());
 			}
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			DirectionalizeEngine.doWork(dataSource, prop);
-
+			dataSource.finish();
 		}finally {
 			if (dataSource != null) dataSource.close();
 		}

@@ -52,12 +52,18 @@ public interface ChyfDataSource extends AutoCloseable {
 	public CoordinateReferenceSystem getCoordinateReferenceSystem() ;
 
 	/**
+	 * To be called when processing is complete.
+	 */
+	public default void finish() throws IOException{};
+	
+	
+	/**
 	 * Queries the specified layer. 
 	 * @param layer the Layer to be queried
 	 * @return a SimpleFeatureReader with all features from the specified Layer
 	 * @throws IOException
 	 */
-	FeatureReader<SimpleFeatureType, SimpleFeature> query(Layer layer) throws IOException;
+	FeatureReader<SimpleFeatureType, SimpleFeature> query(ILayer layer) throws IOException;
 	
 	/**
 	 * Queries the specified layer using the bounds provided. 
@@ -67,7 +73,7 @@ public interface ChyfDataSource extends AutoCloseable {
 	 * @return a SimpleFeatureReader with the matched features from the specified Layer
 	 * @throws IOException
 	 */
-	FeatureReader<SimpleFeatureType, SimpleFeature> query(Layer layer, ReferencedEnvelope bounds) throws IOException;
+	FeatureReader<SimpleFeatureType, SimpleFeature> query(ILayer layer, ReferencedEnvelope bounds) throws IOException;
 
 	/**
 	 * Queries the specified layer using the filter provided. 
@@ -77,7 +83,7 @@ public interface ChyfDataSource extends AutoCloseable {
 	 * @return a SimpleFeatureReader with the matched features from the specified Layer
 	 * @throws IOException
 	 */
-	FeatureReader<SimpleFeatureType, SimpleFeature> query(Layer layer, Filter filter) throws IOException;
+	FeatureReader<SimpleFeatureType, SimpleFeature> query(ILayer layer, Filter filter) throws IOException;
 
 	/**
 	 * Queries the specified layer using the bounds and filter provided. 
@@ -88,7 +94,7 @@ public interface ChyfDataSource extends AutoCloseable {
 	 * @return a SimpleFeatureReader with the matched features from the specified Layer
 	 * @throws IOException
 	 */
-	FeatureReader<SimpleFeatureType, SimpleFeature> query(Layer layer, ReferencedEnvelope bounds, Filter filter) throws IOException;
+	FeatureReader<SimpleFeatureType, SimpleFeature> query(ILayer layer, ReferencedEnvelope bounds, Filter filter) throws IOException;
 		
     /**
      * 
@@ -98,8 +104,30 @@ public interface ChyfDataSource extends AutoCloseable {
      */
 	FeatureReader<SimpleFeatureType, SimpleFeature> getWaterbodies() throws IOException;
 
-	public SimpleFeatureType getFeatureType(Layer layer) throws IOException;
+	/**
+	 * 
+	 * @param layer
+	 * @return feature type for given layer
+	 * @throws IOException
+	 */
+	public SimpleFeatureType getFeatureType(ILayer layer) throws IOException;
 
+	/**
+	 * Logs an error to the errors layer
+	 * 
+	 * @param location
+	 * @param message
+	 * @throws IOException
+	 */
+	public void logError(String message, Geometry location) throws IOException;
+	/**
+	 * Logs a warning to the errors layer
+	 * 
+	 * @param location
+	 * @param message
+	 * @throws IOException
+	 */
+	public void logWarning(String message, Geometry location) throws IOException;
 		
 	/**
 	 * 

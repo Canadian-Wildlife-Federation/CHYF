@@ -51,6 +51,7 @@ import org.opengis.filter.identity.FeatureId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
@@ -86,8 +87,19 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 		if (ChyfDataSource.findAttribute(getFeatureType(Layer.EFLOWPATHS), ChyfAttribute.DIRECTION) == null) {
 			addDirectionAttribute();
 		}
+		
+		ChyfLogger.INSTANCE.setDataSource(this);
 	}
 
+	/**
+	 * Gets the construction point feature layer
+	 * @return
+	 * @throws IOException
+	 */
+	public FeatureEntry getConstructionPointLayer() throws IOException {
+		return geopkg.feature(CONSTRUCTION_PNTS_LAYER);
+	}
+	
 	@Override
 	public void updateCoastline(FeatureId fid, LineString newls, Transaction tx) throws IOException {
 		try(SimpleFeatureWriter writer = geopkg.writer(getEntry(Layer.SHORELINES), false, ff.id(fid), tx)){
@@ -127,7 +139,7 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 			while(reader.hasNext()){
 				SimpleFeature point = reader.next();
 				Point pg = ChyfDataSource.getPoint(point);
-				pg.setUserData(FlowDirection.parseValue( (Integer)point.getAttribute(flowdirAttribute)) );
+				pg.setUserData(FlowDirection.parseValue( ((Number)point.getAttribute(flowdirAttribute)).intValue() ));
 				pnt.add(pg);
 			}
 		}
@@ -145,7 +157,7 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	public Set<Coordinate> getOutputConstructionPoints() throws Exception{
 		Set<Coordinate> pnt = new HashSet<>();
 		Filter filter = ff.equals(ff.property(ChyfAttribute.FLOWDIRECTION.getFieldName()), ff.literal(FlowDirection.OUTPUT.getChyfValue()));
-		try(SimpleFeatureReader reader = geopkg.reader(geopkg.feature(CONSTRUCTION_PNTS_LAYER), filter, null)){
+		try(SimpleFeatureReader reader = geopkg.reader(getConstructionPointLayer(), filter, null)){
 			while(reader.hasNext()){
 				SimpleFeature point = reader.next();
 				pnt.add(ChyfDataSource.getPoint(point).getCoordinate());
@@ -203,7 +215,7 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	public synchronized List<ConstructionPoint> getConstructionsPoints(Object catchmentId) throws IOException{
 		Filter filter = ff.equals(ff.property(CATCHMENT_INTERNALID_ATTRIBUTE), ff.literal(catchmentId));
 		List<ConstructionPoint> points = new ArrayList<>();
-		try(SimpleFeatureReader reader = geopkg.reader(geopkg.feature(CONSTRUCTION_PNTS_LAYER), filter, null)){
+		try(SimpleFeatureReader reader = geopkg.reader(getConstructionPointLayer(), filter, null)){
         	while(reader.hasNext()) {
         		SimpleFeature sf = reader.next();
         		
@@ -448,9 +460,9 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	 * 
 	 */
 	@Override
-	public void removeExistingSkeletons(boolean bankOnly) throws SQLException {
-		Connection c = geopkg.getDataSource().getConnection();
-		try {
+	public void removeExistingSkeletons(boolean bankOnly) throws IOException {
+		try (Connection c = geopkg.getDataSource().getConnection()){
+			
 			StringBuilder sb = new StringBuilder();
 			sb.append("DELETE FROM ");
 			sb.append(getEntry(Layer.EFLOWPATHS).getTableName());
@@ -463,10 +475,10 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 				sb.append(EfType.SKELETON.getChyfValue());	
 			}
 			sb.append(")");
-			
+				
 			c.createStatement().execute(sb.toString());
-		}catch (Exception ex) {
-			
+		}catch (SQLException ex) {
+			throw new IOException(ex);
 		}
 	}
 	
@@ -474,12 +486,13 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	private void addDirectionAttribute() throws Exception{	
 		String tablename = getEntry(Layer.EFLOWPATHS).getTableName();
 		
-		Connection c = geopkg.getDataSource().getConnection();
-		String query = "ALTER TABLE " + tablename + " add column " + ChyfAttribute.DIRECTION.getFieldName()  + " integer ";
-		c.createStatement().execute(query);
-		
-		query = "UPDATE TABLE " + tablename + " set " + ChyfAttribute.DIRECTION.getFieldName()  + " = " + DirectionType.UNKNOWN.getChyfValue();
-		c.createStatement().execute(query);
+		try(Connection c = geopkg.getDataSource().getConnection()){
+			String query = "ALTER TABLE " + tablename + " add column " + ChyfAttribute.DIRECTION.getFieldName()  + " integer ";
+			c.createStatement().execute(query);
+			
+			query = "UPDATE TABLE " + tablename + " set " + ChyfAttribute.DIRECTION.getFieldName()  + " = " + DirectionType.UNKNOWN.getChyfValue();
+			c.createStatement().execute(query);
+		}
 		
 		geopkg.close();
 		read();
@@ -488,9 +501,11 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	@Override
 	public void addRankAttribute() throws Exception{	
 		String tablename = getEntry(Layer.EFLOWPATHS).getTableName();
-		Connection c = geopkg.getDataSource().getConnection();
-		String query = "ALTER TABLE " + tablename + " add column " + ChyfAttribute.RANK.getFieldName()  + " integer ";
-		c.createStatement().execute(query);
+		
+		try(Connection c = geopkg.getDataSource().getConnection()){
+			String query = "ALTER TABLE " + tablename + " add column " + ChyfAttribute.RANK.getFieldName()  + " integer ";
+			c.createStatement().execute(query);
+		}
 		
 		geopkg.close();
 		read();

@@ -36,6 +36,7 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.operation.linemerge.LineMerger;
 
+import net.refractions.chyf.ExceptionWithLocation;
 import net.refractions.chyf.datasource.DirectionType;
 import net.refractions.chyf.datasource.FlowDirection;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
@@ -233,12 +234,12 @@ public class PointGenerator {
 			}
 			if ( (found.getDirection() == FlowDirection.INPUT && point.getDirection() == FlowDirection.OUTPUT) ||
 					 (found.getDirection() == FlowDirection.OUTPUT && point.getDirection() == FlowDirection.INPUT) ) {
-				throw new Exception("Cannot create both an inflow and outflow construction point at the same coordinate: " + point.getCoordinate());
+				throw new ExceptionWithLocation("Cannot create both an inflow and outflow construction point at the same coordinate.", workingWaterbody.getFactory().createPoint(point.getCoordinate()));
 			}
 		}else {
 			if (found.getType() == NodeType.BANK || point.getType() == NodeType.BANK) {
 				//throw and exception cannot create bank and flowpath node at the same coordinate
-				throw new Exception("Cannot create bank and flow construction point at the same coordinate: " + point.getCoordinate().toString());
+				throw new ExceptionWithLocation("Cannot create bank and flow construction point at the same coordinate.", workingWaterbody.getFactory().createPoint(point.getCoordinate()));
 			}
 			if (found.getDirection() == point.getDirection()) return;
 			if (found.getDirection() == FlowDirection.UNKNOWN) {
@@ -248,7 +249,7 @@ public class PointGenerator {
 			}
 			if ( (found.getDirection() == FlowDirection.INPUT && point.getDirection() == FlowDirection.OUTPUT) ||
 					 (found.getDirection() == FlowDirection.OUTPUT && point.getDirection() == FlowDirection.INPUT) ) {
-				throw new Exception("Cannot create both an inflow and outflow construction point at the same coordinate: " + point.getCoordinate());
+				throw new ExceptionWithLocation("Cannot create both an inflow and outflow construction point at the same coordinate.", workingWaterbody.getFactory().createPoint(point.getCoordinate()));
 			}
 		}
 	}
@@ -277,49 +278,53 @@ public class PointGenerator {
 			}else if ( t instanceof LineString) {
 				m.add(t);
 			}else {
-				throw new Exception("Invalid intersection of polygons.  Intersection does not form point or linestring (check that the polygons are noded correctly).  Centroids of offending polygons: " + p1.getCentroid().toText() + " " + p2.getCentroid().toText());
+				throw new ExceptionWithLocation("Invalid intersection of polygons. "
+						+ " Intersection does not form point or linestring "
+						+ "(check that the polygons are noded correctly).  "
+						+ "Centroids of offending polygons.", 
+						workingWaterbody.getFactory().createMultiPoint(new Point[] {p1.getCentroid(), p2.getCentroid()}));
 			}
 		}
 		items.addAll(m.getMergedLineStrings());
 		
 		//for the case where an interior ring touches the boundary
-		//at a single point
-		int i = 0;
-		List<LineString> interiors = new ArrayList<>();
-		for (int j = 0; j < p1.getNumInteriorRing(); j ++) interiors.add(p1.getInteriorRingN(j));
-		for (int j = 0; j < p2.getNumInteriorRing(); j ++) interiors.add(p2.getInteriorRingN(j));
-		while (i < items.size()) {
-			Geometry t = items.get(i);
-			i++;
-			
-			if (t instanceof Point) continue;
-			LineString ls = (LineString)t;
-			
-			for (LineString ls2 : interiors) {
-				//does a coordinate on this interior ring match a coordinate on the linestring??
-				Coordinate[] cc = ls2.getCoordinates();
-				
-				for (int k = 1; k < ls.getCoordinates().length-1; k ++) {
-					boolean found = false;
-					for (int l = 0; l < cc.length; l ++) {
-						if (ls.getCoordinates()[k].equals2D(cc[l])) {
-							found = true;
-							break;
-						}
-					}
-					if (found) {
-						//split linestring; reset counter and continue
-						LineString l1 = (new  GeometryFactory()).createLineString(Arrays.copyOfRange(ls.getCoordinates(), 0, k+1));
-						LineString l2 = (new  GeometryFactory()).createLineString(Arrays.copyOfRange(ls.getCoordinates(), k, ls.getCoordinates().length));
-						items.remove(ls);
-						items.add(l1);
-						items.add(l2);
-						i = 0;
-						continue;
+		Set<Coordinate> touchpoints = new HashSet<>();
+		for (Polygon p : new Polygon[] {p1, p2} ) {
+			for (int j = 0; j < p.getNumInteriorRing(); j ++) {
+				Geometry intersection = p.getInteriorRingN(j).intersection(p.getExteriorRing());
+				if (!intersection.isEmpty()) {
+					if (intersection instanceof Point) {
+						touchpoints.add( ((Point)intersection).getCoordinate());
+					}else {
+						throw new ExceptionWithLocation("Interior ring intersects exterior ring at non-point", p);
 					}
 				}
 			}
-			
+		}
+		
+		if (touchpoints.isEmpty()) return items;
+		
+		//at a single point
+		int i = 0;
+		while (i < items.size()) {
+			Geometry t = items.get(i);
+			i++;
+			if (t instanceof Point) continue;
+			LineString ls = (LineString)t;
+
+			for (int k = 1; k < ls.getCoordinates().length-1; k ++) {
+				Coordinate c = ls.getCoordinateN(k);
+				if (touchpoints.contains(new Coordinate(c.x, c.y))) {
+					//split linestring; reset counter and continue
+					LineString l1 = (new  GeometryFactory()).createLineString(Arrays.copyOfRange(ls.getCoordinates(), 0, k+1));
+					LineString l2 = (new  GeometryFactory()).createLineString(Arrays.copyOfRange(ls.getCoordinates(), k, ls.getCoordinates().length));
+					items.remove(ls);
+					items.add(l1);
+					items.add(l2);
+					i = 0;
+					continue;
+				}
+			}			
 		}
 		return items;
 	}
@@ -394,7 +399,9 @@ public class PointGenerator {
 		if (coords.size() > 1) {
 			options.put(distance, findMidpoint(coords, false));
 		}
-	
+//		if (options.size() == 0) {
+//			System.out.println("ERROR: " + ls.toText());
+//		}
 		return options.get(options.keySet().stream().reduce(Math::max).get());
 	}
 	
@@ -580,7 +587,7 @@ public class PointGenerator {
 			throw new Exception("Cannot find the midpoint when zero coordinates computed");
 		}
 		if (items.size() == 1) {
-			throw new Exception("Cannot find the midpoint of a single coordinate. Likely data error near: (" + items.get(0).x + " " + items.get(0).y + ")");
+			throw new ExceptionWithLocation("Cannot find the midpoint of a single coordinate. Likely data error near.", workingWaterbody.getFactory().createPoint(items.get(0)));
 		}
 		
 		//if there is already a point on this line, reuse the exact same point
@@ -712,7 +719,7 @@ public class PointGenerator {
 			}			
 		}
 		
-		if (end.equals2D(start)) throw new Exception("Cannot generated constructions points for isolated waterbody: " + workingWaterbody.getCentroid().toText());
+		if (end.equals2D(start)) throw new ExceptionWithLocation("Cannot generated constructions points for isolated waterbody.", workingWaterbody.getCentroid());
 		
 		List<ConstructionPoint> points = new ArrayList<>();
 		points.add(new ConstructionPoint(start, NodeType.HEADWATER, FlowDirection.INPUT, (PolygonInfo) workingWaterbody.getUserData()));

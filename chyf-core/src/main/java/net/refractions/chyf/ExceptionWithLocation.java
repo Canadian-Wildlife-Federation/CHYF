@@ -13,20 +13,36 @@
  * See the License for the specific language governing permissions and 
  * limitations under the License.
  */
-package net.refractions.chyf.datasource;
+package net.refractions.chyf;
+
+import org.locationtech.jts.geom.Geometry;
 
 /**
- * Represent a layer in the data source 
+ * Extension of an exception that includes location details. 
  * 
  * @author Emily
  *
  */
-public interface ILayer {
+public class ExceptionWithLocation extends Exception {
 
 	/**
-	 * The name of the layer 
 	 * 
-	 * @return
 	 */
-	public String getLayerName() ;
+	private static final long serialVersionUID = 1L;
+	
+	private Geometry location;
+	
+	public ExceptionWithLocation(String message, Geometry location) {
+		super(message + " " + location.toText());
+		this.location = location;
+	}
+	
+	public ExceptionWithLocation(String message, Exception parent, Geometry location) {
+		super(message + " " + location.getCentroid().toText(), parent);
+		this.location = location;
+	}
+	
+	public Geometry getLocation() {
+		return this.location;
+	}
 }

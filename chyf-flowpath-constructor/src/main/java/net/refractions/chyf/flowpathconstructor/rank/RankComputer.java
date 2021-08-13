@@ -244,6 +244,7 @@ public class RankComputer {
 					//compute angle between p1; pnt and 
 					double angle = angleComputer.angle(p1, pnt, ls.getCoordinateN(i)) ;
 					if (angle < 0.872665 || angle > (Math.PI - 0.872665)) {  //0.872665=50degrees
+						source.logWarning("Channel width intersects channel at acute angle", item);
 						logger.warn("Channel width intersects channel at acute angle: " + item.toString());
 					}
 					break;	

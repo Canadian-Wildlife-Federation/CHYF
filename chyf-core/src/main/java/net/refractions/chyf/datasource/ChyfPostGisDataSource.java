@@ -30,17 +30,21 @@ import java.util.UUID;
 
 import org.geotools.data.DataStore;
 import org.geotools.data.DataStoreFinder;
+import org.geotools.data.DataUtilities;
 import org.geotools.data.DefaultTransaction;
 import org.geotools.data.FeatureReader;
+import org.geotools.data.FeatureStore;
 import org.geotools.data.Query;
-import org.geotools.data.Transaction; 
+import org.geotools.data.Transaction;
 import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.data.util.NullProgressListener;
+import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.jdbc.JDBCDataStoreFactory;
 import org.geotools.referencing.CRS;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.Polygon;
 import org.opengis.feature.Feature;
 import org.opengis.feature.FeatureVisitor;
@@ -54,9 +58,13 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.util.ReprojectionUtils;
 
 /**
+ * 
+ * NOT USED: this was slow in cases when there wasn't a fast db connection;
+ * 
  * Reads a geopackage input dataset.  
  * 
  * @author Emily
@@ -78,19 +86,11 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	protected String workingSchema = "working";
 	
 	private Map<String, Object> connectionParameters;
-		
-	public enum State {
-		FP_PROCESSING,
-		READY,
-		FP_DONE,
-		WS_PROCESSING,
-		WS_DONE,
-		FP_ERROR,
-		WS_ERROR,
-	};
 	
 	public ChyfPostGisDataSource(String connectionString, String inschema, 
 			String outschema) throws IOException {
+		ChyfLogger.INSTANCE.setDataSource(this);
+		
 		this.rawSchema = inschema;
 		this.workingSchema = outschema;
 		
@@ -158,7 +158,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	 * @param processing the state to update to to flag aoi as processing
 	 * @return null if no more items to process
 	 */
-	public String getNextAoiToProcess(State current, State processing) throws IOException{
+	public String getNextAoiToProcess(ProcessingState current, ProcessingState processing) throws IOException{
 		String laoiId = null;
 		try(Transaction tx = new DefaultTransaction()){
 			try {
@@ -226,7 +226,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	 * @param state
 	 * @throws IOException 
 	 */
-	public void setState(State state) throws IOException {
+	public void setState(ProcessingState state) throws IOException {
 		try(Transaction tx = new DefaultTransaction()){
 			try {
 				Connection c = getConnection(tx);
@@ -335,22 +335,22 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	}
 
 	@Override
-	public FeatureReader<SimpleFeatureType, SimpleFeature> query(Layer layer) throws IOException {
+	public FeatureReader<SimpleFeatureType, SimpleFeature> query(ILayer layer) throws IOException {
 		return query(layer, null, null);
 	}
 
 	@Override
-	public FeatureReader<SimpleFeatureType, SimpleFeature> query(Layer layer, ReferencedEnvelope bounds) throws IOException {
+	public FeatureReader<SimpleFeatureType, SimpleFeature> query(ILayer layer, ReferencedEnvelope bounds) throws IOException {
 		return query(layer, bounds, null);
 	}
 
 	@Override
-	public FeatureReader<SimpleFeatureType, SimpleFeature> query(Layer layer, Filter filter) throws IOException {
+	public FeatureReader<SimpleFeatureType, SimpleFeature> query(ILayer layer, Filter filter) throws IOException {
 		return query(layer, null, filter);
 	}
 
 	@Override
-	public FeatureReader<SimpleFeatureType, SimpleFeature> query(Layer layer, ReferencedEnvelope bounds, Filter filter) throws IOException {
+	public FeatureReader<SimpleFeatureType, SimpleFeature> query(ILayer layer, ReferencedEnvelope bounds, Filter filter) throws IOException {
 		if (layer == null) throw new IOException("Required dataset not found.");
 
 		String typeName = getTypeName(layer);
@@ -398,6 +398,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		if (layer == Layer.EFLOWPATHS) return "eflowpath";
 		if (layer == Layer.SHORELINES) return "shoreline";
 		if (layer == Layer.TERMINALNODES) return "terminal_node";
+		if (layer == Layer.ERRORS) return "errors";
 		return null;
 	}
 
@@ -431,7 +432,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	}
 
 	@Override
-	public SimpleFeatureType getFeatureType(Layer layer) throws IOException {
+	public SimpleFeatureType getFeatureType(ILayer layer) throws IOException {
 		return workingDataStore.getSchema(getTypeName(layer));
 	}
 
@@ -447,6 +448,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 
 		//ensure raw tables exist
 	    for (Layer l : Layer.values()) {
+	    	if (l == Layer.ERRORS) continue;
 	    	SimpleFeatureType stype = rawDataStore.getSchema(getTypeName(l));
 	    	if (stype == null) throw new IOException("No raw data table for layer :" + l.getLayerName());
 	    }
@@ -482,7 +484,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	    List<Layer> toProcess = new ArrayList<>();
 	    toProcess.add(Layer.AOI);
 	    for (Layer l : Layer.values()) {
-	    	if (l == Layer.AOI) continue;
+	    	if (l == Layer.AOI ) continue;
 	    	toProcess.add(l);
 	    }
 	    
@@ -497,63 +499,125 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	    	}
 	    	
 	    	if (stype == null) {
-	    		
-	    		SimpleFeatureType rtype = rawDataStore.getSchema(getTypeName(l));
-	    		Name interalidatt = ChyfDataSource.findAttribute(rtype, ChyfAttribute.INTERNAL_ID);
-	    		
-		    	StringBuilder sb = new StringBuilder();
-		    	//create new table
-		    	sb.append("CREATE TABLE ");
-		    	sb.append(getTableName(l));
-		    	sb.append(" AS SELECT ");
-		    	if (l != Layer.AOI && interalidatt == null) {
-		    		sb.append("uuid_generate_v4() as " + ChyfAttribute.INTERNAL_ID.getFieldName());
-		    		sb.append(",");
-		    	}
-		    	sb.append(" a.* ");
-		    	sb.append(" FROM " + rawSchema + "." + getTypeName(l) + " a ");
-		    	sb.append(" WHERE ");
-		    	sb.append(getAoiFieldName(l));
-		    	sb.append(" = " );
-		    	sb.append (" ? ");
+	    		if (l == Layer.ERRORS) {
+	    			createErrorWarningsTable(c);
+	    		}else {
+		    		SimpleFeatureType rtype = rawDataStore.getSchema(getTypeName(l));
+		    		Name interalidatt = ChyfDataSource.findAttribute(rtype, ChyfAttribute.INTERNAL_ID);
 		    		
-		    	try(PreparedStatement ps = c.prepareStatement(sb.toString())){
-		    		ps.setObject(1, aoiUuid);
-		    		ps.executeUpdate();
-		    	}catch(SQLException ex) {
-		    		throw new IOException(ex);
-		    	}
-		    		
-		    	try {
-			    	if (l == Layer.AOI) {
-			    		sb = new StringBuilder();
-			    		sb.append("ALTER TABLE ");
-			    		sb.append(getTableName(l));
-			    		sb.append(" ADD PRIMARY KEY (id) ");
-			    		c.createStatement().executeUpdate(sb.toString());
-			    	}else {
-			    		sb = new StringBuilder();
-			    		sb.append("ALTER TABLE ");
-			    		sb.append(getTableName(l));
-			    		sb.append(" ADD PRIMARY KEY ( ");
-			    		sb.append(ChyfAttribute.INTERNAL_ID.getFieldName());
-			    		sb.append(")");
-			    		c.createStatement().executeUpdate(sb.toString());
+			    	StringBuilder sb = new StringBuilder();
+			    	//create new table
+			    	sb.append("CREATE TABLE ");
+			    	sb.append(getTableName(l));
+			    	sb.append(" AS SELECT ");
+			    	if (l != Layer.AOI && interalidatt == null) {
+			    		sb.append("uuid_generate_v4() as " + ChyfAttribute.INTERNAL_ID.getFieldName());
+			    		sb.append(",");
+			    	}
+			    	sb.append(" a.* ");
+			    	sb.append(" FROM " + rawSchema + "." + getTypeName(l) + " a ");
+			    	sb.append(" WHERE ");
+			    	sb.append(getAoiFieldName(l));
+			    	sb.append(" = " );
+			    	sb.append (" ? ");
 			    		
-			    		sb = new StringBuilder();
-			    		sb.append("CREATE INDEX ON ");
-			    		sb.append(getTableName(l));
-			    		sb.append(" ( ");
-			    		sb.append(getAoiFieldName(l));
-			    		sb.append(")");
-			    		c.createStatement().executeUpdate(sb.toString());
+			    	try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+			    		ps.setObject(1, aoiUuid);
+			    		ps.executeUpdate();
+			    	}catch(SQLException ex) {
+			    		throw new IOException(ex);
 			    	}
 			    	
-			    		
-		    	}catch(SQLException ex) {
-		    		throw new IOException(ex);
-		    	}	   
+			    	
+			    	
+			    	try {
+				    	if (l == Layer.AOI) {
+				    		sb = new StringBuilder();
+				    		sb.append("ALTER TABLE ");
+				    		sb.append(getTableName(l));
+				    		sb.append(" ADD PRIMARY KEY (id) ");
+				    		c.createStatement().executeUpdate(sb.toString());
+				    	}else {
+				    		sb = new StringBuilder();
+				    		sb.append("ALTER TABLE ");
+				    		sb.append(getTableName(l));
+				    		sb.append(" ADD PRIMARY KEY ( ");
+				    		sb.append(ChyfAttribute.INTERNAL_ID.getFieldName());
+				    		sb.append(")");
+				    		c.createStatement().executeUpdate(sb.toString());
+				    		
+				    		sb = new StringBuilder();
+				    		sb.append("CREATE INDEX ON ");
+				    		sb.append(getTableName(l));
+				    		sb.append(" ( ");
+				    		sb.append(getAoiFieldName(l));
+				    		sb.append(")");
+				    		c.createStatement().executeUpdate(sb.toString());
+				    	
+				    		//TODO: this assumes geometry field
+				    		sb = new StringBuilder();
+				    		sb.append("CREATE INDEX ON ");
+				    		sb.append(getTableName(l));
+				    		sb.append(" using gist (geometry) ");
+				    		
+				    		c.createStatement().executeUpdate(sb.toString());
+				    	}	
+			    	}catch(SQLException ex) {
+			    		throw new IOException(ex);
+			    	}	   
+			    	
+	    		}
 	    	}
 	    }
+	}
+	
+	
+	protected void createErrorWarningsTable(Connection c) throws IOException{
+		try {
+			StringBuilder sb = new StringBuilder();
+			sb.append("CREATE TABLE ");
+	    	sb.append(getTableName(Layer.ERRORS));
+	    	sb.append("(");
+	    	sb.append("id uuid not null default uuid_generate_v4() primary key, ");
+	    	sb.append(getAoiFieldName(Layer.ERRORS) + " uuid not null references " + getTableName(Layer.AOI) + " (" + getAoiFieldName(Layer.AOI) + "),"); 
+	    	sb.append("type varchar(32), ");
+	    	sb.append("message varchar, ");
+	    	sb.append("geometry GEOMETRY )");
+	    	
+			c.createStatement().executeUpdate(sb.toString());
+		}catch (SQLException ex) {
+			throw new IOException(ex);
+		}
+	}
+
+	public void logError(String message, Geometry location) throws IOException {
+		logInternal("ERROR", location, message);
+	}
+	public void logWarning(String message, Geometry location) throws IOException {
+		logInternal("WARNING", location, message);
+	}
+	private void logInternal(String type, Geometry location, String message) throws IOException{
+		
+		SimpleFeatureType pntType = getFeatureType(Layer.ERRORS);
+
+		List<SimpleFeature> features = new ArrayList<>();
+		SimpleFeatureBuilder featureBuilder = new SimpleFeatureBuilder(pntType);
+		
+		String uuid = UUID.randomUUID().toString();
+		featureBuilder.set("geometry", location);
+		featureBuilder.set(getAoiFieldName(Layer.ERRORS), aoiUuid);
+		featureBuilder.set("type", type);
+		featureBuilder.set("message", message);
+		SimpleFeature sf = featureBuilder.buildFeature(uuid);
+		features.add(sf);
+		
+		try(Transaction t1 = new DefaultTransaction("transaction 1")){
+			@SuppressWarnings("unchecked")
+			FeatureStore<SimpleFeatureType, SimpleFeature> store = 
+					(FeatureStore<SimpleFeatureType, SimpleFeature>) workingDataStore.getFeatureSource(getTypeName(Layer.ERRORS));
+			store.setTransaction(t1);
+			store.addFeatures(DataUtilities.collection(features));
+			t1.commit();
+		}
 	}
 }

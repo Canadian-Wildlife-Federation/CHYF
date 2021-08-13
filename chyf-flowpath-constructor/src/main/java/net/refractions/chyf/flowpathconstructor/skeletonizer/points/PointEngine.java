@@ -41,6 +41,8 @@ import org.opengis.filter.identity.FeatureId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
+import net.refractions.chyf.ExceptionWithLocation;
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
@@ -52,7 +54,7 @@ import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties.Property;
 import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
-import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisLocalDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.WaterbodyIterator;
 
@@ -76,7 +78,15 @@ public class PointEngine {
 	 */
 	public static void doWork(Path output, ChyfProperties properties) throws Exception {
 		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
-			doWork(dataSource, properties);
+			try {
+				doWork(dataSource, properties);
+			}catch (ExceptionWithLocation ex) {
+				ChyfLogger.INSTANCE.logException(ex);
+				throw ex;
+			}catch (Exception ex) {
+				ChyfLogger.INSTANCE.logException(ex);
+				throw ex;
+			}
 		}
 
 	}
@@ -324,6 +334,7 @@ public class PointEngine {
 				}else {
 					BoundaryEdge be = new BoundaryEdge(d,  (LineString)x, null);
 					edges.add(be);
+					dataSource.logWarning("The boundary edge has no in/out points", be.getLineString());
 					logger.warn("WARNING: The boundary edge has no in/out points: " + be.getLineString().toText());
 				}
 			}else {
@@ -347,6 +358,7 @@ public class PointEngine {
 				}
 			}
 			if (!found) {
+				dataSource.logWarning("WARNING: The waterbody intersects the aoi at a single point, but this point is not defined as a in/out point.", p);
 				logger.warn("WARNING: The waterbody intersects the aoi at a single point, but this point is not defined as a in/out point: " + p.toText());
 			}
 		}
@@ -392,12 +404,12 @@ public class PointEngine {
 				dataSource = new FlowpathGeoPackageDataSource(output);
 			}else if (runtime.isPostigs()){
 				if (!runtime.hasAoi()) return;
-				dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+				dataSource = new FlowpathPostGisLocalDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
 			}
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			PointEngine.doWork(dataSource, prop);
-			
+			dataSource.finish();
 		}finally {
 			if (dataSource != null) dataSource.close();
 		}

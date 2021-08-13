@@ -22,9 +22,9 @@ import java.util.List;
 import java.util.Set;
 
 import org.locationtech.jts.geom.Coordinate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
+import net.refractions.chyf.ExceptionWithLocation;
 import net.refractions.chyf.datasource.DirectionType;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties.Property;
@@ -40,8 +40,6 @@ import net.refractions.chyf.flowpathconstructor.directionalize.Directionalizer;
  */
 public class PathDirectionalizer {
 
-	private static final Logger logger = LoggerFactory.getLogger(PathDirectionalizer.class.getCanonicalName());
-	
 	private ChyfAngle angle;
 	private ChyfProperties prop;
 	
@@ -96,7 +94,7 @@ public class PathDirectionalizer {
 		};
 		
 		if (sinks.isEmpty()) {
-			throw new Exception("Partitioning subgraphs created a subgraph with no sinks: " + subGraph.edges.get(0).toString());
+			throw new ExceptionWithLocation("Partitioning subgraphs created a subgraph with no sinks.", subGraph.edges.get(0).toGeometry());
 		}
 		
 		if (sources.isEmpty()) {
@@ -152,7 +150,7 @@ public class PathDirectionalizer {
 					out.setKnown();
 				}
 			}
-			logger.warn("Loop case detected where a random source node will be created. Source node created at: " + src.toString());
+			ChyfLogger.INSTANCE.logWarning("Loop case detected where a random source node will be created. Source node created.", src.toGeometry(), PathDirectionalizer.class);			
 		}
 		dir(subGraph, sinks, sources);
 	}
@@ -185,7 +183,7 @@ public class PathDirectionalizer {
 					paths.add(path);
 				}
 			}else {
-				logger.error("Path shouldn't be null @ " + sourcenode.toString());
+				ChyfLogger.INSTANCE.logError("Path shouldn't be null.", sourcenode.toGeometry(), PathDirectionalizer.class);
 			}
 		}		
 		//for remaining edges; find shortest path from that edge to sink
@@ -256,14 +254,14 @@ public class PathDirectionalizer {
 							}
 						}
 						if (Directionalizer.cycleCheck(temp2, graph)) {
-							throw new Exception("Cannot add path as both directions for this path creates a cycle. " + temp.toString());
+							throw new ExceptionWithLocation("Cannot add path as both directions for this path creates a cycle. ",  temp.toGeometry());
 						}else {
 							System.out.println("USING TRUNCATED PATH");
 							temp = temp2;
 						}
 						
 					}else {
-						throw new Exception("Cannot add path as both directions for this path creates a cycle. " + temp.toString());
+						throw new ExceptionWithLocation("Cannot add path as both directions for this path creates a cycle. ", temp.toGeometry());
 					}
 				}
 			}
@@ -364,7 +362,7 @@ public class PathDirectionalizer {
 		//check all edges in graph are part of path 
 		for (DEdge e : graph.edges) {
 			if (!e.pathedge) {
-				throw new Exception("Not all edges in the subgraph were directionalized: " + e.toString());
+				throw new ExceptionWithLocation("Not all edges in the subgraph were directionalized: ", e.toGeometry());
 			}
 		}
 	}
@@ -449,7 +447,6 @@ public class PathDirectionalizer {
 			}else {
 				path.edges.get(k).setKnown();
 			}
-//			path.edges.get(k).pathedge = true;
 		}
 	}
 	

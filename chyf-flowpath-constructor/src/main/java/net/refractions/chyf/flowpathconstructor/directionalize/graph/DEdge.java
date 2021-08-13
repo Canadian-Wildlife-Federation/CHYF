@@ -19,10 +19,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
 import org.opengis.filter.identity.FeatureId;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.datasource.DirectionType;
 import net.refractions.chyf.datasource.EfType;
 
@@ -32,8 +34,6 @@ import net.refractions.chyf.datasource.EfType;
  */
 public class DEdge {
 
-	private static final Logger logger = LoggerFactory.getLogger(DEdge.class.getCanonicalName());
-	
 	private DNode n1;
 	private Coordinate n1NextTo;
 	
@@ -187,10 +187,13 @@ public class DEdge {
 	public void setKnown() {
 		info.setDirectionType(DirectionType.KNOWN);
 	}
+	
 	public void flip() throws Exception{
+		
 		if (rawdt == DirectionType.KNOWN) {
-			logger.error("Flipping the direction of a known edge: " + toString());
+			ChyfLogger.INSTANCE.logError("Flipping the direction of a known edge.", toGeometry(), DEdge.class);
 		}
+		
 		Coordinate t1 = n1NextTo;
 		n1NextTo = n2NextTo;
 		n2NextTo = t1;
@@ -223,4 +226,7 @@ public class DEdge {
 		return sb.toString();
 	}
 	
+	public Geometry toGeometry() throws ParseException {
+		return (new WKTReader()).read(toString());
+	}
 }

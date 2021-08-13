@@ -39,6 +39,8 @@ import org.opengis.feature.type.Name;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
+import net.refractions.chyf.ExceptionWithLocation;
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
@@ -47,7 +49,7 @@ import net.refractions.chyf.datasource.Layer;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
-import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisLocalDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.WaterbodyIterator;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.PolygonInfo;
@@ -61,10 +63,18 @@ public class BankEngine {
 	
 	public static void doWork(Path output, ChyfProperties properties) throws Exception {
 		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
-			doWork(dataSource, properties);
+			try {
+				doWork(dataSource, properties);
+			}catch (ExceptionWithLocation ex) {
+				ChyfLogger.INSTANCE.logException(ex);
+				throw ex;
+			}catch (Exception ex) {
+				ChyfLogger.INSTANCE.logException(ex);
+				throw ex;
+			}
 		}
+	}	
 	
-	}		
 	public static void doWork(IFlowpathDataSource dataSource, ChyfProperties properties) throws Exception {
 
 		int cnt = 1;	
@@ -314,13 +324,13 @@ public class BankEngine {
 				dataSource = new FlowpathGeoPackageDataSource(output);
 			}else if (runtime.isPostigs()){
 				if (!runtime.hasAoi()) return;
-				dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+				dataSource = new FlowpathPostGisLocalDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
 			}
 			
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			BankEngine.doWork(dataSource, prop);
-			
+			dataSource.finish();
 		}finally {
 			if (dataSource != null) dataSource.close();
 		}

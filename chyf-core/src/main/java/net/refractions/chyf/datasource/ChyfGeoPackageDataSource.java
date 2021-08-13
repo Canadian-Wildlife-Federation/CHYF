@@ -31,11 +31,14 @@ import org.geotools.data.DefaultTransaction;
 import org.geotools.data.Transaction;
 import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.data.simple.SimpleFeatureWriter;
+import org.geotools.feature.DefaultFeatureCollection;
+import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.geopkg.FeatureEntry;
 import org.geotools.geopkg.GeoPackage;
 import org.geotools.referencing.CRS;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.Polygon;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
@@ -46,6 +49,7 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.util.ReprojectionUtils;
 
 /**
@@ -75,6 +79,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	}
 	
 	public ChyfGeoPackageDataSource(Path geopackageFile) throws IOException {
+		ChyfLogger.INSTANCE.setDataSource(this);
 		this.geopackageFile = geopackageFile;
 		read();
 	}
@@ -86,6 +91,9 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		return crs;
 	}
 	
+	public Path getFileName() {
+		return this.geopackageFile;
+	}
 	protected void read() throws IOException {
 		geopkg = new GeoPackage(geopackageFile.toFile());
 		geopkg.init();
@@ -99,6 +107,51 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 				throw new RuntimeException("All layers must have the same projection.");
 			}
 		}
+		if (getFeatureType(Layer.ERRORS) == null) createErrorWarningsTable();
+	}
+	
+	protected void createErrorWarningsTable() throws IOException{
+		SimpleFeatureTypeBuilder builder = new SimpleFeatureTypeBuilder();
+		builder.add("geometry", Geometry.class, crs);
+		builder.add("type", String.class);
+		builder.add("message", String.class);
+		builder.setName(Layer.ERRORS.getLayerName());
+		builder.setCRS(getCoordinateReferenceSystem());
+		SimpleFeatureType ftype = builder.buildFeatureType();
+		
+		FeatureEntry entry = new FeatureEntry();
+		entry.setTableName(Layer.ERRORS.getLayerName());
+		entry.setM(false);
+		entry.setSrid(0);
+		
+        DefaultFeatureCollection collection = new DefaultFeatureCollection(null, ftype);
+		geopkg.add(entry, collection);
+	}
+
+	public void logError(String message, Geometry location) throws IOException {
+		logInternal("ERROR", location, message);
+	}
+	
+	public void logWarning(String message, Geometry location) throws IOException {
+		logInternal("WARNING", location, message);
+	}
+	
+	private void logInternal(String type, Geometry location, String message) throws IOException {	
+		try(Transaction tx = new DefaultTransaction()) {	
+			try(SimpleFeatureWriter fw = geopkg.writer(getEntry(Layer.ERRORS), true, Filter.EXCLUDE, tx)){
+
+				SimpleFeature fs = fw.next();
+				fs.setAttribute("type", type);
+				fs.setAttribute("message", message);
+				fs.setDefaultGeometry(location);
+				fw.write();
+
+				tx.commit();
+			} catch(Exception ioe) {
+				tx.rollback();
+				throw ioe;
+			}
+		}
 	}
 	
 	/**
@@ -107,7 +160,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	 * @return the feature type associated with a given layer
 	 * @throws IOException
 	 */
-	public synchronized SimpleFeatureType getFeatureType(Layer layer) throws IOException{
+	public synchronized SimpleFeatureType getFeatureType(ILayer layer) throws IOException{
 		return getFeatureType(getEntry(layer));
 	}
 
@@ -128,8 +181,15 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	/**
 	 * @return a feature reader for the given layer
 	 */
-    protected SimpleFeatureReader getFeatureReader(Layer layer, Filter filter, Transaction tx) throws IOException {
+	public SimpleFeatureReader getFeatureReader(ILayer layer, Filter filter, Transaction tx) throws IOException {
     	FeatureEntry fe = getEntry(layer);
+    	return getFeatureReader(fe, filter, tx);
+    }
+   
+	/**
+	 * @return a feature reader for the given layer
+	 */
+    public SimpleFeatureReader getFeatureReader(FeatureEntry fe, Filter filter, Transaction tx) throws IOException {
     	if (fe == null) return null;
     	return geopkg.reader(fe, filter, tx);
     }
@@ -151,11 +211,11 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
      * @return
      * @throws IOException
      */
-	protected synchronized FeatureEntry getEntry(Layer layer) throws IOException {
+	protected synchronized FeatureEntry getEntry(ILayer layer) throws IOException {
 		return geopkg.feature(layer.getLayerName());
 	}
 
-	public synchronized int getSrid(Layer layer) throws IOException {
+	public synchronized int getSrid(ILayer layer) throws IOException {
 		return geopkg.feature(layer.getLayerName()).getSrid();
 	}
 
@@ -186,9 +246,9 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 			if (name == null) addId.add(fe);
 		}
 		
-		try {
+		try (Connection c = geopkg.getDataSource().getConnection()){
+			
 			//add the id
-			Connection c = geopkg.getDataSource().getConnection();
 			for (FeatureEntry layer : addId) {
 				String query = "ALTER TABLE " + layer.getTableName() + " add column " + ChyfAttribute.INTERNAL_ID.getFieldName()  + " text ";
 				c.createStatement().execute(query);
@@ -246,22 +306,22 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	}
 
 	@Override
-	public SimpleFeatureReader query(Layer layer) throws IOException {
+	public SimpleFeatureReader query(ILayer layer) throws IOException {
 		return query(layer, null, null);
 	}
 
 	@Override
-	public SimpleFeatureReader query(Layer layer, ReferencedEnvelope bounds) throws IOException {
+	public SimpleFeatureReader query(ILayer layer, ReferencedEnvelope bounds) throws IOException {
 		return query(layer, bounds, null);
 	}
 
 	@Override
-	public SimpleFeatureReader query(Layer layer, Filter filter) throws IOException {
+	public SimpleFeatureReader query(ILayer layer, Filter filter) throws IOException {
 		return query(layer, null, filter);
 	}
 
 	@Override
-	public SimpleFeatureReader query(Layer layer, ReferencedEnvelope bounds, Filter filter) throws IOException {
+	public SimpleFeatureReader query(ILayer layer, ReferencedEnvelope bounds, Filter filter) throws IOException {
 		if (layer == null) throw new IOException("Required dataset not found.");
 		FeatureEntry fe = getEntry(layer);
 		return query(fe, bounds, filter);

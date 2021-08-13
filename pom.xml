@@ -14,7 +14,7 @@
 		<!-- core library version -->
 		<chyf.core.version>1.2.0</chyf.core.version>
 		<!-- flowpath constructor version -->
-		<flowpath.constructor.version>1.1.0</flowpath.constructor.version>
+		<flowpath.constructor.version>1.2.0</flowpath.constructor.version>
 		<!-- catchment delineator version -->
 		<catchment.version>1.2.0</catchment.version>
 		
@@ -33,7 +33,7 @@
 		<module>chyf-flowpath-constructor</module>
 		<module>chyf-catchment-delineator</module>
 		<module>chyf-processing-tools</module>
-		<module>chyf-web</module> 
+		<!--<module>chyf-web</module> -->
 	</modules>
 	
 	<build>

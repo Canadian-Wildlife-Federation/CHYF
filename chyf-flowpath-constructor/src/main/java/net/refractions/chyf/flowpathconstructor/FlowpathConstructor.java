@@ -15,16 +15,18 @@
  */
 package net.refractions.chyf.flowpathconstructor;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
-import net.refractions.chyf.datasource.ChyfPostGisDataSource.State;
+import net.refractions.chyf.datasource.ProcessingState;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
-import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisLocalDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.directionalize.DirectionalizeEngine;
 import net.refractions.chyf.flowpathconstructor.rank.RankEngine;
@@ -58,8 +60,8 @@ public class FlowpathConstructor {
 				runDatasource(dataSource, runtime);
 			}else if (runtime.isPostigs()){
 				if (runtime.hasAoi()) {
-					dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
-					((FlowpathPostGisDataSource)dataSource).setAoi(runtime.getAoi());	
+					dataSource = new FlowpathPostGisLocalDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+					((FlowpathPostGisLocalDataSource)dataSource).setAoi(runtime.getAoi());	
 					runDatasource(dataSource, runtime);
 				}else {
 					runAllAois(runtime);
@@ -75,28 +77,34 @@ public class FlowpathConstructor {
 
 	private static void runDatasource(IFlowpathDataSource dataSource, FlowpathArgs runtime) {
 		try {
-			ChyfProperties prop = runtime.getPropertiesFile();
-			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
-			logger.info("Generating Constructions Points");
-			PointEngine.doWork(dataSource, prop);
-			logger.info("Generating Skeletons");
-			SkeletonEngine.doWork(dataSource, prop, runtime.getCores());
-			logger.info("Directionalizing Dataset");
-			DirectionalizeEngine.doWork(dataSource, prop);
-			logger.info("Computing Rank");
-			RankEngine.doWork(dataSource, prop);
-		}catch (Exception ex) {
-			ex.printStackTrace();
+			try {
+				ChyfProperties prop = runtime.getPropertiesFile();
+				if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+				logger.info("Generating Constructions Points");
+				PointEngine.doWork(dataSource, prop);
+				logger.info("Generating Skeletons");
+				SkeletonEngine.doWork(dataSource, prop, runtime.getCores());
+				logger.info("Directionalizing Dataset");
+				DirectionalizeEngine.doWork(dataSource, prop);
+				logger.info("Computing Rank");
+				RankEngine.doWork(dataSource, prop);
+			}catch (Exception ex) {
+				ChyfLogger.INSTANCE.logError(ex.getMessage(), null, ex, FlowpathConstructor.class);
+			}
+			
+			dataSource.finish();
+		}catch (IOException ex) {
+			LoggerFactory.getLogger(FlowpathConstructor.class).error(ex.getMessage(), ex);
 		}
 	}
 	
 	private static void runAllAois(FlowpathArgs runtime) throws Exception {
-		FlowpathPostGisDataSource dataSource = new FlowpathPostGisDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+		FlowpathPostGisLocalDataSource dataSource = new FlowpathPostGisLocalDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
 		try {
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			while(true) {
-				String aoi = dataSource.getNextAoiToProcess(State.READY, State.FP_PROCESSING);
+				String aoi = dataSource.getNextAoiToProcess(ProcessingState.READY, ProcessingState.FP_PROCESSING);
 				if (aoi == null) break;
 				
 				logger.info("Processing: " + aoi);
@@ -112,10 +120,12 @@ public class FlowpathConstructor {
 					logger.info("Computing Rank");
 					RankEngine.doWork(dataSource, prop);
 					
-					dataSource.setState(State.FP_DONE);
+					dataSource.finish();
+					dataSource.setState(ProcessingState.FP_DONE);
 				}catch (Exception ex) {
-					dataSource.setState(State.FP_ERROR);
-					ex.printStackTrace();
+					ChyfLogger.INSTANCE.logError(ex.getMessage(), null, ex, FlowpathConstructor.class);
+					dataSource.finish();
+					dataSource.setState(ProcessingState.FP_ERROR);
 				}
 			}
 		}finally {

@@ -52,6 +52,7 @@ import org.opengis.filter.identity.FeatureId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfPostGisDataSource;
@@ -65,6 +66,9 @@ import net.refractions.chyf.flowpathconstructor.skeletonizer.points.PolygonInfo;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkelLineString;
 
 /**
+ * 
+ * NOT USED: this was slow in cases when there wasn't a fast db connection;
+ * 
  * Extension of the geopackage data source for flowpath computation
  * 
  * @author Emily
@@ -87,6 +91,8 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 		if (ChyfDataSource.findAttribute(getFeatureType(Layer.EFLOWPATHS), ChyfAttribute.DIRECTION) == null) {
 			addDirectionAttribute();
 		}
+		
+		ChyfLogger.INSTANCE.setDataSource(this);
 	}
 
 	@Override
@@ -149,10 +155,22 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 			throw new IOException(e);
 		}
 
+		
+		sb = new StringBuilder();
+    	sb.append("DELETE FROM ");
+		sb.append(getTableName(Layer.ERRORS));
+		sb.append(" WHERE " + getAoiFieldName(Layer.ERRORS) + " = ?");
+		try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+			ps.setObject(1, aoiUuid);
+			ps.executeUpdate();
+		} catch (SQLException e) {
+			throw new IOException(e);
+		}
 		    
 	    //check if working tables exist;
 	    List<Layer> toProcess = new ArrayList<>();
 	    for (Layer l : Layer.values()) {
+	    	if (l == Layer.ERRORS) continue;
 	    	if (l == Layer.AOI) continue;
 	    	toProcess.add(l);
 	    }
@@ -597,7 +615,7 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 	 * 
 	 */
 	@Override
-	public void removeExistingSkeletons(boolean bankOnly) throws SQLException {
+	public void removeExistingSkeletons(boolean bankOnly) throws IOException {
 		try {
 			Connection c = getConnection();
 			
@@ -615,8 +633,8 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 			sb.append(")");
 			
 			c.createStatement().execute(sb.toString());
-		}catch (IOException ex) {
-			throw new SQLException(ex);
+		}catch (SQLException ex) {
+			throw new IOException(ex);
 		}
 		
 	}
