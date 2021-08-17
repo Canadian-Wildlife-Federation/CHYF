@@ -28,7 +28,6 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineSegment;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.LinearRing;
-import org.locationtech.jts.geom.MultiLineString;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.operation.distance.DistanceOp;
 import org.locationtech.jts.operation.linemerge.LineMerger;
@@ -40,7 +39,7 @@ import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.datasource.FlowDirection;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties.Property;
-import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource.NodeType;
+import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource.NodeType;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.ConstructionPoint;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkelLineString;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkeletonGenerator;
@@ -395,8 +394,8 @@ public class BankSkeletonizer {
 			//TODO:
 			System.out.println("ERROR");
 			System.out.println(g.toText());
-			return (LineString)(((MultiLineString)g).getGeometryN(0));
-			//throw new RuntimeException("There is a problem with the existing skeletons and waterbodies near linestring " + ls.toText());
+			//return (LineString)(((MultiLineString)g).getGeometryN(0));
+			throw new RuntimeException("There is a problem with the existing skeletons and waterbodies near linestring " + ls.toText());
 		}
 		return (LineString)g;
 	}
@@ -411,8 +410,10 @@ public class BankSkeletonizer {
 
 		//we need to use the skeletonizer as we need to navigate around curves or islands
 		SkeletonResult skels = gen.generateSkeleton(p.getPolygon(), points);
-		if (!skels.getErrors().isEmpty()) {
-			skels.getErrors().forEach(e->logger.warn(e));
+		if (!skels.getErrors().isEmpty()) {			
+			skels.getErrors().forEach(e->{
+				logger.warn(e.getMessage() + " " + e.getGeometry().toText());	
+			});
 			throw new IllegalStateException("Skeletonizer threw errors");
 		}
 		//build a graph from the skeletons and keep the shortest path between the points

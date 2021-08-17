@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import org.locationtech.jts.algorithm.Angle;
 import org.locationtech.jts.algorithm.locate.IndexedPointInAreaLocator;
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineSegment;
@@ -36,6 +37,7 @@ import org.locationtech.jts.geom.Location;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.prep.PreparedPolygon;
 import org.locationtech.jts.triangulate.VoronoiDiagramBuilder;
+import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
@@ -58,21 +60,40 @@ public class SkeletonGenerator {
 	
 	public SkeletonResult generateSkeleton(Polygon waterbody, List<ConstructionPoint> inoutPoints) throws Exception {
 		if (inoutPoints.size() < 2) throw new IOException("invalid number of input/output points");
+
+
+		//if the construction points are closer than the densify factor
+		//we need smaller densify factor
+		//try 10x smaller
+		for (ConstructionPoint p : inoutPoints) {
+			for (ConstructionPoint p2 : inoutPoints) {
+				if (p == p2) continue;
+				if (p.getCoordinate().equals2D(p2.getCoordinate())) continue;
+				if (p.getCoordinate().distance(p2.getCoordinate()) < properties.getProperty(Property.SKEL_DENSIFY_FACTOR)) {
+					properties.setProperty(Property.SKEL_DENSIFY_FACTOR, properties.getProperty(Property.SKEL_DENSIFY_FACTOR) / 10);
+					LoggerFactory.getLogger(SkeletonGenerator.class).info("Increaing densify factor by 10 for waterbody @ " + waterbody.getCentroid().toText() );
+					break;
+				}
+			}
+		}
+		
+		
 		List<Coordinate> points = preprocess2(waterbody, inoutPoints);	
 
 		VoronoiDiagramBuilder builder = new VoronoiDiagramBuilder();
 		builder.setSites(points);
-		builder.setClipEnvelope(waterbody.getEnvelopeInternal());
+		Envelope env = new Envelope(waterbody.getEnvelopeInternal());
+		env.expandBy(1);
+		builder.setClipEnvelope(env);
 		Geometry voronoi = builder.getDiagram(waterbody.getFactory());
 		
 		Collection<LineSegment> segments = processVoronoi(waterbody, inoutPoints, voronoi);
-		
 		Collection<LineString> linestrings = filterExcess(segments, inoutPoints, waterbody.getFactory());
-		Collection<String> errors = validate(linestrings, waterbody, inoutPoints);
+		Collection<SkeletonResult.Error> errors = validate(linestrings, waterbody, inoutPoints);
 		
 		Collection<SkelLineString> skeletons = linestrings.stream().map(ls->new SkelLineString(ls, (EfType) ls.getUserData())).collect(Collectors.toList());
 		SkeletonResult result = new SkeletonResult(skeletons, errors);
-		
+
 		return result;
 	}
 	
@@ -86,8 +107,8 @@ public class SkeletonGenerator {
 	 * @param waterbody
 	 * @param inoutPoints
 	 */
-	private Collection<String> validate(Collection<LineString> skeletons, Polygon waterbody, List<ConstructionPoint> inoutPoints) {
-		ArrayList<String> errors = new ArrayList<>();
+	private Collection<SkeletonResult.Error> validate(Collection<LineString> skeletons, Polygon waterbody, List<ConstructionPoint> inoutPoints) {
+		ArrayList<SkeletonResult.Error> errors = new ArrayList<>();
 		//ensure linestring wholly contained within polygon
 		HashMap<Coordinate, Integer> nodes = new HashMap<>();
 		
@@ -96,7 +117,7 @@ public class SkeletonGenerator {
 		for (LineString ls : skeletons) {
 			if (!pp.covers(ls)) {
 				//error
-				errors.add("Skeleton line crosses waterbody: " + ls.toText());
+				errors.add(new SkeletonResult.Error("Skeleton line crosses waterbody. ", ls));
 			}
 			
 			Coordinate c1 = ls.getCoordinates()[0];
@@ -125,7 +146,7 @@ public class SkeletonGenerator {
 			if (node.getValue() != 1) continue;
 			if (!inout.contains(node.getKey())) {
 				//ERROR
-				errors.add("Degree one node not at in/out point: POINT(" + node.getKey().x + " " + node.getKey().y + ")");
+				errors.add(new SkeletonResult.Error("Degree one node not at in/out point.",  waterbody.getFactory().createPoint(new Coordinate(node.getKey().x, node.getKey().y))));
 			}
 			
 		}
@@ -134,10 +155,10 @@ public class SkeletonGenerator {
 			Integer d = nodes.get(pnt.getCoordinate());
 			if (d == null) {
 				//ERROR
-				errors.add("No node at in/out point: POINT(" + pnt.getCoordinate().x + " " + pnt.getCoordinate().y + ")");
+				errors.add(new SkeletonResult.Error("No node at in/out point.",  waterbody.getFactory().createPoint(pnt.getCoordinate())));
 			}else if (d != 1) {
 				//ERROR
-				errors.add("No node at in/out point has degree > 1: POINT(" + pnt.getCoordinate().x + " " + pnt.getCoordinate().y + ")");
+				errors.add(new SkeletonResult.Error("No node at in/out point has degree > 1.",  waterbody.getFactory().createPoint(pnt.getCoordinate())));
 			}
 		}
 		return errors;
@@ -187,10 +208,10 @@ public class SkeletonGenerator {
 				Coordinate c1 = p.getCoordinates()[j-1];
 				Coordinate c2 = p.getCoordinates()[j];
 				
-				int loc = outer.locate(c1);
-				boolean in1 = (loc == Location.INTERIOR || loc == Location.BOUNDARY);
-				loc = outer.locate(c2);
-				boolean in2 = (loc == Location.INTERIOR || loc == Location.BOUNDARY);
+				int loc1 = outer.locate(c1);
+				boolean in1 = (loc1 == Location.INTERIOR || loc1 == Location.BOUNDARY);
+				int loc2 = outer.locate(c2);
+				boolean in2 = (loc2 == Location.INTERIOR || loc2 == Location.BOUNDARY);
 		
 				if (in1 && in2) {
 					if (segInPoly.testSegment(c1, c2)) {
@@ -199,11 +220,15 @@ public class SkeletonGenerator {
 						inoutsegments.add(createSegment(c1, c2));	
 					}
 				}else if (in1 || in2) {
-					inoutsegments.add(createSegment(c1, c2));
+					//TODO: figure this out - not sure about this
+//					if (loc1 == Location.INTERIOR || loc2 == Location.INTERIOR) {
+						inoutsegments.add(createSegment(c1, c2));
+//					}
 				}
 			}
 		}
 
+		
 		//only keep the inout segments that are closest to input/output point
 		//and truncate to original inout point
 		for (ConstructionPoint spnt : inoutPoints) {
@@ -251,7 +276,7 @@ public class SkeletonGenerator {
 				
 		List<LineSegment> segments = new ArrayList<>();
 		
-		List<Coordinate> densifyMore = new ArrayList<>();
+		Set<Coordinate> densifyMore = new HashSet<>();
 		
 		double minAngle = Math.toRadians( properties.getProperty(Property.SKEL_ACUTE_ANGLE) );
 		double maxAngle = 2*Math.PI - minAngle;
@@ -293,18 +318,19 @@ public class SkeletonGenerator {
 						densifyMore.add(c);
 					}
 					Coordinate c1 = null;
-					if (seg1.getLength() < densify) {
+					double inoutdensity = densify * 0.25;
+					if (seg1.getLength() < inoutdensity) {
 						c1 = seg1.p0;
 					}else {
-						c1 = seg1.pointAlong((seg1.getLength() - densify) / seg1.getLength());
+						c1 = seg1.pointAlong((seg1.getLength() - inoutdensity) / seg1.getLength());
 					}
 					
 					double d1 = c1.distance(c);
 					Coordinate c2 = null;
-					if (seg2.getLength() < densify) {
+					if (seg2.getLength() < inoutdensity) {
 						c2 = seg2.p1;
 					}else {
-						c2 = seg2.pointAlong(1 - ((seg2.getLength() - densify) / seg2.getLength()));
+						c2 = seg2.pointAlong(1 - ((seg2.getLength() - inoutdensity) / seg2.getLength()));
 					}
 					double d2 = c2.distance(c);
 					
@@ -320,7 +346,7 @@ public class SkeletonGenerator {
 				}
 			}
 		}
-		
+
 		HashSet<Coordinate> inputPoints = new HashSet<>();
 
 		for (LineSegment s : segments) {
@@ -334,8 +360,8 @@ public class SkeletonGenerator {
 			densify(s.p0, s.p1, df, inputPoints);
 			inputPoints.add(s.p1);
 		}
+//		for (Coordinate c : inputPoints) System.out.println("POINT(" + c.x + " " + c.y + ")");
 		return inputPoints.stream().collect(Collectors.toList());
-//		return segments;
 	}
 	
 	/**

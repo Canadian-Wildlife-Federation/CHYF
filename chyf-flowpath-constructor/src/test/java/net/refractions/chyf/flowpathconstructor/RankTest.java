@@ -32,7 +32,6 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.datasource.RankType;
-import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.rank.REdge;
 import net.refractions.chyf.flowpathconstructor.rank.RGraph;
 import net.refractions.chyf.flowpathconstructor.rank.RankComputer;

@@ -16,17 +16,14 @@
 package net.refractions.chyf.watershed.builder;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import org.geotools.data.simple.SimpleFeatureReader;
-import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
+import org.geotools.data.FeatureReader;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.locationtech.jts.geom.Coordinate;
@@ -48,92 +45,52 @@ import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
-import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.datasource.EcType;
 import net.refractions.chyf.datasource.EfType;
+import net.refractions.chyf.datasource.ILayer;
 import net.refractions.chyf.datasource.Layer;
 import net.refractions.chyf.util.ProcessStatistics;
-import net.refractions.chyf.util.ReprojectionUtils;
 import net.refractions.chyf.watershed.WatershedSettings;
+import net.refractions.chyf.watershed.builder.ICatchmentDelineatorDataSource.CatchmentLayer;
 import net.refractions.chyf.watershed.model.HydroEdge;
 import net.refractions.chyf.watershed.model.WaterSide;
 import net.refractions.chyf.watershed.model.WatershedBoundaryEdge;
 
 public class DataManager {
+	
 	private static final Logger logger = LoggerFactory.getLogger(DataManager.class);
 
-	private int srid;
+	//private int srid;
 	private CoordinateReferenceSystem crs;
 	private GeometryFactory gf;
 
 	private GeoTiffDirReader gridReader;
-	private CatchmentDelineatorDataSource dataSource;
+	private ICatchmentDelineatorDataSource dataSource;
 
 	private ReferencedEnvelope workingExtent;
 
-	public DataManager(Path geoTiffDirPath, Path inputGeopackagePath, Path outputGeopackagePath, 
+	public DataManager(ICatchmentDelineatorDataSource dataSource, Path geoTiffDirPath,
 			boolean recover) throws IOException {
-		logger.info("Processing input file: " + inputGeopackagePath);
-		logger.info("Using DEM from dir: " + geoTiffDirPath);
-		logger.info("Output to file " + outputGeopackagePath);
-		if(recover) {
-			logger.info("In recovery mode.");
-		} else {
-			logger.info("In normal processing mode.");
-		}
-		if(!recover) {
-			ChyfGeoPackageDataSource.deleteOutputFile(outputGeopackagePath);
-			Files.copy(inputGeopackagePath, outputGeopackagePath, StandardCopyOption.REPLACE_EXISTING);
-		}
-		dataSource = new CatchmentDelineatorDataSource(outputGeopackagePath);
-		
-		// determine the srid/crs to use
-		srid = dataSource.getSrid(Layer.EFLOWPATHS);
-		crs = ReprojectionUtils.srsCodeToCRS(srid);
 
+		this.dataSource = dataSource;
+
+		// determine the srid/crs to use
+		this.crs = dataSource.getCoordinateReferenceSystem();
+		
 		// load the appropriate properties
 		WatershedSettings.load(crs);
 
 		if(!recover) {
 			dataSource.reprecisionAll();			
 		}
-
-		gf = new GeometryFactory(WatershedSettings.getPrecisionModel(), srid);
-
+		
+		gf = new GeometryFactory(WatershedSettings.getPrecisionModel());
 		gridReader = new GeoTiffDirReader(geoTiffDirPath.toString(), crs);
 	}
+			
 
-	private SimpleFeatureType getHydroEdgeFT() {
-		// Build a featureType for the HydroEdge features
-		SimpleFeatureTypeBuilder sftBuilder = new SimpleFeatureTypeBuilder();
-		sftBuilder.setName(CatchmentDelineatorDataSource.HYDRO_EDGE_LAYER);
-		sftBuilder.setSRS("EPSG:" + srid);
-		sftBuilder.add("drainageId", Integer.class);
-		sftBuilder.add("waterSide", String.class);
-		sftBuilder.add("geometry", LineString.class);
-		return sftBuilder.buildFeatureType();
-	}
-	
-	private SimpleFeatureType getBlockFT() {
-		// Build a featureType for the Block features
-		SimpleFeatureTypeBuilder sftBuilder = new SimpleFeatureTypeBuilder();
-		sftBuilder.setName(CatchmentDelineatorDataSource.BLOCK_LAYER);
-		sftBuilder.setSRS("EPSG:" + srid);
-		sftBuilder.add("id", Integer.class);
-		sftBuilder.add("state", Integer.class);
-		sftBuilder.add("geometry", Polygon.class);
-		return sftBuilder.buildFeatureType();
-	}
-
-	private SimpleFeatureType getWatershedBoundaryEdgeFT() {
-		// Build a featureType for the Catchment features
-		SimpleFeatureTypeBuilder sftBuilder = new SimpleFeatureTypeBuilder();
-		sftBuilder.setName(CatchmentDelineatorDataSource.WATERSHED_BOUNDARY_LAYER);
-		sftBuilder.setSRS("EPSG:" + srid);
-		sftBuilder.add("leftDrainageId", Integer.class);
-		sftBuilder.add("rightDrainageId", Integer.class);
-		sftBuilder.add("geometry", LineString.class);
-		return sftBuilder.buildFeatureType();
+	public ICatchmentDelineatorDataSource getDataSource() {
+		return this.dataSource;
 	}
 
 	public synchronized List<DataBlock> generateBlocks(List<HydroEdge> edges) {
@@ -157,7 +114,7 @@ public class DataManager {
 				}
 			}
 		}
-		if(!dataSource.createLayer(getBlockFT(), workingExtent)) { 
+		if(!dataSource.createLayer(dataSource.getBlockFT(), workingExtent)) { 
 			deleteBlocks();
 		}
 		writeBlocks(blocks);
@@ -186,7 +143,7 @@ public class DataManager {
 			}
 			List<HydroEdge> edges = new ArrayList<HydroEdge>();
 
-			SimpleFeatureReader edgeReader = dataSource.query(CatchmentDelineatorDataSource.HYDRO_EDGE_LAYER, bufferedEnv, null);
+			FeatureReader<SimpleFeatureType, SimpleFeature> edgeReader = dataSource.query(CatchmentLayer.HYDRO_EDGE_LAYER, bufferedEnv, null);
 			while (edgeReader.hasNext()) {
 				SimpleFeature edge = edgeReader.next();
 				LineString edgeGeom = (LineString) edge.getDefaultGeometry();
@@ -218,7 +175,7 @@ public class DataManager {
 		try {
 			List<Geometry> flowpaths = new ArrayList<Geometry>();
 
-			SimpleFeatureReader fpReader = dataSource.query(Layer.EFLOWPATHS, dataSource.getEFlowpathTypeFilter(EfType.REACH));
+			FeatureReader<SimpleFeatureType, SimpleFeature> fpReader = dataSource.query(Layer.EFLOWPATHS, dataSource.getEFlowpathTypeFilter(EfType.REACH));
 			while (fpReader.hasNext()) {
 				SimpleFeature fp = fpReader.next();
 				Geometry fpGeom = (Geometry) fp.getDefaultGeometry();
@@ -237,10 +194,10 @@ public class DataManager {
 		stats.reportStatus(logger, "loading waterbodies");
 		try {
 			List<Catchment> waterbodies = new ArrayList<Catchment>();
-			SimpleFeatureReader wbReader = dataSource.query(Layer.ECATCHMENTS, dataSource.getECatchmentTypeFilter(EcType.WATER));
+			FeatureReader<SimpleFeatureType, SimpleFeature> wbReader = dataSource.query(Layer.ECATCHMENTS, dataSource.getECatchmentTypeFilter(EcType.WATER));
 			while (wbReader.hasNext()) {
 				SimpleFeature wb = wbReader.next();
-				String internalId = (String) wb.getAttribute(ChyfDataSource.findAttribute(wb.getFeatureType(), ChyfAttribute.INTERNAL_ID));
+				Object internalId = wb.getAttribute(ChyfDataSource.findAttribute(wb.getFeatureType(), ChyfAttribute.INTERNAL_ID));
 				Polygon p = ChyfDataSource.getPolygon(wb);
 				
 				waterbodies.add(new Catchment(internalId, EcType.WATER.getChyfValue(), p));
@@ -258,7 +215,7 @@ public class DataManager {
 		stats.reportStatus(logger, "loading shorelines");
 		try {
 			List<Geometry> coastlines = new ArrayList<Geometry>();
-			SimpleFeatureReader clReader = dataSource.query(Layer.SHORELINES);
+			FeatureReader<SimpleFeatureType, SimpleFeature> clReader = dataSource.query(Layer.SHORELINES);
 			if(clReader != null) {
 				while (clReader.hasNext()) {
 					SimpleFeature cl = clReader.next();
@@ -279,7 +236,7 @@ public class DataManager {
 		stats.reportStatus(logger, "loading all watershed boundaries");
 		try {
 			List<WatershedBoundaryEdge> boundaryEdges = new ArrayList<WatershedBoundaryEdge>();
-			SimpleFeatureReader wbReader = dataSource.query(CatchmentDelineatorDataSource.WATERSHED_BOUNDARY_LAYER, null, null);
+			FeatureReader<SimpleFeatureType, SimpleFeature> wbReader = dataSource.query(CatchmentLayer.WATERSHED_BOUNDARY_LAYER, null, null);
 			if(wbReader == null) {
 				throw new RuntimeException("No Watershed Boundaries have been defined; Have you provided valid data, including DEM coverage?");
 			}
@@ -303,7 +260,7 @@ public class DataManager {
 	
 	public List<DataBlock> getBlocks() {
 		DataManager dm = this;
-		return getObjects(CatchmentDelineatorDataSource.BLOCK_LAYER, new Function<SimpleFeature, DataBlock>() {
+		return getObjects(CatchmentLayer.BLOCK_LAYER, new Function<SimpleFeature, DataBlock>() {
 
 			@Override
 			public DataBlock apply(SimpleFeature f) {
@@ -317,17 +274,17 @@ public class DataManager {
 		});
 	}
 
-	public synchronized <T> List<T> getObjects(String name, Function<SimpleFeature, T> func) {
+	public synchronized <T> List<T> getObjects(ILayer layer, Function<SimpleFeature, T> func) {
 		ProcessStatistics stats = new ProcessStatistics();
-		stats.reportStatus(logger, "loading all " + name + " features");
+		stats.reportStatus(logger, "loading all " + layer.getLayerName() + " features");
 		try {
 			List<T> data = new ArrayList<T>();
-			SimpleFeatureReader featureReader = dataSource.query(name, null, null);
+			FeatureReader<SimpleFeatureType, SimpleFeature> featureReader = dataSource.query(layer, null, null);
 			while (featureReader.hasNext()) {
 				data.add(func.apply(featureReader.next()));
 			}
 			featureReader.close();
-			stats.reportStatus(logger, "loaded " + data.size() + " " + name + " features");
+			stats.reportStatus(logger, "loaded " + data.size() + " " + layer.getLayerName() + " features");
 			return data;
 		} catch(IOException ioe) {
 			throw new RuntimeException(ioe);
@@ -335,8 +292,8 @@ public class DataManager {
 	}
 
 	public synchronized void writeWatershedBoundaries(Collection<WatershedBoundaryEdge> watershedBoundaries) {
-		dataSource.createLayer(getWatershedBoundaryEdgeFT(), workingExtent);
-		dataSource.writeObjects(CatchmentDelineatorDataSource.WATERSHED_BOUNDARY_LAYER, watershedBoundaries, new BiConsumer<WatershedBoundaryEdge,SimpleFeature>() {
+		dataSource.createLayer(dataSource.getWatershedBoundaryEdgeFT(), workingExtent);
+		dataSource.writeObjects(CatchmentLayer.WATERSHED_BOUNDARY_LAYER, watershedBoundaries, new BiConsumer<WatershedBoundaryEdge,SimpleFeature>() {
 
 			@Override
 			public void accept(WatershedBoundaryEdge edge, SimpleFeature f) {
@@ -349,10 +306,10 @@ public class DataManager {
 	}
 	
 	public synchronized void writeHydroEdges(Collection<HydroEdge> hydroEdges) {
-		if(!dataSource.createLayer(getHydroEdgeFT(), workingExtent)) {
+		if(!dataSource.createLayer(dataSource.getHydroEdgeFT(), workingExtent)) {
 			deleteHydroEdges();
 		}
-		dataSource.writeObjects(CatchmentDelineatorDataSource.HYDRO_EDGE_LAYER, hydroEdges, new BiConsumer<HydroEdge,SimpleFeature>() {
+		dataSource.writeObjects(CatchmentLayer.HYDRO_EDGE_LAYER, hydroEdges, new BiConsumer<HydroEdge,SimpleFeature>() {
 
 			@Override
 			public void accept(HydroEdge edge, SimpleFeature f) {
@@ -365,7 +322,7 @@ public class DataManager {
 	}
 	
 	public synchronized void writeBlocks(Collection<DataBlock> blocks) {
-		dataSource.writeObjects(CatchmentDelineatorDataSource.BLOCK_LAYER, blocks, new BiConsumer<DataBlock,SimpleFeature>() {
+		dataSource.writeObjects(CatchmentLayer.BLOCK_LAYER, blocks, new BiConsumer<DataBlock,SimpleFeature>() {
 
 			@Override
 			public void accept(DataBlock block, SimpleFeature f) {
@@ -394,7 +351,7 @@ public class DataManager {
 //	}
 
 	public void writeCatchments(List<Catchment> watersheds) {
-		dataSource.writeObjects(Layer.ECATCHMENTS.getLayerName(), watersheds, new BiConsumer<Catchment,SimpleFeature>() {
+		dataSource.writeObjects(Layer.ECATCHMENTS, watersheds, new BiConsumer<Catchment,SimpleFeature>() {
 
 			@Override
 			public void accept(Catchment c, SimpleFeature f) {
@@ -408,15 +365,15 @@ public class DataManager {
 	}
 
 	public void deleteHydroEdges() {
-		dataSource.deleteFeatures(CatchmentDelineatorDataSource.HYDRO_EDGE_LAYER, null);
+		dataSource.deleteFeatures(CatchmentLayer.HYDRO_EDGE_LAYER, null);
 	}
 	
 	public void deleteBlocks()  {
-		dataSource.deleteFeatures(CatchmentDelineatorDataSource.BLOCK_LAYER, null);
+		dataSource.deleteFeatures(CatchmentLayer.BLOCK_LAYER, null);
 	}
 
 	public synchronized void deleteECatchments(EcType... ecTypes) {
-		dataSource.deleteFeatures(Layer.ECATCHMENTS.getLayerName(), dataSource.getECatchmentTypeFilter(ecTypes));
+		dataSource.deleteFeatures(Layer.ECATCHMENTS, dataSource.getECatchmentTypeFilter(ecTypes));
 	}
 
 	public void updateBlock(DataBlock dataBlock) {

@@ -15,7 +15,18 @@
  */
 package net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
+import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
+import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisLocalDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.PointEngine;
 
 /**
@@ -27,19 +38,39 @@ import net.refractions.chyf.flowpathconstructor.skeletonizer.points.PointEngine;
  */
 public class Skeletonize {
 
+	static final Logger logger = LoggerFactory.getLogger(Skeletonize.class.getCanonicalName());
+
 	public static void main(String[] args) throws Exception {
+		
 		FlowpathArgs runtime = new FlowpathArgs("Skeletonize");
 		if (!runtime.parseArguments(args)) return;
-		
-		
-		runtime.prepareOutput();
-		
+			
 		long now = System.nanoTime();
-		PointEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
-		SkeletonEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile(), runtime.getCores());
+		IFlowpathDataSource dataSource = null;
+		try{
+			if (runtime.isGeopackage()) {
+				Path input = Paths.get(runtime.getInput());
+				Path output = Paths.get(runtime.getOutput());
+				ChyfGeoPackageDataSource.prepareOutput(input, output);
+				
+				dataSource = new FlowpathGeoPackageDataSource(output);
+			}else if (runtime.isPostigs()){
+				if (!runtime.hasAoi()) return;
+				dataSource = new FlowpathPostGisLocalDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+			}
+			ChyfProperties prop = runtime.getPropertiesFile();
+			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+			PointEngine.doWork(dataSource, prop);
+			SkeletonEngine.doWork(dataSource, prop, runtime.getCores());
+			dataSource.finish();
+		}finally {
+			if (dataSource != null) dataSource.close();
+		}
 		long then = System.nanoTime();
-		
-		System.out.println("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );
+		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );
+	
 	}
+	
+	
 	
 }

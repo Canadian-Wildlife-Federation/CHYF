@@ -37,9 +37,9 @@ public enum EfType{
 		return this.type;
 	}
 	
-	public static EfType parseValue(int value) {
+	public static EfType parseValue(Number value) {
 		for (EfType t : EfType.values()) {
-			if (t.getChyfValue() == value) return t;
+			if (t.getChyfValue() == value.intValue()) return t;
 		}
 		throw new RuntimeException("The value " + value + " is not supported for the EfType attribute.");
 	}

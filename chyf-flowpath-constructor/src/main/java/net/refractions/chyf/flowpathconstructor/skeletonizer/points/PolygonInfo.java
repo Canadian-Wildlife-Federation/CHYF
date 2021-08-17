@@ -29,14 +29,14 @@ public class PolygonInfo {
 	private FeatureId featureId;
 	private boolean isModified;
 	
-	private String catchmentInternalID;
+	private Object catchmentInternalID;
 	 
-	public PolygonInfo(FeatureId fid, String catchmentInternalId) {
+	public PolygonInfo(FeatureId fid, Object catchmentInternalId) {
 		this.featureId = fid;
 		this.catchmentInternalID = catchmentInternalId;
 	}
 	
-	public String getCatchmentId(){
+	public Object getCatchmentId(){
 		return this.catchmentInternalID;
 	}
 	public FeatureId getFeatureId() {
@@ -64,7 +64,7 @@ public class PolygonInfo {
 		return ((PolygonInfo)p.getUserData()).getFeatureId();
 	}
 	
-	public static String getCatchmentId(Polygon p) {
+	public static Object getCatchmentId(Polygon p) {
 		return ((PolygonInfo)p.getUserData()).getCatchmentId();
 	}
 }

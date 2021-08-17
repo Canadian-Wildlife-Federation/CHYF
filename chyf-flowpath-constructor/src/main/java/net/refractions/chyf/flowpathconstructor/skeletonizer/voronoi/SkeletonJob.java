@@ -23,9 +23,10 @@ import org.opengis.feature.simple.SimpleFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ExceptionWithLocation;
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
-import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.WaterbodyIterator;
 
 /**
@@ -39,24 +40,24 @@ public class SkeletonJob implements Runnable{
 
 	static final Logger logger = LoggerFactory.getLogger(SkeletonJob.class.getCanonicalName());
 
-	private FlowpathGeoPackageDataSource dataSource;
+	private IFlowpathDataSource dataSource;
 	private SkeletonGenerator generator;
 	private WaterbodyIterator iterator;
 	
 	
-	private List<Exception> exerrors;
-	private List<String> skelerrors;
+	private List<ExceptionWithLocation> exerrors;
+	private List<SkeletonResult.Error> skelerrors;
 	
-	public SkeletonJob(FlowpathGeoPackageDataSource dataSource, WaterbodyIterator iterator, SkeletonGenerator generator) {
+	public SkeletonJob(IFlowpathDataSource dataSource, WaterbodyIterator iterator, SkeletonGenerator generator) {
 		this.dataSource = dataSource;
 		this.generator = generator;
 		this.iterator = iterator;
 	}
 	
-	public List<Exception> getExceptions() {
+	public List<ExceptionWithLocation> getExceptions() {
 		return exerrors;
 	}
-	public List<String> getErrors(){
+	public List<SkeletonResult.Error> getErrors(){
 		return this.skelerrors;
 	}
 	
@@ -69,18 +70,20 @@ public class SkeletonJob implements Runnable{
 			SimpleFeature toProcess = null;
 			while((toProcess = iterator.getNextWaterbody()) != null) {
 				logger.info(toProcess.getIdentifier().toString());
-				String catchmentId = (String) toProcess.getAttribute(ChyfAttribute.INTERNAL_ID.getFieldName());
+				
+				Object catchmentId = toProcess.getAttribute(ChyfAttribute.INTERNAL_ID.getFieldName());
+				Polygon workingPolygon = null;
 				try {
-					Polygon workingPolygon = ChyfDataSource.getPolygon(toProcess);
+					workingPolygon = ChyfDataSource.getPolygon(toProcess);
 					SkeletonResult result = generator.generateSkeleton(workingPolygon, dataSource.getConstructionsPoints(catchmentId));
 					dataSource.writeSkeletons(result.getSkeletons());
 					skelerrors.addAll(result.getErrors());
 				}catch (Exception ex) {
-					exerrors.add(new Exception("Error processing catchment with identifier: " + catchmentId, ex));
+					exerrors.add(new ExceptionWithLocation("Error processing catchment with identifier: " + catchmentId, ex, workingPolygon));
 				}
 			}
 		}catch (Exception ex) {
-			exerrors.add(ex);
+			exerrors.add(new ExceptionWithLocation(ex.getMessage(), ex, null));
 		}
 	}
 

@@ -19,11 +19,12 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
-import org.geotools.data.simple.SimpleFeatureReader;
+import org.geotools.data.FeatureReader;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.prep.PreparedPolygon;
 import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.Name;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +34,7 @@ import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.DirectionType;
 import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.datasource.Layer;
-import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DEdge;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DGraph;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.EdgeInfo;
@@ -54,13 +55,13 @@ public class CycleChecker {
 	 * @return
 	 * @throws Exception
 	 */
-	public boolean checkCycles(FlowpathGeoPackageDataSource dataSource) throws Exception{
+	public boolean checkCycles(IFlowpathDataSource dataSource) throws Exception{
 		List<EdgeInfo> edges = new ArrayList<>();
 	
 		List<PreparedPolygon> aois = new ArrayList<>();
 		for (Polygon p : dataSource.getAoi()) aois.add(new PreparedPolygon(p));
 			
-		try(SimpleFeatureReader reader = dataSource.query(Layer.EFLOWPATHS)){
+		try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = dataSource.query(Layer.EFLOWPATHS)){
 			Name efatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.EFTYPE);
 			Name diratt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.DIRECTION);
 			while(reader.hasNext()) {
@@ -69,8 +70,8 @@ public class CycleChecker {
 				LineString ls = ChyfDataSource.getLineString(sf);
 				for (PreparedPolygon p : aois) {
 					if (p.contains(ls) || p.getGeometry().relate(ls, "1********")) {
-						EfType eftype = EfType.parseValue((Integer)sf.getAttribute(efatt));					
-						DirectionType dtype = DirectionType.parseValue((Integer)sf.getAttribute(diratt));
+						EfType eftype = EfType.parseValue( (Number)sf.getAttribute(efatt) );					
+						DirectionType dtype = DirectionType.parseValue((Number)sf.getAttribute(diratt));
 						if (dtype == DirectionType.UNKNOWN) throw new Exception("An unknown direction edge type found. Cannot check cycles when direction is unknown");					
 						EdgeInfo ei = new EdgeInfo(ls.getCoordinateN(0),
 								ls.getCoordinateN(1),

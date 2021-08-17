@@ -16,7 +16,10 @@
 package net.refractions.chyf.watershed.builder;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
@@ -28,7 +31,9 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.datasource.EcType;
+import net.refractions.chyf.datasource.ProcessingState;
 import net.refractions.chyf.util.ProcessStatistics;
 import net.refractions.chyf.watershed.model.HydroEdge;
 
@@ -37,6 +42,7 @@ import net.refractions.chyf.watershed.model.HydroEdge;
  * to build catchment/watershed polygons from a DEM and hydrography linear constraints.
  */
 public class CatchmentDelineator {
+	
     private static Logger logger = LoggerFactory.getLogger(CatchmentDelineator.class);
     
     private int numThreads = 1;
@@ -45,23 +51,95 @@ public class CatchmentDelineator {
     private boolean recover = false;
     private List<DataBlock> blocks;
     
+    
     public static void main(String[] args) throws IOException {	
     	Args a = Args.parseArguments(args, "CatchmentDelineator");
 		if (a == null) return;
     	
-    	CatchmentDelineator cd = new CatchmentDelineator(a);
-    	cd.build();
+		if (a.geopkg || (a.postgis && a.hasAoi())) {
+	    	CatchmentDelineator cd = new CatchmentDelineator(a);
+	    	cd.build();
+		}else if (a.postgis && !a.hasAoi()) {
+			processAllAoi(a);
+		}
     }
     
-    public CatchmentDelineator(Args args) throws IOException {
-		Path inputPath = args.getInput();
-		Path inputTiffDir = args.getTiffDir();
-		Path outputPath = args.getOutput();
-    	numThreads = args.getCores();
-    	recover = args.getRecover();
-		
-    	dm = new DataManager(inputTiffDir, inputPath, outputPath, recover);
+    /*
+     * For processing multiple aoi's at once.
+     */
+    private static void processAllAoi(Args args) throws IOException {
+    	if (args.getRecover()) throw new IOException("Recover option is not supported for processing all AOIs");
+    	
+    	CatchmentDelineatorLocalPostgisDataSource dataSource = new CatchmentDelineatorLocalPostgisDataSource(args.dbstring, args.getInput(), args.getOutput());
+
+    	while(true) {
+			String aoi = dataSource.getNextAoiToProcess(ProcessingState.FP_DONE, ProcessingState.WS_PROCESSING);
+			if (aoi == null) break;
+			try {
+				logger.info("Processing AOI: " + aoi);
+				dataSource.setAoi(aoi);
+				CatchmentDelineator cd = new CatchmentDelineator(dataSource, args);
+		    	cd.build();
+		    	dataSource.finish();
+				dataSource.setState(ProcessingState.WS_DONE);
+			}catch (Exception ex) {
+				logger.error("Could not process catchments for aoi (" + aoi + ")", ex);
+				dataSource.setState(ProcessingState.WS_ERROR);
+			}
+			
+		}
     }
+    
+    /**
+     * Create a new delineator using the specified data source
+     * @param dataSource
+     * @param args
+     * @throws IOException
+     */
+    public CatchmentDelineator(CatchmentDelineatorLocalPostgisDataSource dataSource, Args args) throws IOException {
+    	this(args);
+    	dm = new DataManager(dataSource, args.getTiffDir(), args.getRecover());
+    }
+    	
+    /**
+     * Create a new delineator using a datasource specified in the arguments 
+     */
+    public CatchmentDelineator(Args args) throws IOException {
+    	Path inputTiffDir = args.getTiffDir();
+    	numThreads = args.getCores();
+		recover = args.getRecover();
+		
+		logger.info("Processing input: " + args.getInput());
+		logger.info("Using DEM from dir: " + inputTiffDir.toString());
+		logger.info("Output to: " + args.getOutput());
+		if(recover) {
+			logger.info("In recovery mode.");
+		} else {
+			logger.info("In normal processing mode.");
+		}
+		
+    	if (args.geopkg) {
+    		Path inputPath = Paths.get(args.getInput());
+    		Path outputPath = Paths.get(args.getOutput());
+				
+    		if (!recover) {
+    			ChyfGeoPackageDataSource.deleteOutputFile(outputPath);
+    			Files.copy(inputPath, outputPath, StandardCopyOption.REPLACE_EXISTING);
+    		}
+	    	dm = new DataManager(new CatchmentDelineatorGeoPackageDataSource(outputPath), inputTiffDir, recover);
+	    }else if (args.postgis){
+	    	if (args.hasAoi()) {
+	    		logger.info("Processing AOI: " + args.getAoi());
+	    		CatchmentDelineatorLocalPostgisDataSource dataSource = new CatchmentDelineatorLocalPostgisDataSource(args.dbstring, args.getInput(), args.getOutput());
+		    	((CatchmentDelineatorLocalPostgisDataSource)dataSource).setAoi(args.getAoi(), !recover);
+		    	dm = new DataManager(dataSource, inputTiffDir, recover);
+	    	}else {
+	    		//can't configure this here
+	    	}
+	    	
+	    }
+    }
+    
     
     public void build() {
     	//List<HydroEdge> hydroEdges = null;

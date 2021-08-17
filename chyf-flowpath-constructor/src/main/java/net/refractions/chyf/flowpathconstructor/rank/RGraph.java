@@ -76,7 +76,7 @@ public class RGraph {
 	
 	public void addEdge(SimpleFeature sf, Name typeAtt) throws Exception {
 
-		EfType eftype = EfType.parseValue((Integer)sf.getAttribute(typeAtt));
+		EfType eftype = EfType.parseValue( ((Number)sf.getAttribute(typeAtt)).intValue());
 
 		LineString ls = ChyfDataSource.getLineString(sf);
 		

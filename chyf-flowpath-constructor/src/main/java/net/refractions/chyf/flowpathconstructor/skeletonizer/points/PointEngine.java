@@ -16,13 +16,14 @@
 package net.refractions.chyf.flowpathconstructor.skeletonizer.points;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
 import org.geotools.data.DefaultTransaction;
-import org.geotools.data.simple.SimpleFeatureReader;
+import org.geotools.data.FeatureReader;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
@@ -34,21 +35,27 @@ import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.prep.PreparedLineString;
 import org.locationtech.jts.operation.linemerge.LineMerger;
 import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.Name;
 import org.opengis.filter.identity.FeatureId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
+import net.refractions.chyf.ExceptionWithLocation;
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
+import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.datasource.DirectionType;
 import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.datasource.FlowDirection;
 import net.refractions.chyf.datasource.Layer;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
-import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties.Property;
+import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisLocalDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.WaterbodyIterator;
 
 /**
@@ -71,12 +78,20 @@ public class PointEngine {
 	 */
 	public static void doWork(Path output, ChyfProperties properties) throws Exception {
 		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
-			doWork(dataSource, properties);
+			try {
+				doWork(dataSource, properties);
+			}catch (ExceptionWithLocation ex) {
+				ChyfLogger.INSTANCE.logException(ex);
+				throw ex;
+			}catch (Exception ex) {
+				ChyfLogger.INSTANCE.logException(ex);
+				throw ex;
+			}
 		}
 
 	}
 
-	public static void doWork(FlowpathGeoPackageDataSource dataSource, ChyfProperties properties) throws Exception{
+	public static void doWork(IFlowpathDataSource dataSource, ChyfProperties properties) throws Exception{
 		if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 		
 		int cnt = 1;
@@ -101,37 +116,37 @@ public class PointEngine {
 			Polygon workingPolygon = ChyfDataSource.getPolygon(toProcess);
 			if (!workingPolygon.isValid()) throw new Exception("Polygon not a valid geometry.  Centroid: " + workingPolygon.getCentroid().toText());
 			
-			String internalId = (String)toProcess.getAttribute(idAttribute);
-			workingPolygon.setUserData(new PolygonInfo(toProcess.getIdentifier(), internalId));
+			workingPolygon.setUserData(new PolygonInfo(toProcess.getIdentifier(), toProcess.getAttribute(idAttribute)));
 			
 			//get overlapping polygons
 			ReferencedEnvelope env = new ReferencedEnvelope(workingPolygon.getEnvelopeInternal(), toProcess.getType().getCoordinateReferenceSystem());
-			try(SimpleFeatureReader wbtouches = dataSource.query(Layer.ECATCHMENTS, env, dataSource.getWbTypeFilter())){
+			try(FeatureReader<SimpleFeatureType, SimpleFeature> wbtouches = dataSource.query(Layer.ECATCHMENTS, env, dataSource.getWbTypeFilter())){
 				while(wbtouches.hasNext()) {
 					SimpleFeature t = wbtouches.next();
+					
 					if (t.getIdentifier().equals(toProcess.getIdentifier())) continue;
 					Polygon temp = ChyfDataSource.getPolygon(t);
 					
 					if (workingPolygon.intersects(temp)) {
 						ptouch.add(temp);
-						temp.setUserData(new PolygonInfo(t.getIdentifier(), (String)t.getAttribute(idAttribute)));
+						temp.setUserData(new PolygonInfo(t.getIdentifier(), t.getAttribute(idAttribute)));
 					}
 				}
 			}
 			//get overlapping flowpaths							
-			try(SimpleFeatureReader flowtouches = dataSource.query(Layer.EFLOWPATHS, env)){
+			try(FeatureReader<SimpleFeatureType, SimpleFeature> flowtouches = dataSource.query(Layer.EFLOWPATHS, env)){
 				Name eftypeatt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), ChyfAttribute.EFTYPE);
 				Name diratt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), ChyfAttribute.DIRECTION);
 				while(flowtouches.hasNext()) {
 					SimpleFeature t = flowtouches.next();
 					
-					EfType type = EfType.parseValue( (Integer)t.getAttribute(eftypeatt) );
+					EfType type = EfType.parseValue( ((Number)t.getAttribute(eftypeatt)).intValue() );
 					if (type == EfType.BANK || type == EfType.SKELETON) continue; //ignore existing skeletons
 					
 					
 					LineString temp = ChyfDataSource.getLineString(t);
 					if (workingPolygon.relate(temp, "FF*F0****")) {
-						DirectionType dtype = DirectionType.parseValue((Integer)t.getAttribute(diratt));
+						DirectionType dtype = DirectionType.parseValue( ((Number)t.getAttribute(diratt)).intValue());
 						ftouch.add(temp);
 						temp.setUserData(dtype);
 					}
@@ -148,7 +163,7 @@ public class PointEngine {
 		//write point layers
 		dataSource.createConstructionsPoints(generator.getPoints());
 	}
-	private static List<BoundaryEdge> getBoundary(FlowpathGeoPackageDataSource geopkg, ChyfProperties properties) throws Exception{
+	private static List<BoundaryEdge> getBoundary(IFlowpathDataSource dataSource, ChyfProperties properties) throws Exception{
 
 		logger.info("computing boundary points");
 		
@@ -158,12 +173,12 @@ public class PointEngine {
 		List<PreparedLineString> aoiedges = new ArrayList<>();
 		List<LineString> coastlineedges = new ArrayList<>();
 
-		for (Polygon p : geopkg.getAoi()) {
+		for (Polygon p : dataSource.getAoi()) {
 			LineString ring = p.getExteriorRing();
 			aoiedges.add(new PreparedLineString(ring));
 		}
 		
-		try(SimpleFeatureReader reader = geopkg.query(Layer.SHORELINES, null, null)){
+		try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = dataSource.query(Layer.SHORELINES, null, null)){
 			if (reader != null) {
 				while(reader.hasNext()){
 					SimpleFeature aoi = reader.next();
@@ -181,7 +196,7 @@ public class PointEngine {
 		List<LineString> cstoupdate = new ArrayList<>();
 		//point intersections; these are potentially in/out construction points
 		List<Point> intersectionPoints = new ArrayList<>();
-		try(SimpleFeatureReader wbreader = geopkg.getWaterbodies()){
+		try(FeatureReader<SimpleFeatureType, SimpleFeature> wbreader = dataSource.getWaterbodies()){
 			while(wbreader.hasNext()) {
 				SimpleFeature ww = wbreader.next();
 
@@ -266,18 +281,19 @@ public class PointEngine {
 					}
 				}
 				if (workingwb != null) {
-					workingwb.setUserData(new PolygonInfo(ww.getIdentifier(), null));
+					Object id = ww.getAttribute(ChyfAttribute.INTERNAL_ID.getFieldName());
+					workingwb.setUserData(new PolygonInfo(ww.getIdentifier(), id));
 					toupdate.add(workingwb);
 				}
 			}
 		}
 		
 		//update coastline and waterbodies as required
-		geopkg.updateWaterbodyGeometries(toupdate);
+		dataSource.updateWaterbodyGeometries(toupdate);
 		try(DefaultTransaction tx = new DefaultTransaction()){
 			try {
 				for (LineString ls : cstoupdate) {
-					geopkg.updateCoastline((FeatureId)ls.getUserData(), ls, tx);
+					dataSource.updateCoastline((FeatureId)ls.getUserData(), ls, tx);
 				}
 				tx.commit();
 			}catch (Exception ex) {
@@ -287,7 +303,7 @@ public class PointEngine {
 		}
 	
 		//find aoi points
-		List<Point> inoutpoints = geopkg.getTerminalNodes();
+		List<Point> inoutpoints = dataSource.getTerminalNodes();
 		LineMerger m = new LineMerger();
 		m.add(common);
 		Collection<?> items = m.getMergedLineStrings();
@@ -318,6 +334,7 @@ public class PointEngine {
 				}else {
 					BoundaryEdge be = new BoundaryEdge(d,  (LineString)x, null);
 					edges.add(be);
+					dataSource.logWarning("The boundary edge has no in/out points", be.getLineString());
 					logger.warn("WARNING: The boundary edge has no in/out points: " + be.getLineString().toText());
 				}
 			}else {
@@ -341,6 +358,7 @@ public class PointEngine {
 				}
 			}
 			if (!found) {
+				dataSource.logWarning("WARNING: The waterbody intersects the aoi at a single point, but this point is not defined as a in/out point.", p);
 				logger.warn("WARNING: The waterbody intersects the aoi at a single point, but this point is not defined as a in/out point: " + p.toText());
 			}
 		}
@@ -374,13 +392,29 @@ public class PointEngine {
 
 		FlowpathArgs runtime = new FlowpathArgs("PointEngine");
 		if (!runtime.parseArguments(args)) return;
-		
-		runtime.prepareOutput();
-		
+			
 		long now = System.nanoTime();
-		PointEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
+		IFlowpathDataSource dataSource = null;
+		try{
+			if (runtime.isGeopackage()) {
+				Path input = Paths.get(runtime.getInput());
+				Path output = Paths.get(runtime.getOutput());
+				ChyfGeoPackageDataSource.prepareOutput(input, output);
+				
+				dataSource = new FlowpathGeoPackageDataSource(output);
+			}else if (runtime.isPostigs()){
+				if (!runtime.hasAoi()) return;
+				dataSource = new FlowpathPostGisLocalDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+			}
+			ChyfProperties prop = runtime.getPropertiesFile();
+			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+			PointEngine.doWork(dataSource, prop);
+			dataSource.finish();
+		}finally {
+			if (dataSource != null) dataSource.close();
+		}
 		long then = System.nanoTime();
-		
 		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );
+	
 	}
 }

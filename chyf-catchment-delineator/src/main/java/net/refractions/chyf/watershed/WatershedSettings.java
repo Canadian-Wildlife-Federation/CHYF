@@ -28,7 +28,7 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 import si.uom.NonSI;
 import systems.uom.common.USCustomary;
-import tec.uom.se.unit.Units;
+import tech.units.indriya.unit.Units;
 
 /**
  * Contains constants and tolerance values for the Watershed Boundary Generator.

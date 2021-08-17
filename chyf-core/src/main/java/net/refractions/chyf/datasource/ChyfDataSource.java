@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.geotools.data.simple.SimpleFeatureReader;
+import org.geotools.data.FeatureReader;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.locationtech.jts.geom.Geometry;
@@ -35,6 +35,7 @@ import org.opengis.feature.type.AttributeDescriptor;
 import org.opengis.feature.type.Name;
 import org.opengis.filter.Filter;
 import org.opengis.filter.FilterFactory2;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 
 /**
@@ -48,14 +49,21 @@ public interface ChyfDataSource extends AutoCloseable {
 	
 	public static final FilterFactory2 ff = CommonFactoryFinder.getFilterFactory2();
 
+	public CoordinateReferenceSystem getCoordinateReferenceSystem() ;
 
+	/**
+	 * To be called when processing is complete.
+	 */
+	public default void finish() throws IOException{};
+	
+	
 	/**
 	 * Queries the specified layer. 
 	 * @param layer the Layer to be queried
 	 * @return a SimpleFeatureReader with all features from the specified Layer
 	 * @throws IOException
 	 */
-	SimpleFeatureReader query(Layer layer) throws IOException;
+	FeatureReader<SimpleFeatureType, SimpleFeature> query(ILayer layer) throws IOException;
 	
 	/**
 	 * Queries the specified layer using the bounds provided. 
@@ -65,7 +73,7 @@ public interface ChyfDataSource extends AutoCloseable {
 	 * @return a SimpleFeatureReader with the matched features from the specified Layer
 	 * @throws IOException
 	 */
-	SimpleFeatureReader query(Layer layer, ReferencedEnvelope bounds) throws IOException;
+	FeatureReader<SimpleFeatureType, SimpleFeature> query(ILayer layer, ReferencedEnvelope bounds) throws IOException;
 
 	/**
 	 * Queries the specified layer using the filter provided. 
@@ -75,7 +83,7 @@ public interface ChyfDataSource extends AutoCloseable {
 	 * @return a SimpleFeatureReader with the matched features from the specified Layer
 	 * @throws IOException
 	 */
-	SimpleFeatureReader query(Layer layer, Filter filter) throws IOException;
+	FeatureReader<SimpleFeatureType, SimpleFeature> query(ILayer layer, Filter filter) throws IOException;
 
 	/**
 	 * Queries the specified layer using the bounds and filter provided. 
@@ -86,7 +94,40 @@ public interface ChyfDataSource extends AutoCloseable {
 	 * @return a SimpleFeatureReader with the matched features from the specified Layer
 	 * @throws IOException
 	 */
-	SimpleFeatureReader query(Layer layer, ReferencedEnvelope bounds, Filter filter) throws IOException;
+	FeatureReader<SimpleFeatureType, SimpleFeature> query(ILayer layer, ReferencedEnvelope bounds, Filter filter) throws IOException;
+		
+    /**
+     * 
+     * @return all catchments of water type
+     * 
+     * @throws IOException
+     */
+	FeatureReader<SimpleFeatureType, SimpleFeature> getWaterbodies() throws IOException;
+
+	/**
+	 * 
+	 * @param layer
+	 * @return feature type for given layer
+	 * @throws IOException
+	 */
+	public SimpleFeatureType getFeatureType(ILayer layer) throws IOException;
+
+	/**
+	 * Logs an error to the errors layer
+	 * 
+	 * @param location
+	 * @param message
+	 * @throws IOException
+	 */
+	public void logError(String message, Geometry location) throws IOException;
+	/**
+	 * Logs a warning to the errors layer
+	 * 
+	 * @param location
+	 * @param message
+	 * @throws IOException
+	 */
+	public void logWarning(String message, Geometry location) throws IOException;
 		
 	/**
 	 * 

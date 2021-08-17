@@ -19,15 +19,17 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 import org.geotools.data.DefaultTransaction;
 import org.geotools.data.Transaction;
 import org.geotools.data.simple.SimpleFeatureReader;
 import org.geotools.data.simple.SimpleFeatureWriter;
+import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.geopkg.FeatureEntry;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.precision.GeometryPrecisionReducer;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
@@ -36,10 +38,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
+import net.refractions.chyf.datasource.ILayer;
 import net.refractions.chyf.util.ProcessStatistics;
 import net.refractions.chyf.watershed.WatershedSettings;
 
-public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
+public class CatchmentDelineatorGeoPackageDataSource extends ChyfGeoPackageDataSource implements ICatchmentDelineatorDataSource {
 	private static final Logger logger = LoggerFactory.getLogger(DataManager.class);
 	
 	public static final String HYDRO_EDGE_LAYER = "HydroEdges"; 
@@ -47,13 +50,12 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 	public static final String BLOCK_LAYER = "ProcessingBlocks";
 	
 
-	public CatchmentDelineatorDataSource(Path geopackageFile) throws IOException {
+	public CatchmentDelineatorGeoPackageDataSource(Path geopackageFile) throws IOException {
 		super(geopackageFile);
-		
 		addInternalIdAttribute();
-		
 	}
 	
+	@Override
 	public synchronized boolean createLayer(SimpleFeatureType ft, ReferencedEnvelope workingExtent) {
 		try {
 			FeatureEntry fe = geopkg.feature(ft.getTypeName());
@@ -70,51 +72,54 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 		}
 	}
 	
-	public synchronized SimpleFeatureReader query(String layerName, ReferencedEnvelope bounds, Filter filter) throws IOException {
-		return query(geopkg.feature(layerName), bounds, filter);
+	@Override
+	public SimpleFeatureType getHydroEdgeFT() {
+		// Build a featureType for the HydroEdge features
+		SimpleFeatureTypeBuilder sftBuilder = new SimpleFeatureTypeBuilder();
+		sftBuilder.setName(CatchmentLayer.HYDRO_EDGE_LAYER.getLayerName());
+		sftBuilder.setCRS(crs);
+		sftBuilder.add("drainageId", Integer.class);
+		sftBuilder.add("waterSide", String.class);
+		sftBuilder.add("geometry", LineString.class);
+		return sftBuilder.buildFeatureType();
+	}
+	
+	@Override
+	public SimpleFeatureType getBlockFT() {
+		// Build a featureType for the Block features
+		SimpleFeatureTypeBuilder sftBuilder = new SimpleFeatureTypeBuilder();
+		sftBuilder.setName(CatchmentLayer.BLOCK_LAYER.getLayerName());
+		sftBuilder.setCRS(crs);
+		sftBuilder.add("id", Integer.class);
+		sftBuilder.add("state", Integer.class);
+		sftBuilder.add("geometry", Polygon.class);
+		return sftBuilder.buildFeatureType();
 	}
 
-	public synchronized void updateObjects(String layerName, Consumer<SimpleFeature> func) {
-		updateObjects(layerName, null, func);
-	}		
+	@Override
+	public SimpleFeatureType getWatershedBoundaryEdgeFT() {
+		// Build a featureType for the Catchment features
+		SimpleFeatureTypeBuilder sftBuilder = new SimpleFeatureTypeBuilder();
+		sftBuilder.setName(CatchmentLayer.WATERSHED_BOUNDARY_LAYER.getLayerName());
+		sftBuilder.setCRS(crs);
+		sftBuilder.add("leftDrainageId", Integer.class);
+		sftBuilder.add("rightDrainageId", Integer.class);
+		sftBuilder.add("geometry", LineString.class);
+		return sftBuilder.buildFeatureType();
+	}
+	
+	@Override
+	public synchronized SimpleFeatureReader query(ILayer layer, ReferencedEnvelope bounds, Filter filter) throws IOException {
+		return query(geopkg.feature(layer.getLayerName()), bounds, filter);
+	}
 
-	public synchronized void updateObjects(String layerName, Filter filter, Consumer<SimpleFeature> func) {
+	@Override
+	public synchronized <T> void writeObjects(ILayer layer, Collection<T> data, BiConsumer<T,SimpleFeature> func) {
 		ProcessStatistics stats = new ProcessStatistics();
-		stats.reportStatus(logger, "Updating " + layerName + " features");
-		if(filter == null) filter = Filter.INCLUDE;
-		try {
-			FeatureEntry fe = geopkg.feature(layerName);	
-			Transaction tx = new DefaultTransaction();
-			int count = 0;
-			try {
-				SimpleFeatureWriter writer = geopkg.writer(fe, false, filter, tx);
-				while(writer.hasNext()) {
-					count++;
-					SimpleFeature f = writer.next();
-					func.accept(f);
-					writer.write();
-				}
-				writer.close();
-				tx.commit();
-			} catch(IOException ioe) {
-				ioe.printStackTrace();
-				tx.rollback();
-				throw new RuntimeException(ioe);
-			} finally {
-				tx.close();
-			}
-			stats.reportStatus(logger, count + " " + layerName + " features updated.");
-		} catch(IOException ioe) {
-			throw new RuntimeException(ioe);
-		}
-	}		
-
-	public synchronized <T> void writeObjects(String layerName, Collection<T> data, BiConsumer<T,SimpleFeature> func) {
-		ProcessStatistics stats = new ProcessStatistics();
-		stats.reportStatus(logger, "Writing " + data.size() + " " + layerName + " features");
+		stats.reportStatus(logger, "Writing " + data.size() + " " + layer.getLayerName() + " features");
 		
 		try {
-			FeatureEntry fe = geopkg.feature(layerName);	
+			FeatureEntry fe = geopkg.feature(layer.getLayerName());	
 			Transaction tx = new DefaultTransaction();
 			try {
 				SimpleFeatureWriter writer = geopkg.writer(fe, true, null, tx);
@@ -131,17 +136,18 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 			} finally {
 				tx.close();
 			}
-			stats.reportStatus(logger, layerName + " features written.");
+			stats.reportStatus(logger, layer.getLayerName() + " features written.");
 		} catch(IOException ioe) {
 			throw new RuntimeException(ioe);
 		}
 	}
 
-	public synchronized void deleteFeatures(String name, Filter filter) {
+	@Override
+	public synchronized void deleteFeatures(ILayer layer, Filter filter) {
 		ProcessStatistics stats = new ProcessStatistics();
-		stats.reportStatus(logger, "Deleting previous " + name + " features");
+		stats.reportStatus(logger, "Deleting previous " + layer.getLayerName() + " features");
 		try {
-			FeatureEntry fe = geopkg.feature(name);
+			FeatureEntry fe = geopkg.feature(layer.getLayerName());
 			if (fe == null) {
 				// nothing to delete
 				return;
@@ -160,7 +166,7 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 				}
 				writer.close();
 				tx.commit();
-				stats.reportStatus(logger, "Deleted " + count + " previous " + name + " features.");
+				stats.reportStatus(logger, "Deleted " + count + " previous " + layer.getLayerName() + " features.");
 			} catch(IOException ioe) {
 				tx.rollback();
 				throw new RuntimeException(ioe);
@@ -172,6 +178,7 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 		}
 	}
 
+	@Override
 	public synchronized void updateBlock(DataBlock dataBlock) {
 		logger.trace("Updating Block Status for " + dataBlock);
 		try {
@@ -199,6 +206,7 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 		}
 	}
 
+	@Override
 	public void reprecisionAll() throws IOException {
 		ProcessStatistics stats = new ProcessStatistics();
 		for(FeatureEntry fe : geopkg.features()) {
@@ -217,5 +225,4 @@ public class CatchmentDelineatorDataSource extends ChyfGeoPackageDataSource {
 			stats.reportStatus(logger, "Precision reduction applied to layer " + fe.getTableName() + ": " + count + " features");
 		}
 	}
-
 }

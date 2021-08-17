@@ -17,6 +17,7 @@ package net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi;
 
 import java.util.Collection;
 
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.Polygon;
 
 /**
@@ -29,7 +30,7 @@ import org.locationtech.jts.geom.Polygon;
 public class SkeletonResult {
 
 	private Collection<SkelLineString> skeletons;
-	private Collection<String> errors;
+	private Collection<Error> errors;
 	private Polygon updatedPolgyon = null;
 	
 	/**
@@ -37,7 +38,7 @@ public class SkeletonResult {
 	 * @param skeletons
 	 * @param errors
 	 */
-	public SkeletonResult(Collection<SkelLineString> skeletons, Collection<String> errors) {
+	public SkeletonResult(Collection<SkelLineString> skeletons, Collection<Error> errors) {
 		this(skeletons, errors, null);
 	}
 	
@@ -47,7 +48,7 @@ public class SkeletonResult {
 	 * @param errors
 	 * @param updated
 	 */
-	public SkeletonResult(Collection<SkelLineString> skeletons, Collection<String> errors, Polygon updated) {
+	public SkeletonResult(Collection<SkelLineString> skeletons, Collection<Error> errors, Polygon updated) {
 		this.skeletons = skeletons;
 		this.errors = errors;
 		this.updatedPolgyon = updated;
@@ -65,7 +66,7 @@ public class SkeletonResult {
 	 * Get errors
 	 * @return
 	 */
-	public Collection<String> getErrors(){
+	public Collection<Error> getErrors(){
 		return this.errors;
 	}
 	
@@ -75,5 +76,22 @@ public class SkeletonResult {
 	 */
 	public Polygon getPolygon() {
 		return this.updatedPolgyon;
+	}
+	
+	public static class Error{
+		private String message;
+		private Geometry geometry;
+		
+		public Error(String message, Geometry geometry){
+			this.message = message;
+			this.geometry = geometry;
+		}
+		public String getMessage() {
+			return this.message;
+		}
+		public Geometry getGeometry() {
+			return this.geometry;
+		}
+		
 	}
 }

@@ -16,25 +16,30 @@
 package net.refractions.chyf.flowpathconstructor.directionalize;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.geotools.data.simple.SimpleFeatureReader;
+import org.geotools.data.FeatureReader;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.prep.PreparedPolygon;
 import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.Name;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
+import net.refractions.chyf.ExceptionWithLocation;
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
+import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.datasource.DirectionType;
 import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.datasource.FlowDirection;
@@ -42,6 +47,8 @@ import net.refractions.chyf.datasource.Layer;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties;
 import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisLocalDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DEdge;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DGraph;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DNode;
@@ -58,13 +65,23 @@ public class DirectionalizeEngine {
 
 	public static void doWork(Path output, ChyfProperties properties) throws Exception {
 		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
-			doWork(dataSource, properties);			
+			try {
+				doWork(dataSource, properties);
+			}catch (ExceptionWithLocation ex) {
+				ChyfLogger.INSTANCE.logException(ex);
+				throw ex;
+			}catch (Exception ex) {
+				ChyfLogger.INSTANCE.logException(ex);
+				throw ex;
+			}
 		}
 		
 		
 	}
 	
-	public static void doWork(FlowpathGeoPackageDataSource dataSource, ChyfProperties properties) throws Exception {
+	public static void doWork(IFlowpathDataSource dataSource, ChyfProperties properties) throws Exception {
+		if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+
 		CoordinateReferenceSystem sourceCRS = null;	
 
 		List<EdgeInfo> edges = new ArrayList<>();
@@ -77,7 +94,7 @@ public class DirectionalizeEngine {
 
 		logger.info("loading flowpaths");
 		
-		try(SimpleFeatureReader reader = dataSource.query(Layer.EFLOWPATHS)){
+		try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = dataSource.query(Layer.EFLOWPATHS)){
 			sourceCRS = reader.getFeatureType().getCoordinateReferenceSystem();
 			Name eftypeatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.EFTYPE);
 			Name direatt = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.DIRECTION);
@@ -88,8 +105,8 @@ public class DirectionalizeEngine {
 				
 				for (PreparedPolygon p : aois) {
 					if (p.contains(ls) || p.getGeometry().relate(ls, "1********")) {
-						EfType eftype = EfType.parseValue((Integer)sf.getAttribute(eftypeatt));
-						DirectionType dtype = DirectionType.parseValue((Integer)sf.getAttribute(direatt));
+						EfType eftype = EfType.parseValue(((Number)sf.getAttribute(eftypeatt)).intValue());
+						DirectionType dtype = DirectionType.parseValue( (Number)sf.getAttribute(direatt) );
 						
 						EdgeInfo ei = new EdgeInfo(ls.getCoordinateN(0),
 								ls.getCoordinateN(1),
@@ -115,8 +132,8 @@ public class DirectionalizeEngine {
 		logger.info("build graph");
 		DGraph graph = DGraph.buildGraphLines(edges);
 		
-		//directionalized bank edges
-		logger.info("processing bank edges");
+//		//directionalized bank edges
+//		logger.info("processing bank edges");
 //		HashSet<Coordinate> nodec = new HashSet<>();
 //		for(DNode d : graph.nodes) nodec.add(d.getCoordinate());
 //		Set<FeatureId> bankstoflip = new HashSet<>();
@@ -135,7 +152,10 @@ public class DirectionalizeEngine {
 		//find sink nodes
 		logger.info("locating sink nodes");
 		List<Coordinate> sinks = getSinkPoints(dataSource, graph);
-
+//		for (Coordinate s : sinks) {
+//			System.out.println("POINT(" + s.x + " " + s.y + ")");
+//		}
+		
 		//directionalize dataset
 		logger.info("directionalizing network");
 		Directionalizer dd = new Directionalizer(sourceCRS, properties);
@@ -160,7 +180,7 @@ public class DirectionalizeEngine {
 	 * - and flow edge that intersects the coastline
 	 * 
 	 */
-	private static List<Coordinate> getSinkPoints(FlowpathGeoPackageDataSource source, DGraph graph) throws Exception {
+	private static List<Coordinate> getSinkPoints(IFlowpathDataSource source, DGraph graph) throws Exception {
 		List<Coordinate> sinks = new ArrayList<>();
 		for (Point p : source.getTerminalNodes()) {
 			if ( ((FlowDirection)p.getUserData()) == FlowDirection.OUTPUT ) {
@@ -170,7 +190,7 @@ public class DirectionalizeEngine {
 		
 		//add coastline sinks
 		Set<Coordinate> clc = new HashSet<>();
-		try(SimpleFeatureReader reader = source.query(Layer.SHORELINES)){
+		try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = source.query(Layer.SHORELINES)){
 			if (reader != null) {
 				while(reader.hasNext()) {
 					SimpleFeature sf = reader.next();
@@ -212,14 +232,29 @@ public class DirectionalizeEngine {
 	public static void main(String[] args) throws Exception {		
 		FlowpathArgs runtime = new FlowpathArgs("DirectionalizeEngine");
 		if (!runtime.parseArguments(args)) return;
-		
-		runtime.prepareOutput();
-		
+			
 		long now = System.nanoTime();
-		DirectionalizeEngine.doWork(runtime.getOutput(), runtime.getPropertiesFile());
-		
+		IFlowpathDataSource dataSource = null;
+		try{
+			if (runtime.isGeopackage()) {
+				Path input = Paths.get(runtime.getInput());
+				Path output = Paths.get(runtime.getOutput());
+				ChyfGeoPackageDataSource.prepareOutput(input, output);
+				
+				dataSource = new FlowpathGeoPackageDataSource(output);
+			}else if (runtime.isPostigs()){
+				if (!runtime.hasAoi()) return;
+				dataSource = new FlowpathPostGisLocalDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+				((FlowpathPostGisLocalDataSource)dataSource).setAoi(runtime.getAoi());
+			}
+			ChyfProperties prop = runtime.getPropertiesFile();
+			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+			DirectionalizeEngine.doWork(dataSource, prop);
+			dataSource.finish();
+		}finally {
+			if (dataSource != null) dataSource.close();
+		}
 		long then = System.nanoTime();
-		
 		logger.info("Processing Time: " + ( (then - now) / Math.pow(10, 9) ) + " seconds" );
 	}
 }

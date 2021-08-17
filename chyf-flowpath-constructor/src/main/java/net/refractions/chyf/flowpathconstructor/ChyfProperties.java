@@ -29,7 +29,7 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import net.refractions.chyf.IChyfProperties;
 import si.uom.NonSI;
 import systems.uom.common.USCustomary;
-import tec.uom.se.unit.Units;
+import tech.units.indriya.unit.Units;
 
 /**
  * Class for managing properties related to skeletonizer
