@@ -28,13 +28,25 @@
         <maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
 	</properties>
 	
-	<modules>
-		<module>chyf-core</module>
-		<module>chyf-flowpath-constructor</module>
-		<module>chyf-catchment-delineator</module>
-		<module>chyf-processing-tools</module>
-		<!--<module>chyf-web</module> -->
-	</modules>
+
+	
+	<profiles>
+    		<profile>
+      			<id>webapp</id>
+      			<modules>
+				<module>chyf-web</module>
+			</modules>		
+		</profile>
+		<profile>
+			<id>processingtools</id>
+			<modules>
+				<module>chyf-core</module>
+				<module>chyf-flowpath-constructor</module>
+				<module>chyf-catchment-delineator</module>
+				<module>chyf-processing-tools</module>
+			</modules>
+		</profile>
+	</profiles>
 	
 	<build>
 		<plugins>
