@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.geotools.data.DefaultTransaction;
 import org.geotools.data.FeatureWriter;
 import org.geotools.data.Transaction;
 import org.geotools.data.simple.SimpleFeatureReader;
@@ -35,12 +36,14 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.feature.type.Name;
 import org.opengis.filter.Filter;
 import org.opengis.filter.identity.FeatureId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.datasource.ChyfAttribute;
+import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.datasource.ChyfPostGisLocalDataSource;
 import net.refractions.chyf.datasource.Layer;
@@ -255,6 +258,24 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 	@Override
 	public void addRankAttribute() throws Exception{
 		((FlowpathGeoPackageDataSource)	getLocalDataSource()).addRankAttribute();
+		
+		//add rank attribute if it doesn't exist
+		Name rankatt = ChyfDataSource.findAttribute(outputDataStore.getSchema(getTypeName(Layer.EFLOWPATHS)), ChyfAttribute.RANK);
+		if (rankatt == null) {
+			StringBuilder sb = new StringBuilder();
+		   	sb.append("ALTER TABLE ");
+		   	sb.append(outputSchema + "." + getTypeName(Layer.EFLOWPATHS));
+		   	sb.append(" ADD COLUMN ");
+		   	sb.append(ChyfAttribute.RANK.getFieldName());
+		   	sb.append(" smallint ");
+		   	
+		   	try(Transaction tx = new DefaultTransaction()){
+		   		Connection c = ((JDBCDataStore)outputDataStore).getConnection(tx);
+		   		c.createStatement().executeUpdate(sb.toString());
+		   		tx.commit();
+		   	}
+		   	resetOutputSchema();
+		}
 	}
 
 	@Override
