@@ -734,7 +734,10 @@ public abstract class ChyfPostGisLocalDataSource implements ChyfDataSource{
 				throw new IOException(ex);
 			}
 		}
-		
+		resetOutputSchema();
+	}
+	
+	protected void resetOutputSchema() throws IOException{
 		outputDataStore.dispose();
 		outputDataStore = null;
 		
