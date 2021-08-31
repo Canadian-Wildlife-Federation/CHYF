@@ -14,7 +14,7 @@
 		<!-- core library version -->
 		<chyf.core.version>1.2.1</chyf.core.version>
 		<!-- flowpath constructor version -->
-		<flowpath.constructor.version>1.2.1</flowpath.constructor.version>
+		<flowpath.constructor.version>1.2.2</flowpath.constructor.version>
 		<!-- catchment delineator version -->
 		<catchment.version>1.2.0</catchment.version>
 		
