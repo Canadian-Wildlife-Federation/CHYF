@@ -109,9 +109,17 @@ public class PointEngine {
 
 			logger.info("POINT GENERATOR: " + cnt);
 			cnt++;
-						
+			
+//			if (toProcess.getAttribute(idAttribute).toString().equalsIgnoreCase("04445a93-e7b7-44ea-8ff2-cbe9814134bc")) {
+//				System.out.println("break");
+//			}else {
+//				System.out.println(toProcess.getAttribute(idAttribute).toString());
+//				continue;
+//			}
+			
 			ftouch.clear();
 			ptouch.clear();
+			
 			
 			Polygon workingPolygon = ChyfDataSource.getPolygon(toProcess);
 			if (!workingPolygon.isValid()) throw new Exception("Polygon not a valid geometry.  Centroid: " + workingPolygon.getCentroid().toText());
@@ -163,7 +171,9 @@ public class PointEngine {
 		//write point layers
 		dataSource.createConstructionsPoints(generator.getPoints());
 	}
-	private static List<BoundaryEdge> getBoundary(IFlowpathDataSource dataSource, ChyfProperties properties) throws Exception{
+	
+	
+	public static List<BoundaryEdge> getBoundary(IFlowpathDataSource dataSource, ChyfProperties properties) throws Exception{
 
 		logger.info("computing boundary points");
 		
@@ -312,25 +322,25 @@ public class PointEngine {
 			if (x instanceof LineString) {
 				//find the nearest point within 0.004 units
 				LineString ls = (LineString)x;
-				
-				Point found = null;
+
+				List<Point> found = new ArrayList<>();
 				for (Coordinate c : ls.getCoordinates()) {
 					for (Point p : inoutpoints) {
 						if (c.equals2D(p.getCoordinate())) {
-							found = p;
-							break;
+							found.add(p);
 						}
 					}
-					if (found != null) break;
 				}
 					
 				FlowDirection d = FlowDirection.UNKNOWN;
-				if (found != null) {
-					if (found.getUserData() != null) {
-						d = (FlowDirection) found.getUserData();
+				if (!found.isEmpty()) {
+					for (Point f : found) {
+						if (f.getUserData() != null) {
+							d = (FlowDirection) f.getUserData();
+						}
+						BoundaryEdge be = new BoundaryEdge(d,  (LineString)x, f);
+						edges.add(be);
 					}
-					BoundaryEdge be = new BoundaryEdge(d,  (LineString)x, found);
-					edges.add(be);
 				}else {
 					BoundaryEdge be = new BoundaryEdge(d,  (LineString)x, null);
 					edges.add(be);
