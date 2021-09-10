@@ -51,30 +51,39 @@ import net.refractions.chyf.flowpathconstructor.skeletonizer.points.Construction
  */
 public class SkeletonGenerator {
 
+	private ChyfProperties workingProperties;
 	private ChyfProperties properties;
 
 	public SkeletonGenerator(ChyfProperties prop) {
 		this.properties = prop;
+		System.out.println(properties.getProperty(Property.SKEL_DENSIFY_FACTOR));
 	}
 
 	
 	public SkeletonResult generateSkeleton(Polygon waterbody, List<ConstructionPoint> inoutPoints) throws Exception {
 		if (inoutPoints.size() < 2) throw new IOException("invalid number of input/output points");
 
-
+		//copy the properties so we can change it as required for this run
+		this.workingProperties = properties.clone();
+		
 		//if the construction points are closer than the densify factor
 		//we need smaller densify factor
 		//try 10x smaller
+		boolean increase = false;
 		for (ConstructionPoint p : inoutPoints) {
 			for (ConstructionPoint p2 : inoutPoints) {
 				if (p == p2) continue;
 				if (p.getCoordinate().equals2D(p2.getCoordinate())) continue;
-				if (p.getCoordinate().distance(p2.getCoordinate()) < properties.getProperty(Property.SKEL_DENSIFY_FACTOR)) {
-					properties.setProperty(Property.SKEL_DENSIFY_FACTOR, properties.getProperty(Property.SKEL_DENSIFY_FACTOR) / 10);
-					LoggerFactory.getLogger(SkeletonGenerator.class).info("Increaing densify factor by 10 for waterbody @ " + waterbody.getCentroid().toText() );
+				if (p.getCoordinate().distance(p2.getCoordinate()) < workingProperties.getProperty(Property.SKEL_DENSIFY_FACTOR)) {
+					increase = true;
 					break;
 				}
 			}
+			if (increase) break;
+		}
+		if (increase) {
+			workingProperties.setProperty(Property.SKEL_DENSIFY_FACTOR, workingProperties.getProperty(Property.SKEL_DENSIFY_FACTOR) / 10);
+			LoggerFactory.getLogger(SkeletonGenerator.class).info("Increaing densify factor by 10 for waterbody @ " + waterbody.getInteriorPoint().toText() );
 		}
 		
 		
@@ -174,10 +183,10 @@ public class SkeletonGenerator {
 		SkeletonGraph graph = SkeletonGraph.buildGraph(segments, inoutPoints);
 		graph.mergedegree2();
 		graph.trim(inoutPoints);
-		graph.collapseShortEdges(properties.getProperty(Property.SKEL_MINSIZE));
+		graph.collapseShortEdges(workingProperties.getProperty(Property.SKEL_MINSIZE));
 		graph.directionalizeBanks(inoutPoints);
 
-		return graph.getSkeletons(properties, gf);
+		return graph.getSkeletons(workingProperties, gf);
 			
 	}
 	
@@ -278,9 +287,9 @@ public class SkeletonGenerator {
 		
 		Set<Coordinate> densifyMore = new HashSet<>();
 		
-		double minAngle = Math.toRadians( properties.getProperty(Property.SKEL_ACUTE_ANGLE) );
+		double minAngle = Math.toRadians( workingProperties.getProperty(Property.SKEL_ACUTE_ANGLE) );
 		double maxAngle = 2*Math.PI - minAngle;
-		double densify = properties.getProperty(Property.SKEL_DENSIFY_FACTOR);
+		double densify = workingProperties.getProperty(Property.SKEL_DENSIFY_FACTOR);
 
 		for (LineString ls : outside) {		
 			Coordinate[] cs = ls.getCoordinates();

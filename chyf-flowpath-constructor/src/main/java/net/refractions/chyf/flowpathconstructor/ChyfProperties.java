@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.Map.Entry;
 import java.util.Properties;
 
 import javax.measure.Unit;
@@ -37,7 +38,7 @@ import tech.units.indriya.unit.Units;
  * @author Emily
  *
  */
-public class ChyfProperties implements IChyfProperties{
+public class ChyfProperties implements IChyfProperties, Cloneable{
 
 	public static final String M_PROP_FILE = "chyf.meter.properties";
 	public static final String DEG_PROP_FILE = "chyf.degree.properties";
@@ -133,5 +134,15 @@ public class ChyfProperties implements IChyfProperties{
 			props.properties.put(prop,  Double.valueOf(value));
 		}
 		return props;
+	}
+	
+	@Override
+	public ChyfProperties clone() {
+		ChyfProperties clone =  new ChyfProperties();
+		clone.properties = new HashMap<ChyfProperties.Property, Double>();
+		for (Entry<Property, Double> x : this.properties.entrySet()) {
+			clone.properties.put(x.getKey(), x.getValue());
+		}
+		return clone;
 	}
 }
