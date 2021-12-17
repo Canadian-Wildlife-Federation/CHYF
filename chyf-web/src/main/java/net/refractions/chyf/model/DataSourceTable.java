@@ -26,10 +26,20 @@ public enum DataSourceTable {
 	WORK_UNIT("chyf.nhn_workunit"),
 	AOI("chyf2.aoi"),
 	EFLOWPATH("chyf2.eflowpath"), 
+	EFLOWPATH_ATTRIBUTES("chyf2.eflowpath_attributes"),
 	ECATCHMENT("chyf2.ecatchment"),
+	ECATCHMENT_ATTRIBUTES("chyf2.ecatchment_attributes"),
 	NAMES("chyf2.names"),
-	SHORELINE("chyf2.shoreline");
+	SHORELINE("chyf2.shoreline"),
+	NEXUS("chyf2.nexus"),
 	
+	EC_TYPE("chyf2.ec_type_codes"),
+	EC_SUBTYPE("chyf2.ec_subtype_codes"),
+	EF_TYPE("chyf2.ef_type_codes"),
+	EF_SUBTYPE("chyf2.ef_subtype_codes"),
+	NEXUS_TYPE("chyf2.nexut_type_codes");
+	
+	public static final int DATA_SRID = 4617;
 
 	public String tableName;
 

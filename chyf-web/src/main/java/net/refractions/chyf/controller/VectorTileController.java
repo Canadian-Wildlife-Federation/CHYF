@@ -59,8 +59,8 @@ public class VectorTileController {
 
 	// tile spec bounds and epsg code
 	public static Envelope BOUNDS = new Envelope(-20037508.342789, 20037508.342789, -20037508.342789, 20037508.342789);
-	public static int SRID = 3857;
-
+	public static int TILE_SRID = 3857;
+	
 	@RequestMapping(value = "/nhnworkunit/{z}/{x}/{y}.{format}", method = {
 			RequestMethod.GET }, produces = "application/vnd.mapbox-vector-tile")
 	public ResponseEntity<byte[]> getNhnWorkUnit(@PathVariable("z") int z, @PathVariable("x") int x,

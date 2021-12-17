@@ -50,7 +50,7 @@ public class VectorTileDao {
 		double tileymax = VectorTileController.BOUNDS.getMaxY() - ytilesize * y;
 
 		Envelope env = new Envelope(tilexmin, tilexmin + xtilesize, tileymax - ytilesize, tileymax);
-		int srid = VectorTileController.SRID;
+		int srid = VectorTileController.TILE_SRID;
 
 		String stenv = "ST_MakeEnvelope(" + env.getMinX() + "," + env.getMinY() + "," + env.getMaxX() + ","
 				+ env.getMaxY() + "," + srid + ")";
@@ -58,50 +58,34 @@ public class VectorTileDao {
 		StringBuilder sb = new StringBuilder();
 		sb.append("	WITH");
 		sb.append("	bounds AS (");
-		sb.append("	SELECT st_transform(" + stenv + ", " + VectorTileController.SRID + ") AS geom, ");
+		sb.append("	SELECT st_transform(" + stenv + ", " + DataSourceTable.DATA_SRID + ") AS geom, ");
 		sb.append(stenv + "::box2d AS b2d  ");
 		sb.append(" ), ");
 		sb.append("	mvtgeom AS (");
 
 		if (layer.isWorkUnit()) {
-			// not combinable with other layers
 			sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
 			sb.append(" id, major_drainage_area, sub_drainage_area, sub_sub_drainage_area ");
 			sb.append("	FROM ");
 			sb.append(DataSourceTable.WORK_UNIT.tableName);
 			sb.append(" t, bounds ");
-			sb.append("	WHERE st_intersects(st_transform(t.geometry, " + srid + "),  bounds.geom) ");
+			sb.append("	WHERE st_intersects(t.geometry,  bounds.geom) ");
 		}else if (layer.isShoreline()) {
 			sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom ");
 			sb.append("	FROM ");
 			sb.append(DataSourceTable.SHORELINE.tableName);
 			sb.append(" t, bounds ");
-			sb.append("	WHERE st_intersects(st_transform(t.geometry, " + srid + "),  bounds.geom) ");
+			sb.append("	WHERE st_intersects(t.geometry,  bounds.geom) ");
 		} else {
 			boolean union = false;
 			if (layer.isWaterbody()) {
 				union = true;
 				// waterbodies
 				sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
-				sb.append(" 'waterbody' as feature_type, ");
-				sb.append(" case when t.ec_type = 1 then 'Reach' ");
-				sb.append(" when t.ec_type = 2 then 'Bank' ");
-				sb.append(" when t.ec_type = 3 then 'Empty' ");
-				sb.append(" when t.ec_type = 4 then 'Water' ");
-				sb.append(" when t.ec_type = 5 then 'Built-up Area' ");
-				sb.append(" else 'Unknown' end as type_name,");
-				sb.append(" t.ec_type as type, ");
-				sb.append(" case when t.ec_subtype = 10 then 'Lake' ");
-				sb.append(" when t.ec_subtype = 11 then 'Great Lake' ");
-				sb.append(" when t.ec_subtype = 12 then 'Wastewater Pond' ");
-				sb.append(" when t.ec_subtype = 20 then 'Estuary' ");
-				sb.append(" when t.ec_subtype = 30 then 'Nearshore Zone' ");
-				sb.append(" when t.ec_subtype = 40 then 'River' ");
-				sb.append(" when t.ec_subtype = 41 then 'Canal' ");
-				sb.append(" when t.ec_subtype = 50 then 'Buried Infrastructure' ");
-				sb.append(" when t.ec_subtype = 90 then 'Ocean' ");
-				sb.append(" when t.ec_subtype = 99 then 'Unknown' ");
-				sb.append(" else 'Unknown' end as subtype_name,");
+				sb.append(" 'waterbody' as type, ");
+				sb.append(" et.name as feature_type_name, ");
+				sb.append(" t.ec_type as feature_type, ");
+				sb.append(" est.name as subtype_name, ");
 				sb.append(" t.ec_subtype as subtype, ");
 				sb.append(" t.area as size, ");
 				sb.append(" t.is_reservoir as is_reservoir, ");
@@ -111,11 +95,17 @@ public class VectorTileDao {
 				sb.append(" FROM ");
 				sb.append(DataSourceTable.ECATCHMENT.tableName);
 				sb.append(" t LEFT JOIN ");
-				sb.append(DataSourceTable.NAMES.tableName);
+				sb.append(DataSourceTable.NAMES.tableName);				
 				sb.append(" n ON t.name_id = n.name_id ");
+				sb.append(" LEFT JOIN ");
+				sb.append(DataSourceTable.EC_TYPE.tableName);
+				sb.append(" et ON t.ec_type = et.code ");
+				sb.append(" LEFT JOIN ");
+				sb.append(DataSourceTable.EC_SUBTYPE.tableName);
+				sb.append(" est ON t.ec_subtype = est.code ");
 				sb.append(", bounds ");
 				sb.append("	WHERE t.ec_type IN (4) ");
-				sb.append(" AND st_intersects(st_transform(t.geometry, " + srid + "),  bounds.geom) ");
+				sb.append(" AND st_intersects(t.geometry,  bounds.geom) ");
 			}
 
 			if (layer.isFlowpath()) {
@@ -124,17 +114,10 @@ public class VectorTileDao {
 				union = true;
 				// flowpath
 				sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
-				sb.append(" 'flowpath' as feature_type, ");
-				sb.append(" CASE WHEN t.ef_type = 1 then 'Reach' ");
-				sb.append(" WHEN t.ef_type = 2 then 'Bank' ");
-				sb.append(" WHEN t.ef_type = 3 then 'Skeleton' ");
-				sb.append(" WHEN t.ef_type = 4 then 'Infrasturcture' ");
-				sb.append(" ELSE 'Unknown' END as type_name, ");
-				sb.append(" t.ef_type as type, ");
-				sb.append(" CASE WHEN t.ef_subtype = 10 then 'Observed' ");
-				sb.append(" WHEN t.ef_subtype = 20 then 'Inferred' ");
-				sb.append(" WHEN t.ef_subtype = 99 then 'Unspecified' ");
-				sb.append(" ELSE 'Unknown' END as subtype_name, ");
+				sb.append(" 'flowpath' as type, ");
+				sb.append(" et.name as feature_type_name, ");
+				sb.append(" t.ef_type as feature_type, ");
+				sb.append(" est.name as subtype_name, ");
 				sb.append(" t.ef_subtype as subtype, ");
 				sb.append(" t.length as size, ");
 				sb.append(" null as is_reservoir, ");
@@ -146,8 +129,14 @@ public class VectorTileDao {
 				sb.append(" t LEFT JOIN ");
 				sb.append(DataSourceTable.NAMES.tableName);
 				sb.append(" n ON t.name_id = n.name_id ");
+				sb.append(" LEFT JOIN ");
+				sb.append(DataSourceTable.EC_TYPE.tableName);
+				sb.append(" et ON t.ef_type = et.code ");
+				sb.append(" LEFT JOIN ");
+				sb.append(DataSourceTable.EC_SUBTYPE.tableName);
+				sb.append(" est ON t.ef_subtype = est.code ");
 				sb.append(", bounds ");
-				sb.append("	WHERE st_intersects(st_transform(t.geometry, " + srid + "),  bounds.geom) ");
+				sb.append("	WHERE st_intersects(t.geometry,  bounds.geom) ");
 			}
 
 			// elementary catchments
@@ -155,26 +144,12 @@ public class VectorTileDao {
 				if (union)
 					sb.append(" UNION ");
 				union = true;
+				
 				sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
-				sb.append(" 'waterbody' as feature_type, ");
-				sb.append(" case when t.ec_type = 1 then 'Reach' ");
-				sb.append(" when t.ec_type = 2 then 'Bank' ");
-				sb.append(" when t.ec_type = 3 then 'Empty' ");
-				sb.append(" when t.ec_type = 4 then 'Water' ");
-				sb.append(" when t.ec_type = 5 then 'Built-up Area' ");
-				sb.append(" else 'Unknown' end as type_name,");
-				sb.append(" t.ec_type as type, ");
-				sb.append(" case when t.ec_subtype = 10 then 'Lake' ");
-				sb.append(" when t.ec_subtype = 11 then 'Great Lake' ");
-				sb.append(" when t.ec_subtype = 12 then 'Wastewater Pond' ");
-				sb.append(" when t.ec_subtype = 20 then 'Estuary' ");
-				sb.append(" when t.ec_subtype = 30 then 'Nearshore Zone' ");
-				sb.append(" when t.ec_subtype = 40 then 'River' ");
-				sb.append(" when t.ec_subtype = 41 then 'Canal' ");
-				sb.append(" when t.ec_subtype = 50 then 'Buried Infrastructure' ");
-				sb.append(" when t.ec_subtype = 90 then 'Ocean' ");
-				sb.append(" when t.ec_subtype = 99 then 'Unknown' ");
-				sb.append(" else 'Unknown' end as subtype_name,");
+				sb.append(" 'catchment' as type, ");
+				sb.append(" et.name as feature_type_name, ");
+				sb.append(" t.ec_type as feature_type, ");
+				sb.append(" est.name as subtype_name, ");
 				sb.append(" t.ec_subtype as subtype, ");
 				sb.append(" t.area as size, ");
 				sb.append(" t.is_reservoir as is_reservoir, ");
@@ -184,11 +159,17 @@ public class VectorTileDao {
 				sb.append(" FROM ");
 				sb.append(DataSourceTable.ECATCHMENT.tableName);
 				sb.append(" t LEFT JOIN ");
-				sb.append(DataSourceTable.NAMES.tableName);
+				sb.append(DataSourceTable.NAMES.tableName);				
 				sb.append(" n ON t.name_id = n.name_id ");
+				sb.append(" LEFT JOIN ");
+				sb.append(DataSourceTable.EC_TYPE.tableName);
+				sb.append(" et ON t.ec_type = et.code ");
+				sb.append(" LEFT JOIN ");
+				sb.append(DataSourceTable.EC_SUBTYPE.tableName);
+				sb.append(" est ON t.ec_subtype = est.code ");
 				sb.append(", bounds ");
 				sb.append("	WHERE t.ec_type in (1, 2, 3, 5) ");
-				sb.append(" AND st_intersects(st_transform(t.geometry, " + srid + "),  bounds.geom) ");
+				sb.append(" AND st_intersects(t.geometry,  bounds.geom) ");
 			}
 		}
 
