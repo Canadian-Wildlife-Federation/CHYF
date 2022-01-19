@@ -236,10 +236,16 @@ public class Directionalizer {
 					if (e.isFlipped()) toflip.add(e.getID());
 					if (e.getDType() == DirectionType.KNOWN) processed.add(e.getID());
 				}
-				if (e.getSameEdges() == null) continue;
+				if (e.getSameEdges() == null || e.getSameEdges().isEmpty()) continue;
+				
+				
+				Coordinate start = e.getInfo().getStart();
+				if (e.isFlipped()) {
+					start = e.getInfo().getEnd();
+				}				
 				for (DEdge comp : e.getSameEdges()) {
 					processed.add(comp.getID());
-					if (comp.getNodeA() != e.getNodeA()) {
+					if(!comp.getNodeA().getCoordinate().equals2D(start)){
 						toflip.add(comp.getID());
 					}
 				}

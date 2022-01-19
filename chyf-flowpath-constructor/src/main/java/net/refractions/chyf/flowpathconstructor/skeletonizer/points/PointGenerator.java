@@ -759,23 +759,29 @@ public class PointGenerator {
 	 		Coordinate[] cs = in[i].getCoordinates();
 	 		List<Coordinate> newCoordinates = new ArrayList<>();
 	 		newCoordinates.add(cs[0]);
-			 for (int k = 1; k < cs.length; k ++) {
-				 
-				 for (InsertPoint pnts : insertPoints) {
-					 Coordinate c0 = pnts.before;
-					 Coordinate c1 = pnts.after;
-	 				 if (cs[k-1].equals2D(c0) && cs[k].equals2D(c1)) {
-	 					 //insert pnts[2]
-	 					newCoordinates.add(pnts.toinsert);
-	 					modified = true;
-	 				 }
-	 				if (cs[k-1].equals2D(c1) && cs[k].equals2D(c0)) {
-	 					newCoordinates.add(pnts.toinsert);
-	 					modified = true;
-	 				}
-	 			 }
-				newCoordinates.add(cs[k]);
-	 		 }
+			for (int k = 1; k < cs.length; k++) {
+
+				for (InsertPoint pnts : insertPoints) {
+					Coordinate c0 = pnts.before;
+					Coordinate c1 = pnts.after;
+					if (cs[k - 1].equals2D(c0) && cs[k].equals2D(c1)) {
+						// insert pnts[2]
+						if (!newCoordinates.get(newCoordinates.size() - 1).equals2D(pnts.toinsert)) {
+							newCoordinates.add(pnts.toinsert);
+							modified = true;
+						}
+					}
+					if (cs[k - 1].equals2D(c1) && cs[k].equals2D(c0)) {
+						if (!newCoordinates.get(newCoordinates.size() - 1).equals2D(pnts.toinsert)) {
+							newCoordinates.add(pnts.toinsert);
+							modified = true;
+						}
+					}
+				}
+				if (!newCoordinates.get(newCoordinates.size() - 1).equals2D(cs[k])) {
+					newCoordinates.add(cs[k]);
+				}
+			}
 	 		 if (cs.length != newCoordinates.size()) {
 	 			 out[i] = p.getFactory().createLineString(newCoordinates.toArray(new Coordinate[newCoordinates.size()]));
 	 		 }

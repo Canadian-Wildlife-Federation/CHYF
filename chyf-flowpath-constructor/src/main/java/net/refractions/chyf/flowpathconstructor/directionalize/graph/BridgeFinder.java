@@ -15,6 +15,12 @@
  */
 package net.refractions.chyf.flowpathconstructor.directionalize.graph;
 
+import java.io.IOException;
+
+import org.locationtech.jts.io.ParseException;
+
+import net.refractions.chyf.ChyfLogger;
+
 /**
  * Computes "bridge" edges in a graph.  Sets
  * the isBridge flag of these edges.  A bridge edge
@@ -36,24 +42,30 @@ public class BridgeFinder {
      * 
      * @param graph graph to compute bridges for
      * @param source any node in the graph
+     * @throws ParseException 
+     * @throws IOException 
      */
-    public void computeBridges(DGraph graph, DNode source) {
+    public void computeBridges(DGraph graph, DNode source) throws IOException, ParseException {
     	cnt = 0;
     	graph.nodes.forEach(n->{
     		n.bridgeMin = -1;
     		n.bridgePre = -1;
     	});
     	source.bridgePre = -1;
-    	
+        	
     	dfs(source, source);
     }
     
     //TODO: make not recursive
-    private void dfs(DNode u, DNode v) {
+    private void dfs(DNode u, DNode v) throws IOException, ParseException {
     	v.bridgePre = cnt++;
     	v.bridgeMin = v.bridgePre;
     	for (DEdge e : v.getEdges()) {
     		DNode w = e.getOtherNode(v);
+    		if (w == null) {
+    			ChyfLogger.INSTANCE.logError("Could not compute bridge edges in graph.", e.getNodeA().toGeometry());
+    			throw new RuntimeException("Could not compute bridge edges in graph (null pointer exception): " + e.getNodeA().toGeometry().toText());
+    		}
     		if (w.bridgePre == -1) {
     			dfs(v, w);
     			v.bridgeMin = Math.min(v.bridgeMin, w.bridgeMin);

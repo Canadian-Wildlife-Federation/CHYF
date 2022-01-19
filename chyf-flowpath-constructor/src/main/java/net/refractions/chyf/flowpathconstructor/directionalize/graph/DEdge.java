@@ -189,7 +189,14 @@ public class DEdge {
 	}
 	
 	public void flip() throws Exception{
-		
+//		if (info.getEnd().x == -111.57558579999999893 && info.getEnd().y == 49.38688940000000116) {
+//		if (info.getID().getID().equals("e83aa32b-66e8-4b03-b2ae-96a8e8a9eb4f") ||
+//				info.getID().getID().equals("4dd6bf77-d519-4e2f-adc7-252aded6a827") 
+//				) {
+//		System.out.println(info.getFeatureId().getID());
+//		if (info.getFeatureId().getID().equals("EFlowpaths.2914")) {
+//			System.out.println("break");
+//		}
 		if (rawdt == DirectionType.KNOWN) {
 			ChyfLogger.INSTANCE.logError("Flipping the direction of a known edge.", toGeometry(), DEdge.class);
 		}
@@ -204,6 +211,10 @@ public class DEdge {
 		
 		info.setDirectionType(DirectionType.KNOWN);
 		info.setFlipped();
+	}
+	
+	public EdgeInfo getInfo() {
+		return this.info;
 	}
 	
 	public void print() {
