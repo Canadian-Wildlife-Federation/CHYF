@@ -23,7 +23,7 @@ package net.refractions.chyf.model;
 public enum DataSourceTable {
 
 	VECTOR_TILE_CACHE("chyf2.vector_tile_cache"),
-	WORK_UNIT("chyf.nhn_workunit"),
+	WORK_UNIT("chyf2.nhn_workunit"),
 	AOI("chyf2.aoi"),
 	EFLOWPATH("chyf2.eflowpath"), 
 	EFLOWPATH_ATTRIBUTES("chyf2.eflowpath_attributes"),

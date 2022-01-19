@@ -21,6 +21,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.support.AbstractValueAdaptingCache;
 import org.springframework.stereotype.Component;
 
+import net.refractions.chyf.ChyfConfigurationProperties;
+
 /**
  * Spring style cache for caching tiles to the database.
  * 
@@ -34,6 +36,9 @@ public class VectorTileCache extends AbstractValueAdaptingCache {
 
 	@Autowired
 	VectorTileCacheDao dao;
+	
+	@Autowired
+	ChyfConfigurationProperties properties;
 
 	public VectorTileCache() {
 		super(false);
@@ -92,4 +97,16 @@ public class VectorTileCache extends AbstractValueAdaptingCache {
 		dao.clear();
 	}
 
+	/**
+	 * Determines the total size of the cache and if exceeds the maximum
+	 * specified cache size, clean out tiles until less than max size.
+	 */
+	public void cleanUpCache() {
+		//clear oldest tiles until cache is under the required size
+		double cacheSize = dao.getCacheSize();
+		if (cacheSize < properties.getVectorcachesize()) return;
+		
+		double todelete = cacheSize - properties.getVectorcachesize() + properties.getCachefree();
+		dao.cleanCache(todelete);	
+	}
 }
