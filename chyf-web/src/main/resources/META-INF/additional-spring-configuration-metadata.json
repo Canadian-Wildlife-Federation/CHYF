@@ -1,0 +1,23 @@
+{"properties": [
+{
+  "name": "cabd.maxresults",
+  "type": "java.lang.Integer",
+  "description": "The maximum number of results returned for any barrier search"
+},
+{
+  "name": "chyf.vectorcachesize",
+  "type": "java.lang.Long",
+  "description": "The maximum size of the vector tile cache before items are evicted"
+},
+{
+  "name": "chyf.cachefree",
+  "type": "java.lang.Long",
+  "description": "The amount of free space to aim for when evicting items from the cache"
+},
+{
+  "name": "chyf.cachecleanupdelay",
+  "type": "java.lang.Long",
+  "description": "The amount of time in seconds between vector tile cache clearing"
+}
+
+]}
