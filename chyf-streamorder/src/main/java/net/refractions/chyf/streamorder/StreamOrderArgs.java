@@ -94,7 +94,7 @@ public class StreamOrderArgs {
 	 */
 	protected void parseOptions(CommandLine cmd) {
 		if (cmd.hasOption("usenames")) useNames = true;
-		if (cmd.hasOption("ignorenames")) ignoreNames = false;
+		if (cmd.hasOption("ignorenames")) ignoreNames = true;
 		if (cmd.hasOption("d")) {
 			dbstring = cmd.getOptionValue("d");
 		}

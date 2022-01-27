@@ -226,6 +226,7 @@ public class StreamOrderMainstemEngine {
 						NodeEntity node = (NodeEntity) row.get("a");
 						
 						node.setProperty(NexusProperty.SORDER.key, 1);
+						node.setProperty(NexusProperty.SHORDER.key, 1);
 						node.setProperty(NexusProperty.HTORDER.key, 1);
 						node.setProperty(NexusProperty.HKORDER.key, 1);
 						node.setProperty(NexusProperty.MAINSTEMID.key, mainstem);
