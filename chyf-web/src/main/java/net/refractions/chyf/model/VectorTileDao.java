@@ -64,7 +64,27 @@ public class VectorTileDao {
 		sb.append("	mvtgeom AS (");
 
 		if (layer.isWorkUnit()) {
-			sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
+			
+			//determine if we need to simplify the geometries first; 
+			//this substantially improves performance
+			//a better option may be to use the postgis wagyu library
+			double simplify = -1;
+			if (z == 0 || z == 1 || z == 2 || z == 3 ) {
+				simplify = 0.05;
+			}else if ( z == 4 || z == 5 || z == 6 || z == 7) {
+				simplify = 0.01;
+			}else if ( z == 8 || z == 9) {
+				simplify = 0.001;
+			}
+			
+			sb.append("	SELECT ST_AsMVTGeom(ST_Transform(");
+			if (simplify > 0) {
+				sb.append("st_simplify(t.geometry, " + simplify + ")");
+			}else {
+				sb.append("t.geometry");
+			}
+			sb.append(" , " + srid );
+			sb.append("), bounds.b2d) AS geom, ");
 			sb.append(" id, major_drainage_area, sub_drainage_area, sub_sub_drainage_area ");
 			sb.append("	FROM ");
 			sb.append(DataSourceTable.WORK_UNIT.tableName);
