@@ -43,6 +43,12 @@
 				<module>chyf-flowpath-constructor</module>
 				<module>chyf-catchment-delineator</module>
 				<module>chyf-processing-tools</module>
+			</modules>
+		</profile>
+		<profile>
+			<id>streamorder</id>
+			<modules>
+				<module>chyf-core</module>
 				<module>chyf-streamorder</module>
 			</modules>
 		</profile>

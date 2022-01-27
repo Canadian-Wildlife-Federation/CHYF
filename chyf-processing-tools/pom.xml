@@ -50,10 +50,5 @@
             <artifactId>chyf-catchment-delineator</artifactId>
             <version>${catchment.version}</version>
         </dependency>
-        <dependency>
-            <groupId>net.refractions.chyf</groupId>
-            <artifactId>chyf-streamorder</artifactId>
-            <version>${streamorder.version}</version>
-        </dependency>
     </dependencies>
 </project>
