@@ -51,10 +51,9 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 	private Logger logger = LoggerFactory.getLogger(PostgresqlGraphDataSource.class);
 
 	//chyf2 input tables
-	private static final String SCHEMA = "chyf2";
-	private static final String EFLOWPATH_TABLE = SCHEMA + ".eflowpath";
-	private static final String NEXUS_TABLE = SCHEMA + ".nexus";
-	private static final String AOI_TABLE = SCHEMA + ".aoi";
+	private String eflowpathTable = "";
+	private String nexusTable = "";
+	private String aoiTable = "";
 	
 	//db connection
 	private String host = "";
@@ -71,7 +70,11 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 	 * @param dbconnection host=<HOST>;port=<PORT>;db=<NAME>;user=<USERNAME>;password=<PASSWORD>
 	 * @param outputTable
 	 */
-	public PostgresqlGraphDataSource(String dbconnection, String outputTable) {
+	public PostgresqlGraphDataSource(String dbconnection, String inputSchema, String outputTable) {
+		
+		this.eflowpathTable = inputSchema + ".eflowpath";
+		this.nexusTable = inputSchema + ".nexus";
+		this.aoiTable = inputSchema + ".aoi";
 		
 		String[] bits = dbconnection.split(";");
 		for (String bit : bits) {
@@ -107,8 +110,8 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 			
 			sb = new StringBuilder();
 			sb.append("CREATE TABLE IF NOT EXISTS " + outputTable + " (");
-			sb.append("id uuid, strahler_order integer, graphid integer, ");
-			sb.append("mainstemid uuid, max_uplength double precision, ");
+			sb.append("id uuid, strahler_order integer, graph_id integer, ");
+			sb.append("mainstem_id uuid, max_uplength double precision, ");
 			sb.append("hack_order integer, horton_order integer, mainstem_seq integer, ");
 			sb.append("shreve_order integer, ");
 			sb.append("primary key (id))");
@@ -127,9 +130,9 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 		sb.append("SELECT DISTINCT ");
 		sb.append(" a.aoi_id, b.aoi_id ");
 		sb.append(" FROM ");
-		sb.append(EFLOWPATH_TABLE + " a ");
+		sb.append(eflowpathTable + " a ");
 		sb.append(" JOIN ");
-		sb.append(EFLOWPATH_TABLE + " b ");
+		sb.append(eflowpathTable + " b ");
 		sb.append(" ON a.from_nexus_id = b.to_nexus_id ");
 		sb.append(" WHERE ");
 		sb.append(" a.aoi_id != b.aoi_id AND a.rank = 1 AND b.rank = 1 ");
@@ -187,7 +190,7 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 		// add any aoi's that are not in a group
 
 		try (Statement s = connection.createStatement();
-				ResultSet rs = s.executeQuery("SELECT cast(id as varchar) FROM " + AOI_TABLE)) {
+				ResultSet rs = s.executeQuery("SELECT cast(id as varchar) FROM " + aoiTable)) {
 
 			while (rs.next()) {
 				String id = rs.getString(1);
@@ -211,7 +214,7 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 
 			sb.append(" WITH edges AS (");
 			sb.append(" SELECT from_nexus_id, to_nexus_id FROM ");
-			sb.append( EFLOWPATH_TABLE );
+			sb.append( eflowpathTable );
 			sb.append(" WHERE aoi_id IN (");
 			for (int i = 0; i < group.getAoiIds().size(); i++) {
 				sb.append("?,");
@@ -220,7 +223,7 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 			sb.append(")");
 			sb.append(") ");
 			sb.append(" SELECT id, nexus_type FROM ");
-			sb.append( NEXUS_TABLE );
+			sb.append( nexusTable );
 			sb.append(" WHERE id IN (");
 			sb.append(" SELECT from_nexus_id FROM edges UNION SELECT to_nexus_id FROM edges");
 			sb.append(")");
@@ -267,7 +270,7 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 			StringBuilder sb = new StringBuilder();
 			sb.append("SELECT from_nexus_id, to_nexus_id, id, ef_type, ef_subtype, length, rank, name_id ");
 			sb.append(" FROM ");
-			sb.append(EFLOWPATH_TABLE);
+			sb.append(eflowpathTable);
 			sb.append(" WHERE aoi_id IN (");
 			for (int i = 0; i < group.getAoiIds().size(); i++) {
 				sb.append("?,");
@@ -328,7 +331,7 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 		connection.setAutoCommit(false);
 
 		StringBuilder sb = new StringBuilder();
-		sb.append("SELECT max(graphid) FROM ");
+		sb.append("SELECT max(graph_id) FROM ");
 		sb.append(outputTable);
 		
 		long startgraphid = 0;
@@ -340,7 +343,7 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 		
 		sb = new StringBuilder();
 		sb.append("INSERT INTO " + outputTable );
-		sb.append("(id, strahler_order, graphid, mainstemid, max_uplength, hack_order, ");
+		sb.append("(id, strahler_order, graph_id, mainstem_id, max_uplength, hack_order, ");
 		sb.append(" horton_order, mainstem_seq, shreve_order )");
 		sb.append(" VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
 		

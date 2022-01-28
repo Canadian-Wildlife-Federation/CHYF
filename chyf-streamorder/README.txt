@@ -32,7 +32,7 @@ chyf-streamorder-computer.bat -d host=<host>;port=<port>;db=<db>;username=<user>
 
 
 Usage:
-chyf-streamorder-computer.bat -d <connectionstring> -ignorenames -usenames <outputtable>
+chyf-streamorder-computer.bat -d <connectionstring> -ignorenames -usenames <inputschema> <outputtable>
 
 connectionstring
 The database connection string in the form "host=<host>;port=<port>;db=<db>;username=<user>;password=<pass>"
@@ -41,5 +41,10 @@ Only one of -ignorenames or -usenames can be provided.
 ignorenames - names will be ignored when computing mainstems and orders
 usenames - names will affect how mainstems (and orders) are computed
 
+inputschema
+The schema name of the input data. At a minimum this schema musch contain 
+eflowpath, nexus, and aoi tables.
+
 outputtable
-The table to write results to in the form <schema>.<tablename>
+The table to write results to in the form <schema>.<tablename>. Any existing
+table will be dropped and recreated.

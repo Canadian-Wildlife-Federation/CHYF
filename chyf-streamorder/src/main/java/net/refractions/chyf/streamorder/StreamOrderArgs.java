@@ -36,6 +36,7 @@ public class StreamOrderArgs {
 	protected Boolean ignoreNames = null;
 	protected String dbstring = "";
 	protected String outputTable = "";
+	protected String inputSchema = "";
 	
 	public StreamOrderArgs(String mainClass) {
 		this.mainClass = mainClass;
@@ -68,8 +69,9 @@ public class StreamOrderArgs {
 			
 			parseOptions(cmd);
 			
-			if (cmd.getArgList().size() == 1) {
-				outputTable = cmd.getArgList().get(0).trim().toLowerCase();
+			if (cmd.getArgList().size() == 2) {
+				inputSchema = cmd.getArgList().get(0).trim().toLowerCase();
+				outputTable = cmd.getArgList().get(1).trim().toLowerCase();
 			}else {
 				printUsage();
 				return false;
@@ -114,8 +116,12 @@ public class StreamOrderArgs {
 			System.err.println("Invalid output table");
 			return false;
 		}
-		if (!outputTable.matches("[a-z0-9]+\\.[a-z]+[a-z0-9_]*")) {
-			System.err.println("Invalid output table. Format must be <schema>.<tablename> where both the schema and tablename only contain a-z characters");
+		if (!outputTable.matches("[a-z0-9_]+\\.[a-z]+[a-z0-9_]*")) {
+			System.err.println("Invalid output table. Format must be <schema>.<tablename> where both the schema and tablename only contain a-z0-9_ characters");
+			return false;
+		}
+		if (!inputSchema.matches("[a-z0-9_]+")) {
+			System.err.println("Invalid input schema table. The schema can only contain a-z0-9 characters");
 			return false;
 		}
 		
@@ -152,6 +158,14 @@ public class StreamOrderArgs {
 		return this.outputTable;
 	}
 	
+	/**
+	 * 
+	 * @return the name of the input dataset schema
+	 */
+	public String getInputSchema() {
+		return this.inputSchema;
+	}
+	
 	public boolean useNames() {
 		if (useNames != null) return useNames;
 		if (ignoreNames != null) return !ignoreNames;
@@ -159,7 +173,7 @@ public class StreamOrderArgs {
 	}
 	
 	private void printUsage() {
-		new HelpFormatter().printHelp(mainClass + " [OPTIONS] [OUTPUT_TABLE] ", options);
+		new HelpFormatter().printHelp(mainClass + " [OPTIONS] [INPUT_SCHEMA] [OUTPUT_TABLE] ", options);
 	}
 
 }

@@ -35,7 +35,7 @@ public class StreamOrderComputer {
 		
 		Long now = System.nanoTime();
 		try(PostgresqlGraphDataSource source = new PostgresqlGraphDataSource(
-				cargs.getDbConnectionString(), cargs.getOutputTable())){
+				cargs.getDbConnectionString(), cargs.getInputSchema(), cargs.getOutputTable())){
 			
 			source.connect();
 	
