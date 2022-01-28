@@ -225,8 +225,6 @@ public class StreamOrderMainstemEngine {
 						Map<String, Object> row = result.next();
 						NodeEntity node = (NodeEntity) row.get("a");
 						
-						System.out.println(node.getProperty("id"));
-						
 						node.setProperty(NexusProperty.SORDER.key, 1);
 						node.setProperty(NexusProperty.SHORDER.key, 1);
 						node.setProperty(NexusProperty.HTORDER.key, 1);
