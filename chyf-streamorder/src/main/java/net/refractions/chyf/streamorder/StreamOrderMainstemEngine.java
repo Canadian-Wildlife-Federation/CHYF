@@ -134,7 +134,7 @@ public class StreamOrderMainstemEngine {
 		logger.info("Computing order - processing graphs with < 2 nodes");
 		
 		// set to 1 all subgraphs with 2 or fewer nodes
-		process2SizeNetworks(graph);
+		processSize2Networks(graph);
 
 		logger.info("Computing order - determining remaining subgraphs");
 		Set<ImmutablePair<Long, Long>> subgraphs = new HashSet<>();
@@ -180,7 +180,7 @@ public class StreamOrderMainstemEngine {
 		}
 	}
 
-	private void process2SizeNetworks(Neo4JDatastore graph) {
+	private void processSize2Networks(Neo4JDatastore graph) {
 		
 		Set<Long> componentIds = new HashSet<>();
 		

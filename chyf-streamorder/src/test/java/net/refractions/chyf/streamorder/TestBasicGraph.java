@@ -28,7 +28,7 @@ class TestBasicGraph {
 
 	@Test
 	void testOrderMainstemComputations() throws Exception{
-		try(BasicGraphDataSource dataSource = new BasicGraphDataSource()){
+		try(MockGraphDataSource dataSource = new MockGraphDataSource()){
 			StreamOrderMainstemEngine computer = new StreamOrderMainstemEngine(false);
 			
 			computer.computeOrderValues(dataSource);
@@ -121,7 +121,7 @@ class TestBasicGraph {
 	
 	@Test
 	void testNamedOrderMainstemComputations() throws Exception{
-		try(BasicGraphDataSource dataSource = new BasicGraphDataSource()){
+		try(MockGraphDataSource dataSource = new MockGraphDataSource()){
 			StreamOrderMainstemEngine computer = new StreamOrderMainstemEngine(true);
 			
 			computer.computeOrderValues(dataSource);

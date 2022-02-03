@@ -27,7 +27,7 @@ import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.kernel.impl.core.NodeEntity;
 
-public class BasicGraphDataSource implements IGraphDataSource {
+public class MockGraphDataSource implements IGraphDataSource {
 
 	private AoiGroup group = new AoiGroup();
 	
