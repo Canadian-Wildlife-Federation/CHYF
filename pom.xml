@@ -1,5 +1,4 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>net.refractions.chyf</groupId>
@@ -17,7 +16,9 @@
 		<flowpath.constructor.version>1.2.4</flowpath.constructor.version>
 		<!-- catchment delineator version -->
 		<catchment.version>1.2.0</catchment.version>
-		
+		<!-- stream order version -->
+		<streamorder.version>1.0.0</streamorder.version>
+
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<geotools.version>25.1</geotools.version>
 		<junit.jupiter.version>5.5.2</junit.jupiter.version>
@@ -25,17 +26,15 @@
 		<slf4j.version>1.7.25</slf4j.version>
 		<commonscli.version>1.4</commonscli.version>
 		<timestamp>${maven.build.timestamp}</timestamp>
-        <maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
+		<maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
 	</properties>
-	
 
-	
 	<profiles>
-    		<profile>
-      			<id>webapp</id>
-      			<modules>
+		<profile>
+			<id>webapp</id>
+			<modules>
 				<module>chyf-web</module>
-			</modules>		
+			</modules>
 		</profile>
 		<profile>
 			<id>processingtools</id>
@@ -46,8 +45,15 @@
 				<module>chyf-processing-tools</module>
 			</modules>
 		</profile>
+		<profile>
+			<id>streamorder</id>
+			<modules>
+				<module>chyf-core</module>
+				<module>chyf-streamorder</module>
+			</modules>
+		</profile>
 	</profiles>
-	
+
 	<build>
 		<plugins>
 			<plugin>
@@ -58,50 +64,22 @@
 					<release>11</release>
 				</configuration>
 			</plugin>
-			<!-- plugin>
-				<groupId>org.codehaus.mojo</groupId>
-				<artifactId>license-maven-plugin</artifactId>
-				<version>1.8</version>
-				<executions>
-					<execution>
-						<id>aggregate-add-third-party</id>
-						<inherited>true</inherited>
-						<configuration>
-							<force>true</force>
-							<outputDirectory>src/license/</outputDirectory>
-							<useMissingFile>true</useMissingFile>
-							<licenseMerges>
-								<licenseMerge>apache_2_0|apache_v2</licenseMerge>
-								<licenseMerge>apache_2_0|The Apache Software License, Version
-									2.0</licenseMerge>
-								<licenseMerge>apache_2_0|Apache License, Version 2.0</licenseMerge>
-								<licenseMerge>apache_2_0|Apache License 2.0</licenseMerge>
-								<licenseMerge>apache_2_0|Apache License</licenseMerge>
-								<licenseMerge>apache_2_0|Apache 2.0 License</licenseMerge>
-								<licenseMerge>apache_2_0|Apache 2</licenseMerge>
-								<licenseMerge>apache_2_0|ASF 2.0</licenseMerge>
-								<licenseMerge>bsd_2|The BSD License</licenseMerge>
-								<licenseMerge>bsd_2|BSD License</licenseMerge>
-								<licenseMerge>cddl_1_0|Common Development and Distribution
-									License (CDDL) v1.0</licenseMerge>
-								<licenseMerge>cddl_1_0|COMMON DEVELOPMENT AND DISTRIBUTION
-									LICENSE (CDDL) Version 1.0</licenseMerge>
-								<licenseMerge>epl_1|Eclipse Public License - v 1.0</licenseMerge>
-								<licenseMerge>lgpl_2_1|LGPL 2.1</licenseMerge>
-								<licenseMerge>lgpl_2_1|GNU Lesser General Public License</licenseMerge>
-								<licenseMerge>lgpl_2_1|Lesser General Public License (LGPL)</licenseMerge>
-								<licenseMerge>mit|MIT License</licenseMerge>
-								<licenseMerge>mpl_1_1|MPL 1.1</licenseMerge>
-							</licenseMerges>
-						</configuration>
-						<goals>
-							<goal>aggregate-add-third-party</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin -->
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>2.22.0</version>
+				<dependencies>
+					<dependency>
+						<groupId>org.junit.platform</groupId>
+						<artifactId>junit-platform-surefire-provider</artifactId>
+						<version>1.2.0</version>
+					</dependency>
+				</dependencies>
+			</plugin>
+
 		</plugins>
-		
+
 		<pluginManagement>
 			<plugins>
 				<!--This plugin's configuration is used to store Eclipse m2e settings 
@@ -137,16 +115,16 @@
 			</plugins>
 		</pluginManagement>
 	</build>
-	
-    
-	  <licenses>
-    		<license>
+
+
+	<licenses>
+		<license>
 			<name>Apache License, Version 2.0</name>
-    			<url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+			<url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
 			<distribution>repo</distribution>
 		</license>
-  	</licenses>
-  
+	</licenses>
+
 	<dependencies>
 		<dependency>
 			<groupId>junit</groupId>
@@ -154,20 +132,35 @@
 			<version>4.12</version>
 			<scope>test</scope>
 		</dependency>
-		
+
 		<dependency>
-		    <groupId>org.junit.jupiter</groupId>
-		    <artifactId>junit-jupiter-params</artifactId>
-		    <version>${junit.jupiter.version}</version>
-        		<scope>test</scope>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-api</artifactId>
+			<version>${junit.jupiter.version}</version>
+			<scope>test</scope>
 		</dependency>
+
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-engine</artifactId>
+			<version>${junit.jupiter.version}</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.maven.plugins</groupId>
+			<artifactId>maven-surefire-plugin</artifactId>
+			<version>2.22.0</version>
+			<scope>test</scope>
+		</dependency>
+
 	</dependencies>
 
 	<repositories>
 		<repository>
 			<id>osgeo</id>
-        		<name>OSGeo Release Repository</name>
-        		<url>https://repo.osgeo.org/repository/release/</url>
+			<name>OSGeo Release Repository</name>
+			<url>https://repo.osgeo.org/repository/release/</url>
 		</repository>
 	</repositories>
 
