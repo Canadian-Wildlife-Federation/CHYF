@@ -25,17 +25,16 @@ On windows use the .bat files, on linux use the .sh files.
 ---------------------------------------
 --- Stream Order Tools  ---
 ---------------------------------------
-To run the streem order tools use the chyf-streamorder-computer files.  For example to
-run on the sample data provided use the following command:
+To run the stream order tools use the chyf-streamorder-computer files. For example:
 
-chyf-streamorder-computer.bat -d host=<host>;port=<port>;db=<db>;username=<user>;password=<pass> -ignorenames chyf.eflowpath_properties
+chyf-streamorder-computer.bat -d host=<host>;port=<port>;db=<db>;user=<user>;password=<pass> -ignorenames chyf chyf.eflowpath_properties
 
 
 Usage:
 chyf-streamorder-computer.bat -d <connectionstring> -ignorenames -usenames <inputschema> <outputtable>
 
 connectionstring
-The database connection string in the form "host=<host>;port=<port>;db=<db>;username=<user>;password=<pass>"
+The database connection string in the form "host=<host>;port=<port>;db=<db>;user=<user>;password=<pass>"
 
 Only one of -ignorenames or -usenames can be provided.  
 ignorenames - names will be ignored when computing mainstems and orders
