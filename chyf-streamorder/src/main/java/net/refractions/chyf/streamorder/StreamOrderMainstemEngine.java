@@ -23,24 +23,13 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.neo4j.gds.api.ImmutableGraphLoaderContext;
-import org.neo4j.gds.config.GraphCreateFromCypherConfig;
-import org.neo4j.gds.config.GraphCreateFromStoreConfig;
-import org.neo4j.gds.config.ImmutableGraphCreateFromCypherConfig;
-import org.neo4j.gds.core.GraphLoader;
-import org.neo4j.gds.core.ImmutableGraphLoader;
-import org.neo4j.gds.core.loading.GraphStoreCatalog;
-import org.neo4j.gds.core.utils.progress.EmptyTaskRegistryFactory;
 import org.neo4j.gds.impl.walking.WalkPath;
-import org.neo4j.gds.transaction.TransactionContext;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.kernel.impl.core.NodeEntity;
-import org.neo4j.kernel.internal.GraphDatabaseAPI;
-import org.neo4j.logging.NullLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,37 +84,34 @@ public class StreamOrderMainstemEngine {
 	private void computeOrder(Neo4JDatastore graph) {
 
 		logger.info("Computing order");
-		GraphDatabaseAPI api = ((GraphDatabaseAPI) graph.getDatabase());
-
-		GraphCreateFromCypherConfig conf = ImmutableGraphCreateFromCypherConfig.builder().graphName("primaryGraph")
-				.nodeQuery("MATCH (n:Nexus) RETURN id(n) as id")
-				.relationshipQuery(
-						"MATCH (s:Nexus)-[flow:FLOWPATH]->(t:Nexus) RETURN id(s) AS source, id(t) AS target")
-				.putParameter("nodeProperties", new ArrayList<>())
-				.putParameter("relationshipProperties", new ArrayList<>()).build();
+		
+		StringBuilder cql = new StringBuilder();
+		cql.append("CALL gds.graph.create");
+		cql.append("('primaryGraph',  ['Nexus'], ['FLOWPATH'])");
+		cql.append(" YIELD graphName");
 
 		logger.info("Computing order - creating component networks");
 
 		try (Transaction tx = graph.getDatabase().beginTx()) {
-			GraphLoader gl = ImmutableGraphLoader.builder().context(ImmutableGraphLoaderContext.builder()
-					.transactionContext(TransactionContext.of(api, tx)).api(api).log(NullLog.getInstance())
-//                    .allocationTracker(allocationTracker)
-					.taskRegistryFactory(EmptyTaskRegistryFactory.INSTANCE)
-//                    .terminationFlag(TerminationFlag.wrap(transaction))
-					.build()).createConfig(conf).build();
-
-			GraphStoreCatalog.set(GraphCreateFromStoreConfig.emptyWithName("", "primaryGraph"), gl.graphStore());
-
+			Result resultSet = tx.execute(cql.toString());
+			while (resultSet.hasNext()) resultSet.next();
+			
 			StringBuilder sb = new StringBuilder();
 			sb.append("CALL gds.wcc.write('primaryGraph', { writeProperty: '" + NexusProperty.COMPONENTID.key + "' }) ");
 			sb.append(" YIELD nodePropertiesWritten, componentCount;");
 
 			tx.execute(sb.toString());
+			
+			resultSet = tx.execute("CALL gds.graph.drop('primaryGraph') YIELD graphName");
+			while (resultSet.hasNext()) resultSet.next();
+			
 			tx.commit();
 		}
 	
 		try (Transaction tx = graph.getDatabase().beginTx()) {
-			tx.schema().indexFor(graph.getNexusType()).on(NexusProperty.COMPONENTID.key).create();
+			tx.schema()
+				.indexFor(graph.getNexusType())
+				.on(NexusProperty.COMPONENTID.key).create();
 			tx.commit();
 		}
 
@@ -162,7 +148,6 @@ public class StreamOrderMainstemEngine {
 
 		int i = 0;
 		for (ImmutablePair<Long, Long> l : subgraphs) {
-
 			tocompute.add(l.getLeft());
 			nodecnt = nodecnt + l.getRight();
 			i++;
@@ -243,10 +228,6 @@ public class StreamOrderMainstemEngine {
 	
 	private void processSubGraphOrder(Neo4JDatastore graph, Set<Long> componentIds) {
 
-		GraphDatabaseAPI api = ((GraphDatabaseAPI) graph.getDatabase());
-
-		GraphCreateFromCypherConfig conf;
-
 		StringBuilder in = new StringBuilder();
 		for (Long pi : componentIds) {
 			in.append(String.valueOf(pi));
@@ -271,26 +252,21 @@ public class StreamOrderMainstemEngine {
 		edgeQuery.append(" AND flow." + FlowpathProperty.EF_TYPE.key);
 		edgeQuery.append(" <> " + EfType.BANK.getChyfValue() );
 		edgeQuery.append(" RETURN id(t) AS source, id(s) as target ");
-		
-		conf = ImmutableGraphCreateFromCypherConfig.builder().graphName("tempGraph")
-				.nodeQuery(nodeQuery.toString())
-				.relationshipQuery(edgeQuery.toString())
-				.build();
 
 		//store the nodes to visit in array list
 		List<Long> toProcess = new ArrayList<>();
-		
 		try (Transaction tx = graph.getDatabase().beginTx()) {
 
-			GraphLoader gl = ImmutableGraphLoader.builder().context(ImmutableGraphLoaderContext.builder()
-					.transactionContext(TransactionContext.of(api, tx)).api(api).log(NullLog.getInstance())
-//	                    .allocationTracker(allocationTracker)
-					.taskRegistryFactory(EmptyTaskRegistryFactory.INSTANCE)
-//	                    .terminationFlag(TerminationFlag.wrap(transaction))
-					.build()).createConfig(conf).build();
-//				
-			GraphStoreCatalog.set(GraphCreateFromStoreConfig.emptyWithName("", "tempGraph"), gl.graphStore());
+			StringBuilder cql = new StringBuilder();
+			cql.append("CALL gds.graph.create.cypher");
+			cql.append("('tempGraph',  ");
+			cql.append("'" + nodeQuery.toString() + "',");
+			cql.append("'" + edgeQuery.toString() + "'");
+			cql.append(") YIELD graphName");
 
+			Result resultSet = tx.execute(cql.toString());
+			while (resultSet.hasNext()) resultSet.next();
+			
 			StringBuilder sb = new StringBuilder();
 			sb.append("MATCH(a:Nexus) WHERE ");
 			sb.append("a." + NexusProperty.COMPONENTID.key);
@@ -309,7 +285,6 @@ public class StreamOrderMainstemEngine {
 				while (result.hasNext()) {
 					Map<String, Object> row = result.next();
 					WalkPath path = (WalkPath) row.get("path");
-
 					path.reverseNodes().forEach(n->toProcess.add(n.getId()));
 				}
 			}
@@ -434,6 +409,10 @@ public class StreamOrderMainstemEngine {
 				}
 		
 			}
+			
+			Result resultSet = tx.execute("CALL gds.graph.drop('tempGraph') YIELD graphName");
+			while (resultSet.hasNext()) resultSet.next();
+			
 			tx.commit();
 		}finally {
 			tx.close();
@@ -442,7 +421,7 @@ public class StreamOrderMainstemEngine {
 		
 		
 		//walk up computing mainsteam sequestion, horton and hack order
-		 commitcnt = 0;
+		commitcnt = 0;
 		tx = graph.getDatabase().beginTx();
 		try {
 			//visit nodes in order committing every x number of visits
@@ -489,13 +468,11 @@ public class StreamOrderMainstemEngine {
 					}
 				}
 				
-				}
-				tx.commit();
-			}finally {
-				tx.close();
 			}
-			
-		GraphStoreCatalog.removeAllLoadedGraphs();
+			tx.commit();
+		}finally {
+			tx.close();
+		}	
 
 	}
 }
