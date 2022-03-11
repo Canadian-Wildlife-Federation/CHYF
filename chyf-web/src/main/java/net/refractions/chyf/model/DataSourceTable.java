@@ -25,13 +25,16 @@ public enum DataSourceTable {
 	VECTOR_TILE_CACHE("chyf2.vector_tile_cache"),
 	WORK_UNIT("chyf2.nhn_workunit"),
 	AOI("chyf2.aoi"),
-	EFLOWPATH("chyf2.eflowpath"), 
 	EFLOWPATH_ATTRIBUTES("chyf2.eflowpath_attributes"),
-	ECATCHMENT("chyf2.ecatchment"),
 	ECATCHMENT_ATTRIBUTES("chyf2.ecatchment_attributes"),
 	NAMES("chyf2.names"),
-	SHORELINE("chyf2.shoreline"),
-	NEXUS("chyf2.nexus"),
+	//use view for data tables
+	//view filters out only the aoi's flagged 
+	//for display in the aoi table
+	SHORELINE("chyf2.shoreline_vw"),
+	NEXUS("chyf2.nexus_vw"),
+	EFLOWPATH("chyf2.eflowpath_vw"),
+	ECATCHMENT("chyf2.ecatchment_vw"),
 	
 	EC_TYPE("chyf2.ec_type_codes"),
 	EC_SUBTYPE("chyf2.ec_subtype_codes"),
