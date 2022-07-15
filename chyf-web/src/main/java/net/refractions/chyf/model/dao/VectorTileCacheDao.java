@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and 
  * limitations under the License.
  */
-package net.refractions.chyf.model;
+package net.refractions.chyf.model.dao;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -26,6 +26,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementCreatorFactory;
 import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.jdbc.core.RowMapper;
+
+import net.refractions.chyf.model.DataSourceTable;
 
 /**
  * Data access interface for tile cache

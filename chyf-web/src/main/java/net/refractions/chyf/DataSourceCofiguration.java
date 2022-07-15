@@ -22,8 +22,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import net.refractions.chyf.model.VectorTileCacheDao;
-import net.refractions.chyf.model.VectorTileDao;
+import net.refractions.chyf.model.dao.VectorTileCacheDao;
+import net.refractions.chyf.model.dao.VectorTileDao;
 
 /**
  * Configuration for data sources 

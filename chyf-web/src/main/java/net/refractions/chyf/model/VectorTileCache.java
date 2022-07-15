@@ -22,6 +22,7 @@ import org.springframework.cache.support.AbstractValueAdaptingCache;
 import org.springframework.stereotype.Component;
 
 import net.refractions.chyf.ChyfConfigurationProperties;
+import net.refractions.chyf.model.dao.VectorTileCacheDao;
 
 /**
  * Spring style cache for caching tiles to the database.
