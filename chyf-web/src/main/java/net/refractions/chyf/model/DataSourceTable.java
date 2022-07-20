@@ -25,7 +25,7 @@ public enum DataSourceTable {
 	VECTOR_TILE_CACHE("chyf2.vector_tile_cache"),
 	WORK_UNIT("chyf2.nhn_workunit"),
 	AOI("chyf2.aoi"),
-	EFLOWPATH_ATTRIBUTES("chyf2.eflowpath_attributes"),
+	EFLOWPATH_PROPERTIES("chyf2.eflowpath_properties"),
 	ECATCHMENT_ATTRIBUTES("chyf2.ecatchment_attributes"),
 	NAMES("chyf2.names"),
 	//use view for data tables
