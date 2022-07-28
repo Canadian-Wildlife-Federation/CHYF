@@ -36,7 +36,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import net.refractions.chyf.controller.NameSearchParameters.GroupByType;
+import net.refractions.chyf.controller.NameSearchParameters.ResultType;
 import net.refractions.chyf.exceptions.ApiError;
 import net.refractions.chyf.exceptions.NotFoundException;
 import net.refractions.chyf.model.HydroFeature;
@@ -130,10 +130,10 @@ public class FeatureController {
 		
 		HydroFeatureList results = new HydroFeatureList(new ArrayList<>());
 		
-		if (params.getGroupBy() == GroupByType.NAME) {
+		if (params.getResultType() == ResultType.GROUP_BY_NAME || params.getResultType() == ResultType.BBOX) {
 			results.getItems().addAll(nameSearchDao.getFeaturesByNameMerged(params));
 		
-		}else if (params.getGroupBy() == GroupByType.NONE) {
+		}else if (params.getResultType() == ResultType.ALL_FEATURES) {
 			
 			if (params.getFeatureType() == null || params.getFeatureType().contains(HydroFeature.Type.FLOWPATH)) {
 				results.getItems().addAll(flowpathDao.getFeaturesByName(params));
@@ -146,7 +146,7 @@ public class FeatureController {
 					results.getItems().addAll(catchmentDao.getFeaturesByName(params));
 				}
 			}
-		}else if (params.getGroupBy() == GroupByType.TYPE) {
+		}else if (params.getResultType() == ResultType.GROUP_BY_TYPE) {
 			if (params.getFeatureType() == null || params.getFeatureType().contains(HydroFeature.Type.FLOWPATH)) {
 				results.getItems().addAll(flowpathDao.getFeaturesByNameMerged(params));
 			}
@@ -158,6 +158,8 @@ public class FeatureController {
 					results.getItems().addAll(catchmentDao.getFeaturesByNameMerged(params));
 				}
 			}
+		}else if (params.getResultType() == ResultType.BBOX) {
+			
 		}
 		
 		return ResponseEntity.ok(results);

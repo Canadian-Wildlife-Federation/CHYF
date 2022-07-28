@@ -34,18 +34,25 @@ import net.refractions.chyf.model.MatchType;
  */
 public class NameSearchParameters {
 
-	public enum GroupByType{
-		NONE,
-		TYPE,
-		NAME
+	public enum ResultType{
+		BBOX("bbox"),
+		ALL_FEATURES("all"),
+		GROUP_BY_TYPE("groupbytype"),
+		GROUP_BY_NAME("groupbyname");
+		
+		private String paramValue;
+		
+		ResultType(String paramValue){
+			this.paramValue = paramValue;
+		}
 	}
 	
 	@Parameter(required = true, description = "The name to match")
 	private String name;
 	
-	@Parameter(name="groupby", required = false, description = "How to group the results. None returns all features, typename group by type and feature name, name groups by feature name. Default is name.")
-	private String groupBy;
-	private GroupByType parsedGroupBy;
+	@Parameter(name="result-type", required = false, description = "The type of result to return. (bbox, all, groupbytype, groupbyname)")
+	private String resultType;
+	private ResultType parsedResultType;
 	
 	@Parameter(name="feature-type", required = false, description = "The feature type to search. Must be one of flowpath or waterbody ")
 	private List<String> featuretype;
@@ -64,11 +71,11 @@ public class NameSearchParameters {
 	//use a POJO to represent these parameters
 	//I needed custom name for max-results
 	//https://stackoverflow.com/questions/56468760/how-to-collect-all-fields-annotated-with-requestparam-into-one-object
-	@ConstructorProperties({"name", "groupby", "feature-type", "match-type", "max-results"})
-	public NameSearchParameters(String name, String groupby, List<String> featuretype,
+	@ConstructorProperties({"name", "result-type", "feature-type", "match-type", "max-results"})
+	public NameSearchParameters(String name, String resulttype, List<String> featuretype,
 			String matchtype, Integer maxresults) {
 		this.name = name;
-		this.groupBy = groupby;
+		this.resultType = resulttype;
 		this.featuretype = featuretype;
 		this.matchtype = matchtype;
 	    this.maxresults = maxresults;
@@ -79,7 +86,7 @@ public class NameSearchParameters {
 	public MatchType getMatchType() { return this.parsedType; }
 	public Integer getMaxresults() { return maxresults;	}
 	public List<HydroFeature.Type> getFeatureType(){ return this.parsedFeatureType; }
-	public GroupByType getGroupBy() {return this.parsedGroupBy; }
+	public ResultType getResultType() {return this.parsedResultType; }
 	
 	/**
 	 * Parses parameters into data types and validates values.
@@ -87,16 +94,21 @@ public class NameSearchParameters {
 	 * 
 	 */
 	public void parseAndValidate() {
-		if (groupBy == null) {
-			parsedGroupBy = GroupByType.NAME;
-		}else {
-			try {
-				parsedGroupBy = GroupByType.valueOf(groupBy.toUpperCase());
-			}catch (Exception ex) {
-				throw new InvalidParameterException("The groupby parameter is invalid. Must be one of '" + GroupByType.NAME.name() + "', '" + GroupByType.TYPE.name() + "', or '" + GroupByType.NONE.name()+  "'");
-				
+		parsedResultType = ResultType.BBOX;
+		if (resultType != null) {
+			boolean found = false;
+			for (ResultType t : ResultType.values()) {
+				if (t.paramValue.equalsIgnoreCase(resultType)) {
+					found = true;
+					parsedResultType = t;
+					break;
+				}
+			}
+			if (!found) {
+				throw new InvalidParameterException("The result-type parameter is invalid. Must be one of '" + ResultType.GROUP_BY_NAME.paramValue + "', '" + ResultType.GROUP_BY_TYPE.paramValue + "', or '" + ResultType.ALL_FEATURES.paramValue + "', or '" + ResultType.BBOX.paramValue +  "'");
 			}
 		}
+		
 		if (matchtype == null) {
 			parsedType = MatchType.CONTAINS;
 		}else {
@@ -115,7 +127,7 @@ public class NameSearchParameters {
 				}
 			}catch (Exception ex) {
 				ex.printStackTrace();
-				throw new InvalidParameterException("The feature-type parameter is invalid. Must be one of 'flowpath' or 'waterbody'");
+				throw new InvalidParameterException("The feature-type parameter is invalid. Must be one of '" + HydroFeature.Type.FLOWPATH.name() + "' or '" + HydroFeature.Type.WATERBODY.name() + "'");
 			}
 		}else {
 			parsedFeatureType = null;
@@ -128,9 +140,9 @@ public class NameSearchParameters {
 			throw new InvalidParameterException("The 'max-results' parameter must be larger than 0");
 		}
 		
-		if (parsedGroupBy == GroupByType.NAME) {
+		if (parsedResultType == ResultType.GROUP_BY_NAME) {
 			if (featuretype != null) {
-				throw new InvalidParameterException("The feature-type is not supported when groupby type is '" + GroupByType.NAME.name() + "'");
+				throw new InvalidParameterException("The feature-type is not supported when groupby type is '" + ResultType.GROUP_BY_NAME.name() + "'");
 			}
 		}
 	}

@@ -23,6 +23,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import net.refractions.chyf.controller.NameSearchParameters;
+import net.refractions.chyf.controller.NameSearchParameters.ResultType;
 import net.refractions.chyf.model.DataSourceTable;
 import net.refractions.chyf.model.MatchType;
 import net.refractions.chyf.model.NamedFeature;
@@ -71,7 +72,12 @@ public class NameFeatureSearchDao {
 		sb.append(" WHERE name_id IN (SELECT name_id FROM nameids) ");
 		sb.append(" GROUP BY name_id ");
 		sb.append(") ");
-		sb.append("SELECT a.name_id, a.name_en, a.name_fr, st_asbinary(st_union(b.geometry)) as geometry");
+		sb.append("SELECT a.name_id, a.name_en, a.name_fr,");
+		if (search.getResultType() == ResultType.BBOX) {
+			sb.append(" st_asbinary(st_extent(b.geometry)) as geometry");
+		}else {
+			sb.append(" st_asbinary(st_union(b.geometry)) as geometry");
+		}
 		sb.append(" FROM ");
 		sb.append(" all_features b, ");
 		sb.append(DataSourceTable.NAMES.tableName );
