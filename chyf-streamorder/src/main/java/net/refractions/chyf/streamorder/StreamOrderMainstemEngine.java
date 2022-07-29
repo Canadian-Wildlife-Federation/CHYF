@@ -360,6 +360,9 @@ public class StreamOrderMainstemEngine {
 						sameNameUpstreamNode = fromnode;
 					}
 
+					if (!fromnode.hasProperty(NexusProperty.SHORDER.key)) {
+						System.out.println("ERROR: " + fromnode.getProperty(NexusProperty.ID.key));
+					}
 					Integer nshorder = (Integer) fromnode.getProperty(NexusProperty.SHORDER.key);
 					shorder += nshorder;
 					

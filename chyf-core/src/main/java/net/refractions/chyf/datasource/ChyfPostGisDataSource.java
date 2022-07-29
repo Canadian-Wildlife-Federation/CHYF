@@ -85,7 +85,11 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	protected String rawSchema = "raw";
 	protected String workingSchema = "working";
 	
-	private Map<String, Object> connectionParameters;
+	protected Map<String, Object> connectionParameters;
+	
+	protected ChyfPostGisDataSource() throws IOException {
+		
+	}
 	
 	public ChyfPostGisDataSource(String connectionString, String inschema, 
 			String outschema) throws IOException {
