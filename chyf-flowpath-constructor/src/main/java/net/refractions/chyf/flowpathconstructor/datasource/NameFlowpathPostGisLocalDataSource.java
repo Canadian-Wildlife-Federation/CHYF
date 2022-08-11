@@ -80,6 +80,7 @@ public class NameFlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSour
 
 	public NameFlowpathPostGisLocalDataSource(String connectionString, String inschema, String outschema) throws Exception {
 		super(connectionString, inschema, outschema);
+		if (!inschema.equals(outschema)) throw new RuntimeException("The data source for updating postgis names requires the inschema and outschema to be the same.");
 	}
 
 	/**
