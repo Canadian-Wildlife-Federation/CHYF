@@ -198,7 +198,7 @@ public class DEdge {
 //			System.out.println("break");
 //		}
 		if (rawdt == DirectionType.KNOWN) {
-			ChyfLogger.INSTANCE.logError("Flipping the direction of a known edge.", toGeometry(), DEdge.class);
+			ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION, "Flipping the direction of a known edge.", toGeometry(), DEdge.class);
 		}
 		
 		Coordinate t1 = n1NextTo;

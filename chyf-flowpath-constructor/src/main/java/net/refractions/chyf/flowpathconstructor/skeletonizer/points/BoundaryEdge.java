@@ -19,6 +19,7 @@ import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Point;
 
 import net.refractions.chyf.datasource.FlowDirection;
+import net.refractions.chyf.flowpathconstructor.datasource.TerminalNode;
 
 /**
  * Represents an edge or point along the boundary of the aoi
@@ -29,9 +30,8 @@ import net.refractions.chyf.datasource.FlowDirection;
  */
 public class BoundaryEdge {
 
-	private FlowDirection direction;
 	private LineString ls;
-	private Point inout;
+	private TerminalNode node;
 	
 	/**
 	 * 
@@ -39,14 +39,14 @@ public class BoundaryEdge {
 	 * @param ls the edge that intersects or null if its just a point
 	 * @param inout the "point on boundary" of intersection or null if non found
 	 */
-	public BoundaryEdge(FlowDirection direction, LineString ls, Point inout) {
+	public BoundaryEdge(LineString ls, TerminalNode node) {
 		this.ls = ls;
-		this.direction = direction;
-		this.inout = inout;
+		this.node = node;
 	}
 	
 	public FlowDirection getDirection() {
-		return this.direction;
+		if (node == null) return null;
+		return this.node.getDirection();
 	}
 	
 	public LineString getLineString() {
@@ -54,6 +54,13 @@ public class BoundaryEdge {
 	}
 	
 	public Point getInOut() {
-		return this.inout;
+		if (node == null) return null;
+		return this.node.getPoint();
 	}
+	
+	public String[] getNames() {
+		if (this.node.getNameIds() == null) return null;
+		return this.node.getNameIds();
+	}
+		
 }

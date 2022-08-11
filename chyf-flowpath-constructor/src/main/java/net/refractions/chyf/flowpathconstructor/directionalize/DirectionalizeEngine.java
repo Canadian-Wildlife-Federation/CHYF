@@ -25,7 +25,6 @@ import java.util.Set;
 import org.geotools.data.FeatureReader;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
-import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.prep.PreparedPolygon;
 import org.opengis.feature.simple.SimpleFeature;
@@ -49,6 +48,7 @@ import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisLocalDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.TerminalNode;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DEdge;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DGraph;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DNode;
@@ -68,10 +68,10 @@ public class DirectionalizeEngine {
 			try {
 				doWork(dataSource, properties);
 			}catch (ExceptionWithLocation ex) {
-				ChyfLogger.INSTANCE.logException(ex);
+				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.DIRECTION, ex);
 				throw ex;
 			}catch (Exception ex) {
-				ChyfLogger.INSTANCE.logException(ex);
+				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.DIRECTION, ex);
 				throw ex;
 			}
 		}
@@ -182,9 +182,9 @@ public class DirectionalizeEngine {
 	 */
 	private static List<Coordinate> getSinkPoints(IFlowpathDataSource source, DGraph graph) throws Exception {
 		List<Coordinate> sinks = new ArrayList<>();
-		for (Point p : source.getTerminalNodes()) {
-			if ( ((FlowDirection)p.getUserData()) == FlowDirection.OUTPUT ) {
-				if (!sinks.contains(p.getCoordinate())) sinks.add(p.getCoordinate());
+		for (TerminalNode p : source.getTerminalNodes()) {
+			if ( p.getDirection() == FlowDirection.OUTPUT ) {
+				if (!sinks.contains(p.getPoint().getCoordinate())) sinks.add(p.getPoint().getCoordinate());
 			}
 		}
 		

@@ -66,10 +66,10 @@ public class BankEngine {
 			try {
 				doWork(dataSource, properties);
 			}catch (ExceptionWithLocation ex) {
-				ChyfLogger.INSTANCE.logException(ex);
+				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.SKELETON, ex);
 				throw ex;
 			}catch (Exception ex) {
-				ChyfLogger.INSTANCE.logException(ex);
+				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.SKELETON, ex);
 				throw ex;
 			}
 		}

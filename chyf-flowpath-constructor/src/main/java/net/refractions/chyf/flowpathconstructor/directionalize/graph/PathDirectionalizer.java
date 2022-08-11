@@ -150,7 +150,7 @@ public class PathDirectionalizer {
 					out.setKnown();
 				}
 			}
-			ChyfLogger.INSTANCE.logWarning("Loop case detected where a random source node will be created. Source node created.", src.toGeometry(), PathDirectionalizer.class);			
+			ChyfLogger.INSTANCE.logWarning(ChyfLogger.Process.DIRECTION, "Loop case detected where a random source node will be created. Source node created.", src.toGeometry(), PathDirectionalizer.class);			
 		}
 		dir(subGraph, sinks, sources);
 	}
@@ -183,7 +183,7 @@ public class PathDirectionalizer {
 					paths.add(path);
 				}
 			}else {
-				ChyfLogger.INSTANCE.logError("Path shouldn't be null.", sourcenode.toGeometry(), PathDirectionalizer.class);
+				ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION, "Path shouldn't be null.", sourcenode.toGeometry(), PathDirectionalizer.class);
 			}
 		}		
 		//for remaining edges; find shortest path from that edge to sink

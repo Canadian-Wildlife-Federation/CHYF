@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -77,10 +78,29 @@ public class PointGenerator {
 		return items;
 	}
 	
-	
 	public void processPolygon(Polygon waterbodya, List<Polygon> touches, List<LineString> flowpaths) throws Exception {
-		List<ConstructionPoint> wbpoints = new ArrayList<>();
+		processPolygon(waterbodya, touches, flowpaths, Collections.emptyMap());
+	}
 	
+	/**
+	 * 
+	 * 
+	 * flowpaths - linestring with user data set to array where first element is DirectionType and the second element
+	 * is an array for string representing the nameids assigned to the flowpath. If userdata is null DirectionType
+	 * is assumed to me known, and flowpath is assumed to have no names
+	 * 
+	 * @param waterbodya
+	 * @param touches
+	 * @param flowpaths
+	 * @param skeletonnameids
+	 * @throws Exception
+	 */
+	public void processPolygon(Polygon waterbodya, List<Polygon> touches, List<LineString> flowpaths,
+			Map<Coordinate, List<String[]>> skeletonnameids) throws Exception {
+		
+		List<ConstructionPoint> wbpoints = new ArrayList<>();
+		Map<Coordinate, List<String[]>> names = new HashMap<>();
+		
 		workingWaterbody = waterbodya;
 		workingPolygons.clear();
 		workingPolygons.addAll(touches);
@@ -105,7 +125,10 @@ public class PointGenerator {
 			if (be.getLineString() == null) {
 				if (be.getInOut().getEnvelopeInternal().intersects(waterbodya.getEnvelopeInternal()) &&
 						be.getInOut().intersects(waterbodya)) {
-					ConstructionPoint cp = new ConstructionPoint(be.getInOut().getCoordinate(), NodeType.FLOWPATH, be.getDirection(), (PolygonInfo) workingWaterbody.getUserData());
+					ConstructionPoint cp = new ConstructionPoint(be.getInOut().getCoordinate(), 
+							NodeType.FLOWPATH, be.getDirection(), 
+							(PolygonInfo) workingWaterbody.getUserData(), be.getNames());
+					
 					addPoint(wbpoints, cp);
 				}
 			}
@@ -123,12 +146,33 @@ public class PointGenerator {
 			Set<Coordinate> unknownpoints = new HashSet<>();
 			
 			for (LineString ls : flowpaths) {
-				if (ls.getUserData() == null || ((DirectionType)ls.getUserData()) == DirectionType.KNOWN ) {
-					outpoints.add(ls.getCoordinateN(0));
-					inpoints.add(ls.getCoordinateN(ls.getNumPoints() - 1));
+				
+				Coordinate[] c = {ls.getCoordinateN(0), ls.getCoordinateN(ls.getNumPoints() - 1)};
+				if (getDirectionType(ls) == DirectionType.KNOWN ) {
+					outpoints.add(c[0]);
+					inpoints.add(c[1]);
 				}else {
-					unknownpoints.add(ls.getCoordinateN(0));
-					unknownpoints.add(ls.getCoordinateN(ls.getNumPoints() - 1));
+					unknownpoints.add(c[0]);
+					unknownpoints.add(c[1]);
+				}
+				
+				String[] nameids = getNamesIds(ls);
+				if (nameids == null) continue;
+				
+				for (Coordinate cs : c) {
+					List<String[]> t = names.get(cs);
+					if (t == null) {
+						t = new ArrayList<>();
+						names.put(cs,  t);
+					}
+					boolean add = true;
+					for (String[] current : t) {
+						if (current[0].equals(nameids[0])) {
+							add = false;
+							break;
+						}
+					}
+					if (add) t.add(nameids);
 				}
 			}
 		
@@ -144,11 +188,26 @@ public class PointGenerator {
 				if (intersections == null) continue;
 				for (Geometry g : intersections) {
 					if (g instanceof Point) {
-						addPoint(wbpoints, new ConstructionPoint(((Point)g).getCoordinate(), NodeType.WATER, FlowDirection.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
+						ConstructionPoint cp = new ConstructionPoint(((Point)g).getCoordinate(), NodeType.WATER, FlowDirection.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData());
+						
+						//find any names
+						List<String[]> snames = skeletonnameids.get(cp.getCoordinate());
+						if (snames != null) for(String[] x : snames) cp.addNames(x);
+						
+						addPoint(wbpoints, cp);
 					}else {
 						List<Coordinate> items = new ArrayList<>();
 						for (Coordinate n : ((LineString)g).getCoordinates()) items.add(n);
-						addPoint(wbpoints, new ConstructionPoint(findMidpoint(items, true), NodeType.WATER, FlowDirection.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
+						
+						ConstructionPoint cp = new ConstructionPoint(findMidpoint(items, true), NodeType.WATER, FlowDirection.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData());
+						
+						//find any names
+						for (Coordinate n : ((LineString)g).getCoordinates()) {
+							List<String[]> snames = skeletonnameids.get(n);
+							if (snames != null) for(String[] x : snames) cp.addNames(x);
+						}
+						
+						addPoint(wbpoints, cp);
 					}
 				}
 			}
@@ -159,8 +218,9 @@ public class PointGenerator {
 				if (b.getLineString().getEnvelopeInternal().intersects(workingWaterbody.getEnvelopeInternal()) &&
 						b.getLineString().intersects(workingWaterbody) && b.getInOut().intersects(workingWaterbody)) {
 					//use the b.getinout point
-					addPoint(wbpoints, new ConstructionPoint(b.getInOut().getCoordinate(), NodeType.WATER, b.getDirection(), (PolygonInfo) workingWaterbody.getUserData()));
-					
+					ConstructionPoint cp = new ConstructionPoint(b.getInOut().getCoordinate(), NodeType.WATER, 
+							b.getDirection(), (PolygonInfo) workingWaterbody.getUserData(), b.getNames());
+					addPoint(wbpoints, cp);
 				}
 			}
 		}
@@ -188,6 +248,14 @@ public class PointGenerator {
 			Coordinate c = findLongestMidPoint(workingWaterbody.getExteriorRing(), touches, wbpoints.stream().map(a->a.getCoordinate()).collect(Collectors.toSet()));
 			//TODO: incorrect classification; thought could be either headwater or terminal, but it is a degree1 node
 			addPoint(wbpoints, new ConstructionPoint(c, NodeType.HEADWATER, FlowDirection.UNKNOWN, (PolygonInfo) workingWaterbody.getUserData()));
+		}
+		
+		//add names to construction points if possible
+		for (ConstructionPoint cp : wbpoints) {
+			List<String[]> t = names.get(cp.getCoordinate());
+			if (t != null) {
+				for (String[] item : t) cp.addNames(item);
+			}
 		}
 		
 		//add bank points, ensuring they are not added
@@ -399,9 +467,9 @@ public class PointGenerator {
 		if (coords.size() > 1) {
 			options.put(distance, findMidpoint(coords, false));
 		}
-//		if (options.size() == 0) {
-//			System.out.println("ERROR: " + ls.toText());
-//		}
+		if (options.size() == 0) {
+			System.out.println("ERROR: " + ls.toText());
+		}
 		return options.get(options.keySet().stream().reduce(Math::max).get());
 	}
 	
@@ -818,4 +886,18 @@ public class PointGenerator {
 			try { toinsert.setM(Double.NaN); }catch (Throwable t) {}			
 		}
 	}
+	
+	private DirectionType getDirectionType(LineString ls) {
+		if (ls.getUserData() == null) return DirectionType.KNOWN;
+		DirectionType fd = (DirectionType) ((Object[])ls.getUserData())[0];
+		if (fd == null) return DirectionType.UNKNOWN;
+		return fd;
+	}
+	
+	private String[] getNamesIds(LineString ls) {
+		if (ls.getUserData() == null) return null;
+		String[] names = (String[])((Object[])ls.getUserData())[1];
+		return names;
+	}
+	
 }

@@ -18,6 +18,7 @@ package net.refractions.chyf.flowpathconstructor.datasource;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,11 +26,14 @@ import java.util.Set;
 import org.geotools.data.Transaction;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
-import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
+import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.feature.type.Name;
 import org.opengis.filter.identity.FeatureId;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
+import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.RankType;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.ConstructionPoint;
@@ -46,6 +50,7 @@ public interface IFlowpathDataSource extends ChyfDataSource{
 	public static final String CATCHMENT_INTERNALID_ATTRIBUTE = "ecatchment_id";
 	public static final String NODETYPE_ATTRIBUTE = "node_type";
 	
+	public static final String RIVERNAMEIDS_ATTRIBUTE = "rivernameids";
 	/**
 	 * Node type associated with construction points 
 	 *
@@ -108,6 +113,14 @@ public interface IFlowpathDataSource extends ChyfDataSource{
 	public void updateCoastline(FeatureId fid, LineString newls, Transaction tx) throws IOException;
 	
 	/**
+	 * Updates the names for flowpaths, currently for naming skeletons
+	 * 
+	 * @param nameids new names for flowpaths
+	 * @throws IOException
+	 */
+	public void writeFlowpathNames(HashMap<FeatureId, String[]> nameids) throws IOException;
+	
+	/**
 	 * Returns all points from the terminal node layer.  The user data associated
 	 * with each point is the value of the FlowDirection attribute associated
 	 * with the TerminalNode.
@@ -115,7 +128,7 @@ public interface IFlowpathDataSource extends ChyfDataSource{
 	 * @return
 	 * @throws Exception
 	 */
-	public List<Point> getTerminalNodes() throws Exception;
+	public List<TerminalNode> getTerminalNodes() throws Exception;
 	
 	
 	/**
@@ -184,5 +197,39 @@ public interface IFlowpathDataSource extends ChyfDataSource{
 	 * @throws IOException
 	 */
 	public void writeRanks(Map<FeatureId, RankType> ranks) throws Exception;
+	
+	
+	public default Map<ChyfAttribute, Name> findRiverNameAttributes(SimpleFeatureType type) {
+		
+		Name nameid1 = ChyfDataSource.findAttribute(type, ChyfAttribute.RIVERNAMEID1);
+		Name nameid2 = ChyfDataSource.findAttribute(type, ChyfAttribute.RIVERNAMEID2);
+		
+		Map<ChyfAttribute, Name> names = new HashMap<>();
+		names.put(ChyfAttribute.RIVERNAMEID1, nameid1);
+		names.put(ChyfAttribute.RIVERNAMEID2, nameid2);
+		
+		return names;
+	}
+	
+	
+	public default String[] getRiverNameIds(Map<ChyfAttribute, Name> names, SimpleFeature feature){
+		
+		String[] rnames = new String[2];
+		for (int i = 0; i < rnames.length; i ++) {
+			rnames[i] = null;
+		}
+		
+		if (names.get(ChyfAttribute.RIVERNAMEID1) != null ) {
+			Object x = feature.getAttribute(names.get(ChyfAttribute.RIVERNAMEID1));
+			if (x != null && !(x.toString().trim().isBlank())) rnames[0] = x.toString();		
+		}
+		
+		if (names.get(ChyfAttribute.RIVERNAMEID2) != null ) {
+			Object x = feature.getAttribute(names.get(ChyfAttribute.RIVERNAMEID2));
+			if (x != null && !(x.toString().trim().isBlank())) rnames[1] = x.toString();
+		}
+		if (rnames[0] == null && rnames[1] == null) return null;
+		return rnames;
+	}
 
 }

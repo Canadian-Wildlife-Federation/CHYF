@@ -151,15 +151,22 @@ public class ReadOnlyFlowpathPostGisDataSource extends ChyfPostGisDataSource imp
 	 * @throws Exception
 	 */
 	@Override
-	public List<Point> getTerminalNodes() throws Exception{
-		List<Point> pnt = new ArrayList<>();
-		try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = getFeatureReader(Layer.TERMINALNODES, getAoiFilter(Layer.TERMINALNODES), Transaction.AUTO_COMMIT)){
+	public List<TerminalNode> getTerminalNodes() throws Exception{
+		List<TerminalNode> pnt = new ArrayList<>();
+		try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = getFeatureReader(Layer.TERMINALNODES,
+				getAoiFilter(Layer.TERMINALNODES), Transaction.AUTO_COMMIT)){
+			
 			Name flowdirAttribute = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.FLOWDIRECTION);
+			Map<ChyfAttribute, Name> nameAttributes = findRiverNameAttributes(reader.getFeatureType());
+			
 			while(reader.hasNext()){
 				SimpleFeature point = reader.next();
 				Point pg = ChyfDataSource.getPoint(point);
-				pg.setUserData(FlowDirection.parseValue( ((Number)point.getAttribute(flowdirAttribute)).intValue() ));
-				pnt.add(pg);
+				FlowDirection fd = FlowDirection.parseValue( ((Number)point.getAttribute(flowdirAttribute)).intValue() );
+				
+				TerminalNode node = new TerminalNode(pg, fd);
+				node.setNames(getRiverNameIds(nameAttributes, point));
+				pnt.add(node);
 			}
 		}
 		return pnt;
@@ -218,13 +225,13 @@ public class ReadOnlyFlowpathPostGisDataSource extends ChyfPostGisDataSource imp
 	
 
 	@Override
-	public void logError(String message, Geometry location) throws IOException {
+	public void logError(String message, Geometry location, String process) throws IOException {
 		throw new UnsupportedOperationException("Not supported for read only dataset");
 	}
 
 
 	@Override
-	public void logWarning(String message, Geometry location) throws IOException {
+	public void logWarning(String message, Geometry location, String process) throws IOException {
 		throw new UnsupportedOperationException("Not supported for read only dataset");
 	}
 
@@ -288,4 +295,8 @@ public class ReadOnlyFlowpathPostGisDataSource extends ChyfPostGisDataSource imp
 		throw new UnsupportedOperationException("Not supported for read only dataset");			
 	}
 
+	@Override
+	public void writeFlowpathNames(HashMap<FeatureId, String[]> nameids) throws IOException{
+		throw new UnsupportedOperationException("Not supported for read only dataset");
+	}
 }

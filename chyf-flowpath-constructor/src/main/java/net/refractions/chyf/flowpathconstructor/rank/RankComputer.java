@@ -39,6 +39,7 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.datasource.ChyfDataSource;
 import net.refractions.chyf.datasource.EfType;
 import net.refractions.chyf.datasource.Layer;
@@ -244,7 +245,7 @@ public class RankComputer {
 					//compute angle between p1; pnt and 
 					double angle = angleComputer.angle(p1, pnt, ls.getCoordinateN(i)) ;
 					if (angle < 0.872665 || angle > (Math.PI - 0.872665)) {  //0.872665=50degrees
-						source.logWarning("Channel width intersects channel at acute angle", item);
+						source.logWarning("Channel width intersects channel at acute angle", item, ChyfLogger.Process.RANK.name());
 						logger.warn("Channel width intersects channel at acute angle: " + item.toString());
 					}
 					break;	

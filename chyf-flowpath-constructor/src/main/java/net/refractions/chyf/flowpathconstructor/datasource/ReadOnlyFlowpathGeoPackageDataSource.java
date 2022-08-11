@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -72,15 +73,20 @@ public class ReadOnlyFlowpathGeoPackageDataSource extends ChyfGeoPackageDataSour
 	 * @throws Exception
 	 */
 	@Override
-	public List<Point> getTerminalNodes() throws Exception{
-		List<Point> pnt = new ArrayList<>();
-		try(SimpleFeatureReader reader = getFeatureReader(Layer.TERMINALNODES, Filter.INCLUDE, null)){
+	public List<TerminalNode> getTerminalNodes() throws Exception{
+		List<TerminalNode> pnt = new ArrayList<>();
+		try(SimpleFeatureReader reader = getFeatureReader(Layer.TERMINALNODES, Filter.INCLUDE, null)){		
 			Name flowdirAttribute = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.FLOWDIRECTION);
+			Map<ChyfAttribute, Name> nameAttributes = findRiverNameAttributes(reader.getFeatureType());
+			
 			while(reader.hasNext()){
 				SimpleFeature point = reader.next();
 				Point pg = ChyfDataSource.getPoint(point);
-				pg.setUserData(FlowDirection.parseValue( ((Number)point.getAttribute(flowdirAttribute)).intValue() ));
-				pnt.add(pg);
+				FlowDirection fd = FlowDirection.parseValue( ((Number)point.getAttribute(flowdirAttribute)).intValue() );
+				TerminalNode node = new TerminalNode(pg, fd);
+				node.setNames(getRiverNameIds(nameAttributes, point));
+				pnt.add(node);
+				
 			}
 		}
 		return pnt;
@@ -144,5 +150,10 @@ public class ReadOnlyFlowpathGeoPackageDataSource extends ChyfGeoPackageDataSour
 	@Override
 	public void writeRanks(Map<FeatureId, RankType> ranks) throws Exception {
 		throw new UnsupportedOperationException("Not supported for read only dataset");	
+	}
+	
+	@Override
+	public void writeFlowpathNames(HashMap<FeatureId, String[]> nameids) throws IOException{
+		throw new UnsupportedOperationException("Not supported for read only dataset");
 	}
 }

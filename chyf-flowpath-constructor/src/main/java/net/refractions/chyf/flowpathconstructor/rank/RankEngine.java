@@ -56,10 +56,10 @@ public class RankEngine {
 			try {
 				doWork(dataSource, properties);
 			}catch (ExceptionWithLocation ex) {
-				ChyfLogger.INSTANCE.logException(ex);
+				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.RANK, ex);
 				throw ex;
 			}catch (Exception ex) {
-				ChyfLogger.INSTANCE.logException(ex);
+				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.RANK, ex);
 				throw ex;
 			}				
 		}

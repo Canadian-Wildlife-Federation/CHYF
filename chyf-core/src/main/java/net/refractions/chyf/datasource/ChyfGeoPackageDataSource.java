@@ -25,6 +25,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Properties;
 import java.util.UUID;
 
 import org.geotools.data.DefaultTransaction;
@@ -48,6 +49,7 @@ import org.opengis.geometry.BoundingBox;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.sqlite.SQLiteConfig;
 
 import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.util.ReprojectionUtils;
@@ -95,7 +97,10 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		return this.geopackageFile;
 	}
 	protected void read() throws IOException {
-		geopkg = new GeoPackage(geopackageFile.toFile());
+		Properties params = new Properties();
+		params.put(SQLiteConfig.Pragma.BUSY_TIMEOUT.pragmaName, "10000");
+	    
+		geopkg = new GeoPackage(geopackageFile.toFile(), new SQLiteConfig(params), null);
 		geopkg.init();
 		
 		for (Layer l : Layer.values()) {
@@ -114,6 +119,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		SimpleFeatureTypeBuilder builder = new SimpleFeatureTypeBuilder();
 		builder.add("geometry", Geometry.class, crs);
 		builder.add("type", String.class);
+		builder.add("process", String.class);
 		builder.add("message", String.class);
 		builder.setName(Layer.ERRORS.getLayerName());
 		builder.setCRS(getCoordinateReferenceSystem());
@@ -128,24 +134,25 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		geopkg.add(entry, collection);
 	}
 
-	public void logError(String message, Geometry location) throws IOException {
-		logInternal("ERROR", location, message);
+	public void logError(String message, Geometry location, String process) throws IOException {
+		logInternal("ERROR", location, message, process);
 	}
 	
-	public void logWarning(String message, Geometry location) throws IOException {
-		logInternal("WARNING", location, message);
+	public void logWarning(String message, Geometry location, String process) throws IOException {
+		logInternal("WARNING", location, message, process);
 	}
 	
-	private void logInternal(String type, Geometry location, String message) throws IOException {	
+	private synchronized void logInternal(String type, Geometry location, String message, String process) throws IOException {
+		
 		try(Transaction tx = new DefaultTransaction()) {	
 			try(SimpleFeatureWriter fw = geopkg.writer(getEntry(Layer.ERRORS), true, Filter.EXCLUDE, tx)){
 
 				SimpleFeature fs = fw.next();
 				fs.setAttribute("type", type);
 				fs.setAttribute("message", message);
+				fs.setAttribute("process", process);
 				fs.setDefaultGeometry(location);
 				fw.write();
-
 				tx.commit();
 			} catch(Exception ioe) {
 				tx.rollback();

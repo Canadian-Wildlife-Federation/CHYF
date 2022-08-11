@@ -119,7 +119,7 @@ public interface ChyfDataSource extends AutoCloseable {
 	 * @param message
 	 * @throws IOException
 	 */
-	public void logError(String message, Geometry location) throws IOException;
+	public void logError(String message, Geometry location, String process) throws IOException;
 	/**
 	 * Logs a warning to the errors layer
 	 * 
@@ -127,7 +127,7 @@ public interface ChyfDataSource extends AutoCloseable {
 	 * @param message
 	 * @throws IOException
 	 */
-	public void logWarning(String message, Geometry location) throws IOException;
+	public void logWarning(String message, Geometry location, String process) throws IOException;
 		
 	/**
 	 * 

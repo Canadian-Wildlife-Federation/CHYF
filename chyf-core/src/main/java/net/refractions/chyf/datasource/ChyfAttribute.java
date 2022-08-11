@@ -28,7 +28,10 @@ public enum ChyfAttribute{
 	DIRECTION("direction_known"),
 	RANK("rank"),
 	INTERNAL_ID("internal_id"),
-	NAME("name_string");
+	NAME("name_string"),
+	
+	RIVERNAMEID1("rivernameid1"),
+	RIVERNAMEID2("rivernameid2");
 	
 	private String fieldName;
 	

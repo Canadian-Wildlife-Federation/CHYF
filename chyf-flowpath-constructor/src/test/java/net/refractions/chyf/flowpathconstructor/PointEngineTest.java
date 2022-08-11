@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,10 +45,12 @@ import org.opengis.filter.identity.FeatureId;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 import net.refractions.chyf.datasource.ChyfAttribute;
+import net.refractions.chyf.datasource.FlowDirection;
 import net.refractions.chyf.datasource.ILayer;
 import net.refractions.chyf.datasource.RankType;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties.Property;
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.TerminalNode;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.BoundaryEdge;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.ConstructionPoint;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.PointEngine;
@@ -75,19 +78,21 @@ public class PointEngineTest {
 	public void testGetBoundarySingle() throws Exception{
 		SingleDataSource ds = new SingleDataSource();
 		
-		List<BoundaryEdge> edges = PointEngine.getBoundary(ds, getChyfProperties());
+		PointEngineInternal pe = new PointEngineInternal(ds, getChyfProperties());
+		
+		List<BoundaryEdge> edges = pe.getBoundary();
 		Assert.assertEquals("invalid number of boundary edges", 1, edges.size());
 		
-		for (Point pnt : ds.getTerminalNodes()) {
+		for (TerminalNode pnt : ds.getTerminalNodes()) {
 			boolean found = false;
 			for (BoundaryEdge be : edges) {
-				if (be.getInOut().getCoordinate().equals2D(pnt.getCoordinate())) {
+				if (be.getInOut().getCoordinate().equals2D(pnt.getPoint().getCoordinate())) {
 					found = true;
 					break;
 				}
 			}
 			if (!found) {
-				Assert.fail("no boundary edge found for found: " + pnt.toText());
+				Assert.fail("no boundary edge found for found: " + pnt.getPoint().toText());
 			}
 		}
 	}
@@ -104,19 +109,21 @@ public class PointEngineTest {
 	public void testGetBoundaryMulti() throws Exception{
 		MultiDataSource ds = new MultiDataSource();
 		
-		List<BoundaryEdge> edges = PointEngine.getBoundary(ds, getChyfProperties());
+		PointEngineInternal pe = new PointEngineInternal(ds, getChyfProperties());
+
+		List<BoundaryEdge> edges = pe.getBoundary();
 		Assert.assertEquals("invalid number of boundary edges", 3, edges.size());
 		
-		for (Point pnt : ds.getTerminalNodes()) {
+		for (TerminalNode pnt : ds.getTerminalNodes()) {
 			boolean found = false;
 			for (BoundaryEdge be : edges) {
-				if (be.getInOut().getCoordinate().equals2D(pnt.getCoordinate())) {
+				if (be.getInOut().getCoordinate().equals2D(pnt.getPoint().getCoordinate())) {
 					found = true;
 					break;
 				}
 			}
 			if (!found) {
-				Assert.fail("no boundary edge found for found: " + pnt.toText());
+				Assert.fail("no boundary edge found for found: " + pnt.getPoint().toText());
 			}
 		}
 
@@ -180,12 +187,12 @@ public class PointEngineTest {
 		}
 
 		@Override
-		public void logError(String message, Geometry location) throws IOException {
+		public void logError(String message, Geometry location, String process) throws IOException {
 			System.out.println(message);
 		}
 
 		@Override
-		public void logWarning(String message, Geometry location) throws IOException {
+		public void logWarning(String message, Geometry location, String process) throws IOException {
 			System.out.println(message);			
 		}
 
@@ -210,16 +217,16 @@ public class PointEngineTest {
 		}
 
 		@Override
-		public List<Point> getTerminalNodes() throws Exception {
+		public List<TerminalNode> getTerminalNodes() throws Exception {
 			WKTReader reader = new WKTReader();
 			try {
-				List<Point> points = new ArrayList<>();
+				List<TerminalNode> points = new ArrayList<>();
 				Point p = (Point)reader.read("POINT ( 331 610 )");
-				points.add(p);
+				points.add(new TerminalNode(p, FlowDirection.UNKNOWN));
 				p = (Point)reader.read("POINT ( 326 595 )");
-				points.add(p);
+				points.add(new TerminalNode(p, FlowDirection.UNKNOWN));
 				p = (Point)reader.read("POINT ( 323 578 )");
-				points.add(p);
+				points.add(new TerminalNode(p, FlowDirection.UNKNOWN));
 				return points;
 			}catch (Exception ex) {
 				throw new IOException(ex);
@@ -260,22 +267,39 @@ public class PointEngineTest {
 		public Set<Coordinate> getOutputConstructionPoints() throws Exception {
 			return null;
 		}
+
+		@Override
+		public void writeFlowpathNames(HashMap<FeatureId, String[]> nameids) throws IOException {			
+		}
 	}
 	
 	private class SingleDataSource extends MultiDataSource {
 
 		
 		@Override
-		public List<Point> getTerminalNodes() throws Exception {
+		public List<TerminalNode> getTerminalNodes() throws Exception {
 			WKTReader reader = new WKTReader();
 			try {
-				List<Point> points = new ArrayList<>();
+				List<TerminalNode> points = new ArrayList<>();
 				Point p = (Point)reader.read("POINT ( 331 610 )");
-				points.add(p);
+				points.add(new TerminalNode(p, FlowDirection.UNKNOWN));
 				return points;
 			}catch (Exception ex) {
 				throw new IOException(ex);
 			}
 		}
+	}
+	
+	private class PointEngineInternal extends PointEngine {
+		
+		public PointEngineInternal(IFlowpathDataSource dataSource, ChyfProperties properties ) {
+			super(properties);
+			this.dataSource = dataSource;
+		}
+		
+		public List<BoundaryEdge> getBoundary() throws Exception{
+			return super.getBoundary();
+		}
+
 	}
 }

@@ -20,30 +20,40 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
-import org.geotools.data.DefaultTransaction;
+import org.geotools.data.DataUtilities;
 import org.geotools.data.FeatureWriter;
 import org.geotools.data.Transaction;
+import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureReader;
+import org.geotools.data.store.EmptyFeatureCollection;
+import org.geotools.feature.simple.SimpleFeatureBuilder;
+import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
+import org.geotools.geopkg.FeatureEntry;
+import org.geotools.geopkg.GeoPackage;
 import org.geotools.jdbc.JDBCDataStore;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Polygon;
+import org.opengis.feature.Feature;
+import org.opengis.feature.FeatureVisitor;
+import org.opengis.feature.Property;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.Name;
+import org.opengis.feature.type.AttributeDescriptor;
 import org.opengis.filter.Filter;
 import org.opengis.filter.identity.FeatureId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.refractions.chyf.datasource.ChyfAttribute;
-import net.refractions.chyf.datasource.ChyfDataSource;
+import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.datasource.ChyfPostGisLocalDataSource;
 import net.refractions.chyf.datasource.Layer;
@@ -52,50 +62,33 @@ import net.refractions.chyf.flowpathconstructor.skeletonizer.points.Construction
 import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkelLineString;
 
 /**
- * Extension of the postgis local data source for flowpath computation. 
+ * Extension of the postgis local data source to be used when naming flowpaths and 
+ * we want to read/write from the same schema. We don't want to copy to a new schema.
+ * 
+ * This data source leaves everything in the single schema until ready to copy results back, 
+ * then removes the data from the schema before writing the new data in a single translation. If
+ * anything fails the original data still exists so we don't have to worry about loosing data.
  * 
  * @author Emily
  *
  */
-public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource implements IFlowpathDataSource{
+public class NameFlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource implements IFlowpathDataSource{
 
-	static final Logger logger = LoggerFactory.getLogger(FlowpathPostGisLocalDataSource.class.getCanonicalName());
+	static final Logger logger = LoggerFactory.getLogger(NameFlowpathPostGisLocalDataSource.class.getCanonicalName());
 	
 	public static final String CONSTRUCTION_PNTS_TABLE = "construction_points";
 
-	public FlowpathPostGisLocalDataSource(String connectionString, String inschema, String outschema) throws Exception {
+	public NameFlowpathPostGisLocalDataSource(String connectionString, String inschema, String outschema) throws Exception {
 		super(connectionString, inschema, outschema);
 	}
 
-	
 	/**
-	 * Cleans the postgis output schema of all existing data.
-	 * 
-	 * @param includeAOi if true then the record from the aoi table will also be removed. 
-	 * If false we leave the record in the aoi table. 
+	 * Do nothing here
 	 */
 	@Override
 	protected void cleanOutputSchema(Transaction tx, boolean includeAoi) throws IOException{
 		
-		SimpleFeatureType stype = null;
-		try{
-			stype = outputDataStore.getSchema(CONSTRUCTION_PNTS_TABLE);
-		}catch (Exception ex) {	}
-		if (stype == null) return;
 		
-		Connection c = ((JDBCDataStore)outputDataStore).getConnection(tx);
-		StringBuilder sb = new StringBuilder();
-    	sb.append("DELETE FROM ");
-		sb.append(outputSchema + "." + CONSTRUCTION_PNTS_TABLE);
-		sb.append(" WHERE aoi_id = ?");
-		try(PreparedStatement ps = c.prepareStatement(sb.toString())){
-			ps.setObject(1, aoiUuid);
-			ps.executeUpdate();
-		} catch (SQLException e) {
-			throw new IOException(e);
-		}
-		
-		super.cleanOutputSchema(tx, includeAoi);
 	}
 	
 	@Override
@@ -106,6 +99,43 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 	
 	@Override
 	protected void uploadResultsInternal(Transaction tx)  throws IOException {
+		
+		Connection c = ((JDBCDataStore)outputDataStore).getConnection(tx);
+
+		
+		StringBuilder sb = new StringBuilder();
+		//clean out the errors table
+		sb.append("DELETE FROM ");
+		sb.append( outputSchema + "." + getTypeName(Layer.ERRORS) );
+		sb.append(" WHERE ");
+		sb.append(getAoiFieldName(Layer.ERRORS));
+		sb.append(" = ? AND process = ?");
+    		
+		try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+			ps.setObject(1, aoiUuid);
+			ps.setObject(2, ChyfLogger.Process.NAMING.name());
+			ps.executeUpdate();
+		}catch(SQLException ex) {
+			throw new IOException(ex);
+		}    		   
+		
+		
+		sb = new StringBuilder();
+		sb.append("DELETE FROM ");
+		sb.append( outputSchema + "." + CONSTRUCTION_PNTS_TABLE );
+		sb.append(" WHERE ");
+		sb.append(getAoiFieldName(null));
+		sb.append(" = ? ");
+    	
+		
+		try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+			ps.setObject(1, aoiUuid);
+			ps.executeUpdate();
+		}catch(SQLException ex) {
+			throw new IOException(ex);
+		}    		   
+		super.cleanOutputSchema(tx, false);
+		
 		super.uploadResultsInternal(tx);
 		
 		//write construction points
@@ -120,37 +150,12 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 	protected void initOutputSchemaInternal(Connection c, Transaction tx) throws IOException{
 		super.initOutputSchemaInternal(c, tx);
 		
-		SimpleFeatureType stype = null;
-		try{
-			stype = outputDataStore.getSchema(CONSTRUCTION_PNTS_TABLE);
-		}catch (Exception ex) {	}
 		
-		if (stype == null) {
-			StringBuilder sb = new StringBuilder();
-			
-			sb.append("CREATE TABLE " );
-			sb.append(outputSchema + "." + CONSTRUCTION_PNTS_TABLE);
-			sb.append("(");
-			sb.append(getAoiFieldName(null) + " uuid not null references " + outputSchema + "." + getTypeName(Layer.AOI) + "(" + getAoiFieldName(Layer.AOI) + "),");
-			sb.append(ChyfAttribute.INTERNAL_ID.getFieldName() + " uuid Primary Key,");
-			sb.append(CATCHMENT_INTERNALID_ATTRIBUTE + " UUID,");
-			sb.append(NODETYPE_ATTRIBUTE + " integer,");
-			sb.append(ChyfAttribute.FLOWDIRECTION.getFieldName() + " integer,");
-			sb.append(RIVERNAMEIDS_ATTRIBUTE + " varchar,");
-			sb.append(" the_geom GEOMETRY(POINT, " + srid + ")");
-			sb.append(") ");
-			
-		    try {
-		    	c.createStatement().executeUpdate(sb.toString());
-			} catch (SQLException e) {
-				throw new IOException(e);
-			}
-		}
 	}
 	
 	@Override
 	public void updateCoastline(FeatureId fid, LineString newls, Transaction tx) throws IOException {
-		((FlowpathGeoPackageDataSource)	getLocalDataSource()).updateCoastline(fid, newls, tx);
+		throw new UnsupportedOperationException();
 	}
 	
 	/**
@@ -175,7 +180,7 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 	 */
 	@Override
 	public Set<Coordinate> getOutputConstructionPoints() throws Exception{
-		return ((FlowpathGeoPackageDataSource)	getLocalDataSource()).getOutputConstructionPoints();
+		throw new UnsupportedOperationException();
 	}
 	
 	/**
@@ -185,7 +190,7 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 	 */
 	@Override
 	public void createConstructionsPoints(List<ConstructionPoint> points) throws IOException {
-		((FlowpathGeoPackageDataSource)	getLocalDataSource()).createConstructionsPoints(points);		
+		throw new UnsupportedOperationException();		
 	}
 
 	/**
@@ -201,88 +206,34 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 		return ((FlowpathGeoPackageDataSource)	getLocalDataSource()).getConstructionsPoints(catchmentId);
 	}
 	
-
-	
-	/**
-	 * Updates the geometry of the give polygon.  The polygon must
-	 * have a user data set to PolygonInfo class.
-	 * 
-	 * @param polygon
-	 * @throws IOException
-	 */
 	@Override
 	public void updateWaterbodyGeometries(Collection<Polygon> polygons) throws IOException{
-		((FlowpathGeoPackageDataSource)	getLocalDataSource()).updateWaterbodyGeometries(polygons);
+		throw new UnsupportedOperationException();
 	}
 	
-	
-	/**
-	 * updates the ranks of features in the datasource
-	 * 
-	 * @param polygon
-	 * @throws IOException
-	 */
 	@Override
 	public void writeRanks(Map<FeatureId, RankType> ranks) throws Exception{
-		((FlowpathGeoPackageDataSource)	getLocalDataSource()).writeRanks(ranks);
+		throw new UnsupportedOperationException();
 	}
 	
-	/**
-	 * Updates the geometry of the give polygon.  The polygon must
-	 * have a user data set to PolygonInfo class.
-	 * 
-	 * @param polygon
-	 * @throws IOException
-	 */
 	@Override
 	public void flipFlowEdges(Collection<FeatureId> pathstoflip, Collection<FeatureId> processed) throws Exception{
-		((FlowpathGeoPackageDataSource)	getLocalDataSource()).flipFlowEdges(pathstoflip, processed);
+		throw new UnsupportedOperationException();
 	}
 	
-	/**
-	 * Pass an empty collection to write any remaining features in the write cache
-	 * 
-	 * @param skeletons
-	 * @throws IOException
-	 */
 	@Override
 	public synchronized void writeSkeletons(Collection<SkelLineString> skeletons) throws IOException {
-		((FlowpathGeoPackageDataSource)	getLocalDataSource()).writeSkeletons(skeletons);
+		throw new UnsupportedOperationException();
 	}
 
-		/**
-	 * Remove any existing skeleton lines in the dataset.
-	 * If bankOnly is true than only existing bank skeletons
-	 * are removed; otherwise all skeletons are removed
-	 * @throws SQLException 
-	 * 
-	 */
 	@Override
 	public void removeExistingSkeletons(boolean bankOnly) throws IOException {
-		((FlowpathGeoPackageDataSource)	getLocalDataSource()).removeExistingSkeletons(bankOnly);
+		throw new UnsupportedOperationException();
 	}
 	
 	@Override
 	public void addRankAttribute() throws Exception{
-		((FlowpathGeoPackageDataSource)	getLocalDataSource()).addRankAttribute();
-		
-		//add rank attribute if it doesn't exist
-		Name rankatt = ChyfDataSource.findAttribute(outputDataStore.getSchema(getTypeName(Layer.EFLOWPATHS)), ChyfAttribute.RANK);
-		if (rankatt == null) {
-			StringBuilder sb = new StringBuilder();
-		   	sb.append("ALTER TABLE ");
-		   	sb.append(outputSchema + "." + getTypeName(Layer.EFLOWPATHS));
-		   	sb.append(" ADD COLUMN ");
-		   	sb.append(ChyfAttribute.RANK.getFieldName());
-		   	sb.append(" smallint ");
-		   	
-		   	try(Transaction tx = new DefaultTransaction()){
-		   		Connection c = ((JDBCDataStore)outputDataStore).getConnection(tx);
-		   		c.createStatement().executeUpdate(sb.toString());
-		   		tx.commit();
-		   	}
-		   	resetOutputSchema();
-		}
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
@@ -303,4 +254,54 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 		((FlowpathGeoPackageDataSource)	getLocalDataSource()).writeFlowpathNames(nameids);
 	}
 
+	@Override
+	protected void cacheData(GeoPackage geopkg) throws IOException {
+		super.cacheData(geopkg);
+		//cache construction point table
+		
+		FeatureEntry entry = new FeatureEntry();
+		entry.setTableName(FlowpathGeoPackageDataSource.CONSTRUCTION_PNTS_LAYER);
+		entry.setM(false);
+		
+		Filter filter = getAoiFilter(null);
+		SimpleFeatureCollection input = inputDataStore.getFeatureSource(CONSTRUCTION_PNTS_TABLE).getFeatures(filter);
+		
+		//convert uuid to string
+		SimpleFeatureTypeBuilder ftBuilder = new SimpleFeatureTypeBuilder();
+		ftBuilder.setName(FlowpathGeoPackageDataSource.CONSTRUCTION_PNTS_LAYER);
+		for (AttributeDescriptor ad : input.getSchema().getAttributeDescriptors()) {
+			if (ad.getType().getBinding().equals(UUID.class)) {
+				ftBuilder.add(ad.getLocalName(), String.class);
+			}else {
+				ftBuilder.add(ad);
+			}
+		}
+		SimpleFeatureType newtype = ftBuilder.buildFeatureType();
+		
+		
+		List<SimpleFeature> features = new ArrayList<>();
+		input.accepts(new FeatureVisitor() {
+			@Override
+			public void visit(Feature feature) {
+				SimpleFeatureBuilder sb=  new SimpleFeatureBuilder(newtype);
+				for (Property p : feature.getProperties()) {
+					if (p.getValue() instanceof UUID) {
+						sb.set(p.getName(), ((UUID)p.getValue()).toString());
+					}else {
+						sb.set(p.getName(), p.getValue());
+					}
+				}
+				SimpleFeature sf = sb.buildFeature(feature.getIdentifier().getID());
+				features.add(sf);
+			}
+			
+		}, null);
+		
+		if(!features.isEmpty()) {
+			geopkg.add(entry, DataUtilities.collection(features));
+		}else {
+			geopkg.add(entry,new EmptyFeatureCollection(newtype));
+		}
+		geopkg.createSpatialIndex(entry);
+	}
 }
