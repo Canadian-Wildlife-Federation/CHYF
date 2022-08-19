@@ -176,10 +176,10 @@ public class VectorTileDao {
 				sb.append(DataSourceTable.NAMES.tableName);
 				sb.append(" n ON t.name_id = n.name_id ");
 				sb.append(" LEFT JOIN ");
-				sb.append(DataSourceTable.EC_TYPE.tableName);
+				sb.append(DataSourceTable.EF_TYPE.tableName);
 				sb.append(" et ON t.ef_type = et.code ");
 				sb.append(" LEFT JOIN ");
-				sb.append(DataSourceTable.EC_SUBTYPE.tableName);
+				sb.append(DataSourceTable.EF_SUBTYPE.tableName);
 				sb.append(" est ON t.ef_subtype = est.code ");
 				sb.append(" LEFT JOIN ");
 				sb.append(DataSourceTable.EFLOWPATH_PROPERTIES.tableName);
