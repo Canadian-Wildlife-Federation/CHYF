@@ -53,9 +53,13 @@ public class HydroFeature {
 	private Integer subType;
 	private String subTypeName;
 	
-	private UUID nameId;
-	private String nameEn;
-	private String nameFr;
+	private UUID nameId1;
+	private String nameEn1;
+	private String nameFr1;
+	
+	private UUID nameId2;
+	private String nameEn2;
+	private String nameFr2;
 	
 	private UUID aoi;
 	private String aoiName;
@@ -101,25 +105,46 @@ public class HydroFeature {
 		this.subTypeName = subTypeName;
 	}
 
-	public UUID getNameId() {
-		return nameId;
+	public UUID getNameId1() {
+		return nameId1;
 	}
 
-	public void setNameId(UUID nameId) {
-		this.nameId = nameId;
+	public void setNameId1(UUID nameId) {
+		this.nameId1 = nameId;
 	}
 
-	public void setName(String nameen, String namefr) {
-		this.nameEn = nameen;
-		this.nameFr = namefr;
+	public void setName1(String nameen, String namefr) {
+		this.nameEn1 = nameen;
+		this.nameFr1 = namefr;
 	}
 
-	public String getNameEn() {
-		return this.nameEn;
+	public String getNameEn1() {
+		return this.nameEn1;
 	}
 
-	public String getNameFr() {
-		return this.nameFr;
+	public String getNameFr1() {
+		return this.nameFr1;
+	}
+	
+	public UUID getNameId2() {
+		return nameId2;
+	}
+
+	public void setNameId2(UUID nameId) {
+		this.nameId2 = nameId;
+	}
+
+	public void setName2(String nameen, String namefr) {
+		this.nameEn2 = nameen;
+		this.nameFr2 = namefr;
+	}
+
+	public String getNameEn2() {
+		return this.nameEn2;
+	}
+
+	public String getNameFr2() {
+		return this.nameFr2;
 	}
 
 	public UUID getAoi() {

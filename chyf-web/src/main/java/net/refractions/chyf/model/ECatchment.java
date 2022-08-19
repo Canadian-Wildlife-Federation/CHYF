@@ -15,6 +15,8 @@
  */
 package net.refractions.chyf.model;
 
+import java.util.UUID;
+
 import org.locationtech.jts.geom.Polygon;
 
 /**
@@ -59,6 +61,14 @@ public class ECatchment extends HydroFeature {
 	private Boolean isReservoir;
 	private Polygon geometry;
 
+	private UUID lakenameId1;
+	private String lakenameEn1;
+	private String lakenameFr1;
+	
+	private UUID lakenameId2;
+	private String lakenameEn2;
+	private String lakenameFr2;
+	
 	public double getArea() {
 		return area;
 	}
@@ -86,4 +96,46 @@ public class ECatchment extends HydroFeature {
 		return EcType.toType(getType());
 	}
 	
+	
+	public UUID getLakeNameId1() {
+		return lakenameId1;
+	}
+
+	public void setLakeNameId1(UUID nameId) {
+		this.lakenameId1 = nameId;
+	}
+
+	public void setLakeName1(String nameen, String namefr) {
+		this.lakenameEn1 = nameen;
+		this.lakenameFr1 = namefr;
+	}
+
+	public String getLakeNameEn1() {
+		return this.lakenameEn1;
+	}
+
+	public String getLakeNameFr1() {
+		return this.lakenameFr1;
+	}
+	
+	public UUID getLakeNameId2() {
+		return lakenameId2;
+	}
+
+	public void setLakeNameId2(UUID nameId) {
+		this.lakenameId2 = nameId;
+	}
+
+	public void setLakeName2(String nameen, String namefr) {
+		this.lakenameEn2 = nameen;
+		this.lakenameFr2 = namefr;
+	}
+
+	public String getLakeNameEn2() {
+		return this.lakenameEn2;
+	}
+
+	public String getLakeNameFr2() {
+		return this.lakenameFr2;
+	}
 }

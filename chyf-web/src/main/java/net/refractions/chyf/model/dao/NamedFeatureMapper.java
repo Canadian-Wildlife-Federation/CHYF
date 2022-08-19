@@ -29,7 +29,9 @@ import net.refractions.chyf.model.NamedFeature;
 import net.refractions.chyf.model.dao.ECatchmentDao.Field;
 
 /**
- * Row mapper that maps name fields and geometry into new NamedFeature objects
+ * Row mapper that maps name fields and geometry into new NamedFeature objects.
+ * 
+ * Resultset requires name_id, name_en, and name_fr fields.
  * 
  * @author Emily
  *
@@ -60,8 +62,8 @@ public class NamedFeatureMapper implements RowMapper<NamedFeature> {
 		
 		NamedFeature path = new NamedFeature(getType(rs));
 
-		path.setNameId((UUID)rs.getObject(Field.NAME_ID.columnname));
-		path.setName(rs.getString("name_en"), rs.getString("name_fr"));
+		path.setNameId1((UUID)rs.getObject("name_id"));
+		path.setName1(rs.getString("name_en"), rs.getString("name_fr"));
 		
 		byte[] data = rs.getBytes(Field.GEOMETRY.columnname);
 		

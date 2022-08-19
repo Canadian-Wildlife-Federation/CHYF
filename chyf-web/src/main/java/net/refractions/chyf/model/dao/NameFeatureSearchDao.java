@@ -60,17 +60,47 @@ public class NameFeatureSearchDao {
 		sb.append(" WHERE name_en " + search.getMatchType().getSql() + " ? ");
 		sb.append(" OR name_fr " + search.getMatchType().getSql() +" ? ");
 		sb.append("),  all_features AS (");
-		sb.append("SELECT name_id, st_union(geometry) as geometry");
+		
+		sb.append("SELECT rivernameid1 as name_id, st_union(geometry) as geometry");
 		sb.append(" FROM ");
 		sb.append(DataSourceTable.ECATCHMENT.tableName );
-		sb.append(" WHERE name_id IN (SELECT name_id FROM nameids) ");
-		sb.append(" GROUP BY name_id ");
+		sb.append(" WHERE rivernameid1 IN (SELECT name_id FROM nameids) ");
+		sb.append(" GROUP BY rivernameid1 ");
+		
 		sb.append(" UNION ");
-		sb.append("SELECT name_id, st_union(geometry) as geometry");
+		sb.append("SELECT rivernameid2 as name_id, st_union(geometry) as geometry");
+		sb.append(" FROM ");
+		sb.append(DataSourceTable.ECATCHMENT.tableName );
+		sb.append(" WHERE rivernameid2 IN (SELECT name_id FROM nameids) ");
+		sb.append(" GROUP BY rivernameid2 ");
+		
+		sb.append(" UNION ");
+		sb.append("SELECT lakenameid1 as name_id, st_union(geometry) as geometry");
+		sb.append(" FROM ");
+		sb.append(DataSourceTable.ECATCHMENT.tableName );
+		sb.append(" WHERE lakenameid1 IN (SELECT name_id FROM nameids) ");
+		sb.append(" GROUP BY lakenameid1 ");
+		
+		sb.append(" UNION ");
+		sb.append("SELECT lakenameid2 as name_id, st_union(geometry) as geometry");
+		sb.append(" FROM ");
+		sb.append(DataSourceTable.ECATCHMENT.tableName );
+		sb.append(" WHERE lakenameid2 IN (SELECT name_id FROM nameids) ");
+		sb.append(" GROUP BY lakenameid2 ");
+		
+		sb.append(" UNION ");
+		sb.append("SELECT rivernameid1, st_union(geometry) as geometry");
 		sb.append(" FROM ");
 		sb.append(DataSourceTable.EFLOWPATH.tableName );
-		sb.append(" WHERE name_id IN (SELECT name_id FROM nameids) ");
-		sb.append(" GROUP BY name_id ");
+		sb.append(" WHERE rivernameid1 IN (SELECT name_id FROM nameids) ");
+		sb.append(" GROUP BY rivernameid1 ");
+		
+		sb.append(" UNION ");
+		sb.append("SELECT rivernameid2, st_union(geometry) as geometry");
+		sb.append(" FROM ");
+		sb.append(DataSourceTable.EFLOWPATH.tableName );
+		sb.append(" WHERE rivernameid2 IN (SELECT name_id FROM nameids) ");
+		sb.append(" GROUP BY rivernameid2 ");
 		sb.append(") ");
 		sb.append("SELECT a.name_id, a.name_en, a.name_fr,");
 		if (search.getResultType() == ResultType.BBOX) {

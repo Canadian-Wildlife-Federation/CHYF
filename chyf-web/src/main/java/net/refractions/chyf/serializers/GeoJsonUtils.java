@@ -163,9 +163,10 @@ public enum GeoJsonUtils {
 			writeString(stream, convertKey(HydroFeature.TYPE_FIELD_NAME) + convertObject(feature.getHydroFeatureType().typeName) + ",");
 		}
 		
-		writeString(stream, convertKey(EFlowpathDao.Field.NAME_ID.jsonname) + convertObject(feature.getNameId()) + ",");
-		writeString(stream, convertKey(EFlowpathDao.Field.NAME_EN.jsonname) + convertObject(feature.getNameEn()) + ",");
-		writeString(stream, convertKey(EFlowpathDao.Field.NAME_FR.jsonname) + convertObject(feature.getNameFr()));
+		writeString(stream, convertKey("name_id") + convertObject(feature.getNameId1()) + ",");
+		writeString(stream, convertKey("name_en") + convertObject(feature.getNameEn1()) + ",");
+		writeString(stream, convertKey("name_fr") + convertObject(feature.getNameFr1()) );
+		
 		writeString(stream, "}}");
 	}
 	

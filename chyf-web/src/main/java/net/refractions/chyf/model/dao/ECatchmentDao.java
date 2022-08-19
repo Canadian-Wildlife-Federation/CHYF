@@ -17,6 +17,7 @@ package net.refractions.chyf.model.dao;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -55,15 +56,24 @@ public class ECatchmentDao {
 		EC_SUBTYPE("ec_subtype", "ec_subtype"),
 		AREA("area", "area"),
 		RESERVOIR("is_reservoir", "is_reservoir"),
-		NAME_ID("name_id", "name_id"),
+		RIVERNAME1_ID("rivernameid1", "rivernameid1"),
+		RIVERNAME2_ID("rivernameid2", "rivernameid2"),
+		LAKENAME1_ID("lakenameid1", "lakenameid1"),
+		LAKENAME2_ID("lakenameid2", "lakenameid2"),
 		AOI_ID("aoi_id", "aoi_id"),
 		
 		GEOMETRY("geometry", "geometry"),
 		
 		EC_TYPE_NAME(null, "ec_type_name"),
 		EC_SUBTYPE_NAME(null, "ec_subtype_name"),
-		NAME_EN(null, "name_en"),
-		NAME_FR(null, "name_fr"),
+		LAKENAME1_EN(null, "lakename1_en"),
+		LAKENAME1_FR(null, "lakename1_fr"),
+		LAKENAME2_EN(null, "lakename2_en"),
+		LAKENAME2_FR(null, "lakename2_fr"),
+		RIVERNAME1_EN(null, "rivername1_en"),
+		RIVERNAME1_FR(null, "rivername1_fr"),
+		RIVERNAME2_EN(null, "rivername2_en"),
+		RIVERNAME2_FR(null, "rivername2_fr"),
 		AOI_NAME(null, "aoi_name");
 		
 		public String columnname;
@@ -87,9 +97,18 @@ public class ECatchmentDao {
 			case GEOMETRY: return catchment.getGeometry();
 			case ID: return catchment.getId();
 			case AREA: return catchment.getArea();
-			case NAME_EN: return catchment.getNameEn();
-			case NAME_FR: return catchment.getNameFr();
-			case NAME_ID: return catchment.getNameId();
+			case RIVERNAME1_EN: return catchment.getNameEn1();
+			case RIVERNAME1_FR: return catchment.getNameFr1();
+			case RIVERNAME1_ID: return catchment.getNameId1();
+			case RIVERNAME2_EN: return catchment.getNameEn2();
+			case RIVERNAME2_FR: return catchment.getNameFr2();
+			case RIVERNAME2_ID: return catchment.getNameId2();
+			case LAKENAME1_EN: return catchment.getLakeNameEn1();
+			case LAKENAME1_FR: return catchment.getLakeNameFr1();
+			case LAKENAME1_ID: return catchment.getLakeNameId1();
+			case LAKENAME2_EN: return catchment.getLakeNameEn2();
+			case LAKENAME2_FR: return catchment.getLakeNameFr2();
+			case LAKENAME2_ID: return catchment.getLakeNameId2();
 			
 			}
 			
@@ -115,8 +134,14 @@ public class ECatchmentDao {
 			path.setSubType((Integer)rs.getObject(Field.EC_SUBTYPE.columnname));
 			path.setType(rs.getInt(Field.EC_TYPE.columnname));
 			path.setArea(rs.getDouble(Field.AREA.columnname));
-			path.setNameId((UUID)rs.getObject(Field.NAME_ID.columnname));
-			path.setName(rs.getString("name_en"), rs.getString("name_fr"));
+			path.setNameId1((UUID)rs.getObject(Field.RIVERNAME1_ID.columnname));
+			path.setNameId2((UUID)rs.getObject(Field.RIVERNAME2_ID.columnname));
+			path.setLakeNameId1((UUID)rs.getObject(Field.LAKENAME1_ID.columnname));
+			path.setLakeNameId2((UUID)rs.getObject(Field.LAKENAME2_ID.columnname));
+			path.setName1(rs.getString("rivername1_en"), rs.getString("rivername1_fr"));
+			path.setName2(rs.getString("rivername2_en"), rs.getString("rivername2_fr"));
+			path.setLakeName1(rs.getString("lakename1_en"), rs.getString("lakename1_fr"));
+			path.setLakeName2(rs.getString("lakename2_en"), rs.getString("lakename2_fr"));
 			path.setSubTypeName(rs.getString("ec_subtypename"));
 			path.setTypeName(rs.getString("ec_typename"));
 			path.setIsReservoir((Boolean)rs.getObject(Field.RESERVOIR.columnname));
@@ -186,12 +211,31 @@ public class ECatchmentDao {
 			sb.append("AND");
 		}
 		
-		sb.append(" ( names.name_en " );
+		sb.append(" ( rivernames1.name_en " );
 		sb.append(search.getMatchType().getSql());
-		sb.append(" ? )");
-		sb.append(" or ( name_fr " );
+		sb.append(" ? ");
+		sb.append(" or  rivernames1.name_fr " );
 		sb.append(search.getMatchType().getSql());
-		sb.append(" ? )");
+		sb.append(" ? ");
+		sb.append(" or  rivernames2.name_en " );
+		sb.append(search.getMatchType().getSql());
+		sb.append(" ? ");
+		sb.append(" or  rivernames2.name_fr " );
+		sb.append(search.getMatchType().getSql());
+		sb.append(" ? ");
+		sb.append(" or  lakenames1.name_en " );
+		sb.append(search.getMatchType().getSql());
+		sb.append(" ? ");
+		sb.append(" or  lakenames1.name_fr " );
+		sb.append(search.getMatchType().getSql());
+		sb.append(" ? ");
+		sb.append(" or  lakenames2.name_en " );
+		sb.append(search.getMatchType().getSql());
+		sb.append(" ? ");
+		sb.append(" or  lakenames2.name_fr " );
+		sb.append(search.getMatchType().getSql());
+		sb.append(" ? ");
+		sb.append(" ) ");
 		sb.append(" limit " + search.getMaxresults());
 		
 		String name = search.getEscapedName();
@@ -200,7 +244,7 @@ public class ECatchmentDao {
 		}
 		
 		try {
-			return jdbcTemplate.query(sb.toString(), ecatchmentMapper, name, name);
+			return jdbcTemplate.query(sb.toString(), ecatchmentMapper, name, name, name, name, name, name, name, name);
 		}catch (EmptyResultDataAccessException ex) {
 			return null;
 		}
@@ -213,54 +257,61 @@ public class ECatchmentDao {
 	 * @return list of named features matching the search parameters
 	 */
 	public List<NamedFeature> getFeaturesByNameMerged(NameSearchParameters search){
-		StringBuilder sb = new StringBuilder();
-		sb.append("SELECT e.");
-		sb.append(Field.NAME_ID.columnname + ",e.");
-		sb.append(Field.EC_TYPE.columnname + ",");
-		sb.append("names.name_en as name_en, ");
-		sb.append("names.name_fr as name_fr, ");
-		sb.append("st_asbinary(st_union(" + Field.GEOMETRY.columnname + ")) as " + Field.GEOMETRY.columnname);
-		sb.append(" FROM ");
-		sb.append(DataSourceTable.ECATCHMENT.tableName + " e");
-		sb.append(" LEFT JOIN ");
-		sb.append(DataSourceTable.NAMES.tableName + " names ");
-		sb.append(" ON e.name_id = names.name_id");
-		sb.append(" WHERE ");
+		List<NamedFeature> features = new ArrayList<>();
 		
-		boolean isCatchment = search.getFeatureType() == null || search.getFeatureType().contains(HydroFeature.Type.CATCHMENT);
-		boolean isWaterbody = search.getFeatureType() == null || search.getFeatureType().contains(HydroFeature.Type.WATERBODY);
-		
-		if (isCatchment && !isWaterbody) {
-			sb.append(Field.EC_TYPE + " != " + ECatchment.EcType.WATER.code);
-			sb.append("AND");
-		}else if (!isCatchment && isWaterbody) {
-			sb.append(Field.EC_TYPE + " = " + ECatchment.EcType.WATER.code);
-			sb.append("AND");
+		for (Field f : new Field[] {Field.RIVERNAME1_ID, Field.RIVERNAME2_ID, Field.LAKENAME1_ID, Field.LAKENAME2_ID}) {
+			StringBuilder sb = new StringBuilder();
+			sb.append("SELECT e.");
+			sb.append(f.columnname + " as name_id, e.");
+			sb.append(Field.EC_TYPE.columnname + ",");
+			sb.append("names.name_en as name_en, ");
+			sb.append("names.name_fr as name_fr, ");
+			sb.append("st_asbinary(st_union(" + Field.GEOMETRY.columnname + ")) as " + Field.GEOMETRY.columnname);
+			sb.append(" FROM ");
+			sb.append(DataSourceTable.ECATCHMENT.tableName + " e");
+			sb.append(" LEFT JOIN ");
+			sb.append(DataSourceTable.NAMES.tableName + " names ");
+			sb.append(" ON e." + f.columnname + " = names.name_id");
+			
+			sb.append(" WHERE ");
+			
+			boolean isCatchment = search.getFeatureType() == null || search.getFeatureType().contains(HydroFeature.Type.CATCHMENT);
+			boolean isWaterbody = search.getFeatureType() == null || search.getFeatureType().contains(HydroFeature.Type.WATERBODY);
+			
+			if (isCatchment && !isWaterbody) {
+				sb.append(Field.EC_TYPE + " != " + ECatchment.EcType.WATER.code);
+				sb.append("AND");
+			}else if (!isCatchment && isWaterbody) {
+				sb.append(Field.EC_TYPE + " = " + ECatchment.EcType.WATER.code);
+				sb.append("AND");
+			}
+			
+			sb.append(" ( names.name_en " );
+			sb.append(search.getMatchType().getSql());
+			sb.append(" ? ");
+			sb.append(" or name_fr " );
+			sb.append(search.getMatchType().getSql());
+			sb.append(" ? ) ");
+			sb.append(" GROUP BY e.");
+			sb.append(f.columnname);
+			sb.append(", name_en, name_fr, e.");
+			sb.append(Field.EC_TYPE.columnname);
+			
+			sb.append(" limit " + search.getMaxresults());
+			
+			String name = search.getEscapedName();
+			if (search.getMatchType() == MatchType.CONTAINS) {
+				name = "%" + name+ "%";
+			}
+			
+			try {
+				features.addAll(jdbcTemplate.query(sb.toString(), namedFeatureMapper, name, name));
+			}catch (EmptyResultDataAccessException ex) {
+			}
+			if (features.size() > search.getMaxresults()) return features.subList(0, search.getMaxresults());
 		}
-		
-		sb.append(" ( names.name_en " );
-		sb.append(search.getMatchType().getSql());
-		sb.append(" ? )");
-		sb.append(" or ( name_fr " );
-		sb.append(search.getMatchType().getSql());
-		sb.append(" ? ) ");
-		sb.append(" GROUP BY e.");
-		sb.append(Field.NAME_ID.columnname);
-		sb.append(", name_en, name_fr, e.");
-		sb.append(Field.EC_TYPE.columnname);
-		
-		sb.append(" limit " + search.getMaxresults());
-		
-		String name = search.getEscapedName();
-		if (search.getMatchType() == MatchType.CONTAINS) {
-			name = "%" + name+ "%";
-		}
-		
-		try {
-			return jdbcTemplate.query(sb.toString(), namedFeatureMapper, name, name);
-		}catch (EmptyResultDataAccessException ex) {
-			return null;
-		}
+		if (features.isEmpty()) return null;
+		return features;
 	}
 	
 	private String buildFeatureSelect() {
@@ -278,8 +329,14 @@ public class ECatchmentDao {
 		}
 		sb.append("ectype.name as ec_typename, ");
 		sb.append("ecsubtype.name as ec_subtypename, ");
-		sb.append("names.name_en as name_en, ");
-		sb.append("names.name_fr as name_fr, ");
+		sb.append("rivernames1.name_en as rivername1_en, ");
+		sb.append("rivernames1.name_fr as rivername1_fr, ");
+		sb.append("rivernames2.name_en as rivername2_en, ");
+		sb.append("rivernames2.name_fr as rivername2_fr, ");
+		sb.append("lakenames1.name_en as lakename1_en, ");
+		sb.append("lakenames1.name_fr as lakename1_fr, ");
+		sb.append("lakenames2.name_en as lakename2_en, ");
+		sb.append("lakenames2.name_fr as lakename2_fr, ");
 		sb.append("aoi.short_name as aoi_name");
 		
 		sb.append(" FROM ");
@@ -291,8 +348,17 @@ public class ECatchmentDao {
 		sb.append(DataSourceTable.EC_SUBTYPE.tableName + " ecsubtype ");
 		sb.append(" ON e.ec_subtype = ecsubtype.code");
 		sb.append(" LEFT JOIN ");
-		sb.append(DataSourceTable.NAMES.tableName + " names ");
-		sb.append(" ON e.name_id = names.name_id");
+		sb.append(DataSourceTable.NAMES.tableName + " rivernames1 ");
+		sb.append(" ON e." + Field.RIVERNAME1_ID.columnname + " = rivernames1.name_id");
+		sb.append(" LEFT JOIN ");
+		sb.append(DataSourceTable.NAMES.tableName + " rivernames2 ");
+		sb.append(" ON e." + Field.RIVERNAME2_ID.columnname + " = rivernames2.name_id");
+		sb.append(" LEFT JOIN ");
+		sb.append(DataSourceTable.NAMES.tableName + " lakenames1 ");
+		sb.append(" ON e." + Field.LAKENAME1_ID.columnname + " = lakenames1.name_id");
+		sb.append(" LEFT JOIN ");
+		sb.append(DataSourceTable.NAMES.tableName + " lakenames2 ");
+		sb.append(" ON e." + Field.LAKENAME2_ID.columnname + " = lakenames2.name_id");
 		sb.append(" LEFT JOIN ");
 		sb.append(DataSourceTable.AOI.tableName + " aoi ");
 		sb.append(" ON e.aoi_id = aoi.id");

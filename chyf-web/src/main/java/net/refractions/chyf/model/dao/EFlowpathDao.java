@@ -17,6 +17,7 @@ package net.refractions.chyf.model.dao;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -56,15 +57,18 @@ public class EFlowpathDao {
 		EF_SUBTYPE("ef_subtype", "ef_subtype"),
 		RANK("rank", "rank"),
 		LENGTH("length", "length"),
-		NAME_ID("name_id", "name_id"),
+		NAME1_ID("rivernameid1", "name1_id"),
+		NAME2_ID("rivernameid2", "name2_id"),
 		AOI_ID("aoi_id", "aoi_id"),
 		ECATCHMENT_ID("ecatchment_id", "ecachment_id"),
 		GEOMETRY("geometry", "geometry"),
 		
 		EF_TYPE_NAME(null, "ef_type_name"),
 		EF_SUBTYPE_NAME(null, "ef_subtype_name"),
-		NAME_EN(null, "name_en"),
-		NAME_FR(null, "name_fr"),
+		NAME1_EN(null, "name1_en"),
+		NAME1_FR(null, "name1_fr"),
+		NAME2_EN(null, "name2_en"),
+		NAME2_FR(null, "name2_fr"),
 		AOI_NAME(null, "aoi_name");
 		
 		public String columnname;
@@ -88,16 +92,16 @@ public class EFlowpathDao {
 			case GEOMETRY: return flowpath.getGeometry();
 			case ID: return flowpath.getId();
 			case LENGTH: return flowpath.getLength();
-			case NAME_EN: return flowpath.getNameEn();
-			case NAME_FR: return flowpath.getNameFr();
-			case NAME_ID: return flowpath.getNameId();
+			case NAME1_EN: return flowpath.getNameEn1();
+			case NAME1_FR: return flowpath.getNameFr1();
+			case NAME1_ID: return flowpath.getNameId1();
+			case NAME2_EN: return flowpath.getNameEn2();
+			case NAME2_FR: return flowpath.getNameFr2();
+			case NAME2_ID: return flowpath.getNameId2();
 			case RANK: return flowpath.getRank();
 			}
-			
 			return null;
-				
 		}
-		
 	}
 
 
@@ -118,8 +122,10 @@ public class EFlowpathDao {
 			path.setSubType((Integer)rs.getObject(Field.EF_SUBTYPE.columnname));
 			path.setType(rs.getInt(Field.EF_TYPE.columnname));
 			path.setLength(rs.getDouble(Field.LENGTH.columnname));
-			path.setNameId((UUID)rs.getObject(Field.NAME_ID.columnname));
-			path.setName(rs.getString("name_en"), rs.getString("name_fr"));
+			path.setNameId1((UUID)rs.getObject(Field.NAME1_ID.columnname));
+			path.setName1(rs.getString("name1_en"), rs.getString("name1_fr"));
+			path.setNameId2((UUID)rs.getObject(Field.NAME2_ID.columnname));
+			path.setName2(rs.getString("name2_en"), rs.getString("name2_fr"));
 			path.setRank(rs.getInt(Field.RANK.columnname));
 			path.setSubTypeName(rs.getString("ef_subtypename"));
 			path.setTypeName(rs.getString("ef_typename"));
@@ -171,12 +177,19 @@ public class EFlowpathDao {
 		StringBuilder sb = new StringBuilder();
 		sb.append(buildFeatureSelect());
 		sb.append(" WHERE ");
-		sb.append(" ( names.name_en " );
+		sb.append(" ( names1.name_en " );
 		sb.append(search.getMatchType().getSql());
-		sb.append(" ? )");
-		sb.append(" or ( name_fr " );
+		sb.append(" ? ");
+		sb.append(" or  names1.name_fr " );
 		sb.append(search.getMatchType().getSql());
-		sb.append(" ? )");
+		sb.append(" ? ");
+		sb.append(" or  names2.name_en " );
+		sb.append(search.getMatchType().getSql());
+		sb.append(" ? ");
+		sb.append(" or  names2.name_fr " );
+		sb.append(search.getMatchType().getSql());
+		sb.append(" ? ");
+		sb.append(")");
 		sb.append(" limit " + search.getMaxresults());
 		
 		String name = search.getEscapedName();
@@ -185,7 +198,7 @@ public class EFlowpathDao {
 		}
 		
 		try {
-			return jdbcTemplate.query(sb.toString(), eflowpathMapper, name, name);
+			return jdbcTemplate.query(sb.toString(), eflowpathMapper, name, name, name, name);
 		}catch (EmptyResultDataAccessException ex) {
 			return null;
 		}
@@ -198,42 +211,50 @@ public class EFlowpathDao {
 	 * @return list of named features matching the search parameters
 	 */
 	public List<NamedFeature> getFeaturesByNameMerged(NameSearchParameters search){
-		StringBuilder sb = new StringBuilder();
-		sb.append("SELECT e.");
-		sb.append(Field.NAME_ID.columnname + ",");
-		sb.append("names.name_en as name_en, ");
-		sb.append("names.name_fr as name_fr, ");
-		sb.append("st_asbinary(st_union(" + Field.GEOMETRY.columnname + ")) as " + Field.GEOMETRY.columnname);
-		sb.append(" FROM ");
-		sb.append(DataSourceTable.EFLOWPATH.tableName + " e");
-		sb.append(" LEFT JOIN ");
-		sb.append(DataSourceTable.NAMES.tableName + " names ");
-		sb.append(" ON e.name_id = names.name_id");
 		
-		sb.append(" WHERE ");
-		sb.append(" ( names.name_en " );
-		sb.append(search.getMatchType().getSql());
-		sb.append(" ? )");
-		sb.append(" or ( name_fr " );
-		sb.append(search.getMatchType().getSql());
-		sb.append(" ? ) ");
-		sb.append(" GROUP BY e.");
-		sb.append(Field.NAME_ID.columnname);
-		sb.append(", name_en, name_fr");
-
-		sb.append(" limit " + search.getMaxresults());
+		List<NamedFeature> namedfeatures = new ArrayList<>();
 		
-		String name = search.getEscapedName();
-		if (search.getMatchType() == MatchType.CONTAINS) {
-			name = "%" + name+ "%";
+		for (Field f : new Field[] {Field.NAME1_ID, Field.NAME2_ID}) {
+			StringBuilder sb = new StringBuilder();
+			sb.append("SELECT e.");
+			sb.append(f.columnname + " as name_id,");
+			sb.append("names.name_en as name_en, ");
+			sb.append("names.name_fr as name_fr, ");
+			sb.append("st_asbinary(st_union(" + Field.GEOMETRY.columnname + ")) as " + Field.GEOMETRY.columnname);
+			sb.append(" FROM ");
+			sb.append(DataSourceTable.EFLOWPATH.tableName + " e");
+			sb.append(" LEFT JOIN ");
+			sb.append(DataSourceTable.NAMES.tableName + " names ");
+			sb.append(" ON e." + f.columnname + " = names.name_id");
+			
+			sb.append(" WHERE ");
+			sb.append(" ( names.name_en " );
+			sb.append(search.getMatchType().getSql());
+			sb.append(" ? ");
+			sb.append(" or  name_fr " );
+			sb.append(search.getMatchType().getSql());
+			sb.append(" ? ) ");
+			sb.append(" GROUP BY e.");
+			sb.append(f.columnname);
+			sb.append(", name_en, name_fr");
+	
+			sb.append(" limit " + search.getMaxresults());
+			
+			String name = search.getEscapedName();
+			if (search.getMatchType() == MatchType.CONTAINS) {
+				name = "%" + name+ "%";
+			}
+			
+			try {
+				namedfeatures.addAll( jdbcTemplate.query(sb.toString(), namedFeatureMapper, name, name));
+			}catch (EmptyResultDataAccessException ex) {
+			}
+			if (namedfeatures.size() > search.getMaxresults()) {
+				return namedfeatures.subList(0, search.getMaxresults());
+			}
 		}
-		
-				
-		try {
-			return jdbcTemplate.query(sb.toString(), namedFeatureMapper, name, name);
-		}catch (EmptyResultDataAccessException ex) {
-			return null;
-		}
+		if (namedfeatures.isEmpty()) return null;
+		return namedfeatures;
 	}
 	
 	
@@ -252,8 +273,10 @@ public class EFlowpathDao {
 		}
 		sb.append("eftype.name as ef_typename, ");
 		sb.append("efsubtype.name as ef_subtypename, ");
-		sb.append("names.name_en as name_en, ");
-		sb.append("names.name_fr as name_fr, ");
+		sb.append("names1.name_en as name1_en, ");
+		sb.append("names1.name_fr as name1_fr, ");
+		sb.append("names2.name_en as name2_en, ");
+		sb.append("names2.name_fr as name2_fr, ");
 		sb.append("aoi.short_name as aoi_name");
 		
 		sb.append(" FROM ");
@@ -265,8 +288,11 @@ public class EFlowpathDao {
 		sb.append(DataSourceTable.EF_SUBTYPE.tableName + " efsubtype ");
 		sb.append(" ON e.ef_subtype = efsubtype.code");
 		sb.append(" LEFT JOIN ");
-		sb.append(DataSourceTable.NAMES.tableName + " names ");
-		sb.append(" ON e.name_id = names.name_id");
+		sb.append(DataSourceTable.NAMES.tableName + " names1 ");
+		sb.append(" ON e." + Field.NAME1_ID.columnname + " = names1.name_id");
+		sb.append(" LEFT JOIN ");
+		sb.append(DataSourceTable.NAMES.tableName + " names2 ");
+		sb.append(" ON e." + Field.NAME2_ID.columnname + " = names2.name_id");
 		sb.append(" LEFT JOIN ");
 		sb.append(DataSourceTable.AOI.tableName + " aoi ");
 		sb.append(" ON e.aoi_id = aoi.id");
