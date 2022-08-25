@@ -95,6 +95,7 @@ public class NameJob implements Runnable {
 	}
 
 	private void processWaterbody(SimpleFeature toProcess) throws Exception {
+
 		Polygon workingPolygon = ChyfDataSource.getPolygon(toProcess);
 		Map<ChyfAttribute, Name> nameAttributes = dataSource.findRiverNameAttributes(toProcess.getFeatureType());
 		String[] wbnames = dataSource.getRiverNameIds(nameAttributes, toProcess);

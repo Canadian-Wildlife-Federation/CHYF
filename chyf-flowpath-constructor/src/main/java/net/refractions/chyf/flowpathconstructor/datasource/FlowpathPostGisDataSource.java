@@ -194,7 +194,10 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
     		}catch(SQLException ex) {
     			throw new IOException(ex);
     		}
-	    		
+	    	
+    		//we create this table and don't want to copy stuff into working schema from it
+    		if (l == Layer.FEATURENAMES) continue;
+    		
     		SimpleFeatureType rtype = rawDataStore.getSchema(getTypeName(l));
     		Name internalidatt = ChyfDataSource.findAttribute(rtype, ChyfAttribute.INTERNAL_ID);
     		
@@ -732,6 +735,80 @@ public class FlowpathPostGisDataSource extends ChyfPostGisDataSource implements 
 		c.createStatement().execute(query);
 		
 		resetWorkingDataStore();
+	}
+
+
+	@Override
+	public void populateNameIdTable() throws IOException {
+			
+		
+		//determine what fields to add 
+
+		List<Object[]> namefields = new ArrayList<>();
+		for (AttributeDescriptor d : getFeatureType(Layer.EFLOWPATHS).getAttributeDescriptors()) {
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID1.getFieldName())) {
+				namefields.add(new Object[] {Layer.EFLOWPATHS, ChyfAttribute.RIVERNAMEID1, ChyfAttribute.RIVERNAME1});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID2.getFieldName())) {
+				namefields.add(new Object[] {Layer.EFLOWPATHS, ChyfAttribute.RIVERNAMEID2, ChyfAttribute.RIVERNAME2});
+			}
+		}
+		for (AttributeDescriptor d : getFeatureType(Layer.TERMINALNODES).getAttributeDescriptors()) {
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID1.getFieldName())) {
+				namefields.add(new Object[] {Layer.TERMINALNODES, ChyfAttribute.RIVERNAMEID1, ChyfAttribute.RIVERNAME1});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID2.getFieldName())) {
+				namefields.add(new Object[] {Layer.TERMINALNODES, ChyfAttribute.RIVERNAMEID2, ChyfAttribute.RIVERNAME2});
+			}
+		}
+		for (AttributeDescriptor d : getFeatureType(Layer.ECATCHMENTS).getAttributeDescriptors()) {
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID1.getFieldName())) {
+				namefields.add(new Object[] {Layer.ECATCHMENTS, ChyfAttribute.RIVERNAMEID1, ChyfAttribute.RIVERNAME1});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID2.getFieldName())) {
+				namefields.add(new Object[] {Layer.ECATCHMENTS, ChyfAttribute.RIVERNAMEID2, ChyfAttribute.RIVERNAME2});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.LAKENAMEID1.getFieldName())) {
+				namefields.add(new Object[] {Layer.ECATCHMENTS, ChyfAttribute.LAKENAMEID1, ChyfAttribute.LAKENAME1});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.LAKENAMEID2.getFieldName())) {
+				namefields.add(new Object[] {Layer.ECATCHMENTS, ChyfAttribute.LAKENAMEID2, ChyfAttribute.LAKENAME2});
+			}
+		}
+		
+		if (namefields.isEmpty()) return;
+		
+		
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("INSERT INTO ");
+		sb.append(  workingSchema + "." + getTableName(Layer.FEATURENAMES) );
+		sb.append("(aoi_id, fid, id, geodbname, name) SELECT distinct aoi_id, nameid, nameid, geographicalnamedb, name FROM (");
+		for (Object[] x : namefields) {
+			Layer layer = (Layer) x[0];
+			ChyfAttribute id = (ChyfAttribute)x[1];
+			ChyfAttribute name = (ChyfAttribute)x[2];
+			
+			sb.append("SELECT '" + aoiUuid + "', ");
+			sb.append( id.getFieldName() + " as nameid, ");
+			sb.append("geodbname, ");
+			sb.append(name.getFieldName() + " as name FROM ");
+			sb.append( rawSchema + "." + getTableName(layer) );
+			sb.append( " WHERE ");
+			sb.append(id.getFieldName() + " is not null and ");
+			sb.append(id.getFieldName() + " != ''");
+			sb.append( " UNION ");
+		}
+		for (int i = 0; i < " UNION ".length(); i ++) {
+			sb.deleteCharAt(sb.length() - 1);
+		}	
+		
+		sb.append(" ) foo ");
+		try{
+			getConnection().createStatement().execute(sb.toString());
+		}catch (SQLException ex) {
+			throw new IOException(ex);
+		}
 	}
 
 }

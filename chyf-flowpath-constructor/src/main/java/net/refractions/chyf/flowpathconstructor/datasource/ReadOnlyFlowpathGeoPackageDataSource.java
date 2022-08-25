@@ -156,4 +156,9 @@ public class ReadOnlyFlowpathGeoPackageDataSource extends ChyfGeoPackageDataSour
 	public void writeFlowpathNames(HashMap<FeatureId, String[]> nameids) throws IOException{
 		throw new UnsupportedOperationException("Not supported for read only dataset");
 	}
+
+	@Override
+	public void populateNameIdTable() throws IOException {
+		throw new UnsupportedOperationException("Not supported for read only dataset");
+	}
 }

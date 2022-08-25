@@ -113,6 +113,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 			}
 		}
 		if (getFeatureType(Layer.ERRORS) == null) createErrorWarningsTable();
+		if (getFeatureType(Layer.FEATURENAMES) == null) createFeatureNamesTable();
 	}
 	
 	protected void createErrorWarningsTable() throws IOException{
@@ -127,6 +128,26 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		
 		FeatureEntry entry = new FeatureEntry();
 		entry.setTableName(Layer.ERRORS.getLayerName());
+		entry.setM(false);
+		entry.setSrid(0);
+		
+        DefaultFeatureCollection collection = new DefaultFeatureCollection(null, ftype);
+		geopkg.add(entry, collection);
+	}
+	
+	protected void createFeatureNamesTable() throws IOException{
+		SimpleFeatureTypeBuilder builder = new SimpleFeatureTypeBuilder();
+		builder.add("geometry", Geometry.class, crs);
+		builder.add("fid", String.class);
+		builder.add("name_id", String.class);
+		builder.add("geodbname", String.class);
+		builder.add("name", String.class);
+		builder.setName(Layer.FEATURENAMES.getLayerName());
+		builder.setCRS(getCoordinateReferenceSystem());
+		SimpleFeatureType ftype = builder.buildFeatureType();
+		
+		FeatureEntry entry = new FeatureEntry();
+		entry.setTableName(Layer.FEATURENAMES.getLayerName());
 		entry.setM(false);
 		entry.setSrid(0);
 		

@@ -231,5 +231,7 @@ public interface IFlowpathDataSource extends ChyfDataSource{
 		if (rnames[0] == null && rnames[1] == null) return null;
 		return rnames;
 	}
+	
+	public void populateNameIdTable() throws IOException;
 
 }

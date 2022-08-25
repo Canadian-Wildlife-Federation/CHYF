@@ -404,6 +404,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 		if (layer == Layer.SHORELINES) return "shoreline";
 		if (layer == Layer.TERMINALNODES) return "terminal_node";
 		if (layer == Layer.ERRORS) return "errors";
+		if (layer == Layer.FEATURENAMES) return "feature_names";
 		return null;
 	}
 
@@ -574,6 +575,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	    		}
 	    	}
 	    }
+	    createNameIdTable();
 	}
 	
 	
@@ -587,7 +589,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	    	sb.append(getAoiFieldName(Layer.ERRORS) + " uuid not null references " + getTableName(Layer.AOI) + " (" + getAoiFieldName(Layer.AOI) + "),"); 
 	    	sb.append("type varchar(32), ");
 	    	sb.append("message varchar, ");
-	    	sb.append("process varchar(16), ");
+	    	sb.append("process varchar, ");
 	    	sb.append("geometry GEOMETRY (geometry, " + srid + ")");
 	    	
 			c.createStatement().executeUpdate(sb.toString());
@@ -627,4 +629,28 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 			t1.commit();
 		}
 	}
+	
+	
+	protected void createNameIdTable() throws IOException {
+		try{
+			StringBuilder sb = new StringBuilder();
+			sb.append("CREATE TABLE IF NOT EXISTS ");
+			sb.append(workingSchema + "." + getTypeName(Layer.FEATURENAMES));
+			sb.append("(");
+	    	sb.append(getAoiFieldName(Layer.FEATURENAMES) + " uuid not null references " + workingSchema + "." + getTableName(Layer.AOI) + " (" + getAoiFieldName(Layer.AOI) + "), "); 
+			sb.append(" fid varchar, name_id varchar, geodbname varchar, name varchar, primary key (fid)) ");
+			getConnection().createStatement().execute(sb.toString());
+			
+    		sb = new StringBuilder();
+    		sb.append("ALTER TABLE ");
+			sb.append(workingSchema + "." + getTypeName(Layer.FEATURENAMES));
+    		sb.append(" ADD CONSTRAINT feature_names_aoi_id_unq UNIQUE (aoi_id, name_id) ");
+    		getConnection().createStatement().execute(sb.toString());
+    		
+
+		}catch (SQLException ex) {
+			throw new IOException(ex);
+		}
+	}
+
 }

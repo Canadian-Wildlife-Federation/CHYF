@@ -117,6 +117,8 @@ public class PointEngine {
 		this.dataSource = dataSource;
 		if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 		
+		dataSource.populateNameIdTable();
+		
 		int cnt = 1;
 		
 		List<Polygon> ptouch = new ArrayList<>();

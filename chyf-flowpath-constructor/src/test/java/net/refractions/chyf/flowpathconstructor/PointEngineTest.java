@@ -271,6 +271,11 @@ public class PointEngineTest {
 		@Override
 		public void writeFlowpathNames(HashMap<FeatureId, String[]> nameids) throws IOException {			
 		}
+
+		@Override
+		public void populateNameIdTable() throws IOException {
+		
+		}
 	}
 	
 	private class SingleDataSource extends MultiDataSource {

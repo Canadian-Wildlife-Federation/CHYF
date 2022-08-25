@@ -92,7 +92,7 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 		
 		ChyfLogger.INSTANCE.setDataSource(this);
 	}
-
+	
 	/**
 	 * Gets the construction point feature layer
 	 * @return
@@ -566,12 +566,99 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	public void addRankAttribute() throws Exception{	
 		String tablename = getEntry(Layer.EFLOWPATHS).getTableName();
 		
+		//only add if doesn't exist
+		boolean hasrank = false;
+		for (AttributeDescriptor d : getFeatureType(Layer.EFLOWPATHS).getAttributeDescriptors()) {
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RANK.getFieldName())) {
+				hasrank = true;
+				break;
+			}
+		}
 		try(Connection c = geopkg.getDataSource().getConnection()){
-			String query = "ALTER TABLE " + tablename + " add column " + ChyfAttribute.RANK.getFieldName()  + " integer ";
-			c.createStatement().execute(query);
+			if (!hasrank) {
+				String query = "ALTER TABLE " + tablename + " add column " + ChyfAttribute.RANK.getFieldName()  + " integer ";
+				c.createStatement().execute(query);
+			}else {
+				String query = "UPDATE " + tablename + " set " + ChyfAttribute.RANK.getFieldName()  + " = null ";
+				c.createStatement().execute(query);
+			}
 		}
 		
 		geopkg.close();
 		read();
 	}
+	
+	/**
+	 * Populates the name id table based on names provided on flowpaths, 
+	 * catchments and terminal nodes.
+	 */
+	public void populateNameIdTable() throws IOException{
+		List<Object[]> namefields = new ArrayList<>();
+		for (AttributeDescriptor d : getFeatureType(Layer.EFLOWPATHS).getAttributeDescriptors()) {
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID1.getFieldName())) {
+				namefields.add(new Object[] {Layer.EFLOWPATHS, ChyfAttribute.RIVERNAMEID1, ChyfAttribute.RIVERNAME1});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID2.getFieldName())) {
+				namefields.add(new Object[] {Layer.EFLOWPATHS, ChyfAttribute.RIVERNAMEID2, ChyfAttribute.RIVERNAME2});
+			}
+		}
+		for (AttributeDescriptor d : getFeatureType(Layer.TERMINALNODES).getAttributeDescriptors()) {
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID1.getFieldName())) {
+				namefields.add(new Object[] {Layer.TERMINALNODES, ChyfAttribute.RIVERNAMEID1, ChyfAttribute.RIVERNAME1});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID2.getFieldName())) {
+				namefields.add(new Object[] {Layer.TERMINALNODES, ChyfAttribute.RIVERNAMEID2, ChyfAttribute.RIVERNAME2});
+			}
+		}
+		for (AttributeDescriptor d : getFeatureType(Layer.ECATCHMENTS).getAttributeDescriptors()) {
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID1.getFieldName())) {
+				namefields.add(new Object[] {Layer.ECATCHMENTS, ChyfAttribute.RIVERNAMEID1, ChyfAttribute.RIVERNAME1});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID2.getFieldName())) {
+				namefields.add(new Object[] {Layer.ECATCHMENTS, ChyfAttribute.RIVERNAMEID2, ChyfAttribute.RIVERNAME2});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.LAKENAMEID1.getFieldName())) {
+				namefields.add(new Object[] {Layer.ECATCHMENTS, ChyfAttribute.LAKENAMEID1, ChyfAttribute.LAKENAME1});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.LAKENAMEID2.getFieldName())) {
+				namefields.add(new Object[] {Layer.ECATCHMENTS, ChyfAttribute.LAKENAMEID2, ChyfAttribute.LAKENAME2});
+			}
+		}
+		
+		if (namefields.isEmpty()) return;
+		
+		
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("INSERT INTO ");
+		sb.append( Layer.FEATURENAMES.getLayerName() );
+		sb.append("(fid, name_id, geodbname, name) SELECT distinct * FROM (");
+		for (Object[] x : namefields) {
+			Layer layer = (Layer) x[0];
+			ChyfAttribute id = (ChyfAttribute)x[1];
+			ChyfAttribute name = (ChyfAttribute)x[2];
+			
+			sb.append("SELECT " + id.getFieldName() + " as fid, ");
+			sb.append( id.getFieldName() + " as nameid, ");
+			sb.append("geodbname, ");
+			sb.append(name.getFieldName() + " as name FROM ");
+			sb.append( getEntry(layer).getTableName() );
+			sb.append( " WHERE ");
+			sb.append(id.getFieldName() + " is not null and ");
+			sb.append(id.getFieldName() + " != ''");
+			sb.append( " UNION ");
+		}
+		for (int i = 0; i < " UNION ".length(); i ++) {
+			sb.deleteCharAt(sb.length() - 1);
+		}	
+		sb.append(" ) foo ");
+		
+		try(Connection c = geopkg.getDataSource().getConnection()){
+			c.createStatement().execute(sb.toString());
+		}catch (SQLException ex) {
+			throw new IOException (ex);
+		}
+
+	}
+
 }

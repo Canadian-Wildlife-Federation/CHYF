@@ -20,22 +20,35 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
+import org.geotools.data.DataUtilities;
 import org.geotools.data.DefaultTransaction;
 import org.geotools.data.FeatureWriter;
 import org.geotools.data.Transaction;
+import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureReader;
+import org.geotools.data.store.EmptyFeatureCollection;
+import org.geotools.feature.simple.SimpleFeatureBuilder;
+import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
+import org.geotools.geopkg.FeatureEntry;
+import org.geotools.geopkg.GeoPackage;
 import org.geotools.jdbc.JDBCDataStore;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Polygon;
+import org.opengis.feature.Feature;
+import org.opengis.feature.FeatureVisitor;
+import org.opengis.feature.Property;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.feature.type.AttributeDescriptor;
 import org.opengis.feature.type.Name;
 import org.opengis.filter.Filter;
 import org.opengis.filter.identity.FeatureId;
@@ -164,6 +177,68 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 	@Override
 	public List<TerminalNode> getTerminalNodes() throws Exception{
 		return ((FlowpathGeoPackageDataSource)	getLocalDataSource()).getTerminalNodes();
+	}
+	
+	@Override
+	protected void cacheData(GeoPackage geopkg) throws IOException {
+		super.cacheData(geopkg);
+		
+		//if construction points exist in schema, load these
+		boolean found = false;
+		for (String s : inputDataStore.getTypeNames()) {
+			if (s.equals(CONSTRUCTION_PNTS_TABLE)) {
+				found = true;
+				break;
+			}
+		}
+		
+		if (!found) return;
+		
+		FeatureEntry entry = new FeatureEntry();
+		entry.setTableName(FlowpathGeoPackageDataSource.CONSTRUCTION_PNTS_LAYER);
+		entry.setM(false);
+		
+		Filter filter = getAoiFilter(null);
+		
+		SimpleFeatureCollection input = inputDataStore.getFeatureSource(CONSTRUCTION_PNTS_TABLE).getFeatures(filter);
+		
+		//convert uuid to string
+		SimpleFeatureTypeBuilder ftBuilder = new SimpleFeatureTypeBuilder();
+		ftBuilder.setName(FlowpathGeoPackageDataSource.CONSTRUCTION_PNTS_LAYER);
+		for (AttributeDescriptor ad : input.getSchema().getAttributeDescriptors()) {
+			if (ad.getType().getBinding().equals(UUID.class)) {
+				ftBuilder.add(ad.getLocalName(), String.class);
+			}else {
+				ftBuilder.add(ad);
+			}
+		}
+		SimpleFeatureType newtype = ftBuilder.buildFeatureType();
+		
+		
+		List<SimpleFeature> features = new ArrayList<>();
+		input.accepts(new FeatureVisitor() {
+			@Override
+			public void visit(Feature feature) {
+				SimpleFeatureBuilder sb=  new SimpleFeatureBuilder(newtype);
+				for (Property p : feature.getProperties()) {
+					if (p.getValue() instanceof UUID) {
+						sb.set(p.getName(), ((UUID)p.getValue()).toString());
+					}else {
+						sb.set(p.getName(), p.getValue());
+					}
+				}
+				SimpleFeature sf = sb.buildFeature(feature.getIdentifier().getID());
+				features.add(sf);
+			}
+			
+		}, null);
+		
+		if(!features.isEmpty()) {
+			geopkg.add(entry, DataUtilities.collection(features));
+		}else {
+			geopkg.add(entry,new EmptyFeatureCollection(newtype));
+		}
+		geopkg.createSpatialIndex(entry);
 	}
 	
 	/**
@@ -303,4 +378,9 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 		((FlowpathGeoPackageDataSource)	getLocalDataSource()).writeFlowpathNames(nameids);
 	}
 
+	@Override
+	public void populateNameIdTable() throws IOException{
+		((FlowpathGeoPackageDataSource)	getLocalDataSource()).populateNameIdTable();
+		
+	}
 }

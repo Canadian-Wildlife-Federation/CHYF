@@ -28,7 +28,8 @@ public enum Layer implements ILayer{
 	AOI("AOI"),
 	SHORELINES("Shorelines"),
 	TERMINALNODES("TerminalNodes"),
-	ERRORS("ProcessingErrors");
+	ERRORS("ProcessingErrors"),
+	FEATURENAMES("FeatureNames");
 	
 	private String layerName;
 	

@@ -305,4 +305,9 @@ public class NameFlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSour
 		}
 		geopkg.createSpatialIndex(entry);
 	}
+
+	@Override
+	public void populateNameIdTable() throws IOException {
+		throw new UnsupportedOperationException("Not supported when reprocessing names");
+	}
 }
