@@ -25,7 +25,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Properties;
 import java.util.UUID;
 
 import org.geotools.data.DefaultTransaction;
@@ -96,11 +95,13 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	public Path getFileName() {
 		return this.geopackageFile;
 	}
+
 	protected void read() throws IOException {
-		Properties params = new Properties();
-		params.put(SQLiteConfig.Pragma.BUSY_TIMEOUT.pragmaName, "10000");
-	    
-		geopkg = new GeoPackage(geopackageFile.toFile(), new SQLiteConfig(params), null);
+		
+		SQLiteConfig config = new SQLiteConfig();
+		config.setPragma(SQLiteConfig.Pragma.BUSY_TIMEOUT, "10000");
+		
+		geopkg = new GeoPackage(geopackageFile.toFile(), config, null);
 		geopkg.init();
 		
 		for (Layer l : Layer.values()) {

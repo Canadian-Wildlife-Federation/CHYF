@@ -25,6 +25,7 @@ import java.util.Set;
 import org.geotools.data.FeatureReader;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.prep.PreparedPolygon;
 import org.opengis.feature.simple.SimpleFeature;
@@ -35,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.ChyfLogger;
+import net.refractions.chyf.ChyfLogger.Process;
 import net.refractions.chyf.ExceptionWithLocation;
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
@@ -167,9 +169,18 @@ public class DirectionalizeEngine {
 		
 		
 		logger.info("checking output for cycles");
-		CycleChecker checker = new CycleChecker();
-		if (checker.checkCycles(dataSource)) {
+		CycleChecker checker = new CycleChecker(dataSource);
+		if (checker.checkCycles()) {
 			throw new Exception("Dataset contains cycles after directionalization.");
+		}
+		
+		logger.info("checking output for invalid source/sink nodes");
+		List<Point>[] warnings = checker.findInvalidSourceSinkNodes();
+		for (Point p : warnings[0]) {
+			ChyfLogger.INSTANCE.logWarning(Process.DIRECTION, "Potential sink error", p);
+		}
+		for (Point p : warnings[1]) {
+			ChyfLogger.INSTANCE.logWarning(Process.DIRECTION, "Potential source error", p);
 		}
 	}
 

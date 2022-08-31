@@ -17,7 +17,9 @@ package net.refractions.chyf.flowpathconstructor.directionalize;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
+import org.locationtech.jts.geom.Point;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,10 +59,15 @@ public class CycleCheckEngine {
 	public static void doWork(IFlowpathDataSource dataSource, ChyfProperties properties) throws Exception {
 		if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 		logger.info("checking output for cycles");
-		CycleChecker checker = new CycleChecker();
-		if (checker.checkCycles(dataSource)) {
-			throw new Exception("Dataset contains cycles.");
+		CycleChecker checker = new CycleChecker(dataSource);
+		if (checker.checkCycles()) {
+			ChyfLogger.INSTANCE.logException(ChyfLogger.Process.CYCLE, new Exception("Dataset contains cycles."));
 		}
+		logger.info("checking output for invalid source/sink nodes");
+		List<Point>[] pnts = checker.findInvalidSourceSinkNodes();
+		for (Point p : pnts[0]) ChyfLogger.INSTANCE.logWarning(ChyfLogger.Process.CYCLE, "Potential invalid sink point", p);
+		for (Point p : pnts[1]) ChyfLogger.INSTANCE.logWarning(ChyfLogger.Process.CYCLE, "Potential invalid source point", p);
+		
 	}
 
 	

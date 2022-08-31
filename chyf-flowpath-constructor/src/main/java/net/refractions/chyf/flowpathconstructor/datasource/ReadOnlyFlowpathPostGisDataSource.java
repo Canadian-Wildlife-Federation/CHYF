@@ -226,13 +226,13 @@ public class ReadOnlyFlowpathPostGisDataSource extends ChyfPostGisDataSource imp
 
 	@Override
 	public void logError(String message, Geometry location, String process) throws IOException {
-		throw new UnsupportedOperationException("Not supported for read only dataset");
+		System.out.println("ERROR: " + process + ": " +  message + " " + location.toText());
 	}
 
 
 	@Override
 	public void logWarning(String message, Geometry location, String process) throws IOException {
-		throw new UnsupportedOperationException("Not supported for read only dataset");
+		System.out.println("WARNING: " + process + ": " +  message + " " + location.toText());
 	}
 
 
