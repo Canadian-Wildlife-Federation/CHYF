@@ -30,6 +30,7 @@ import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisLocalD
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
 import net.refractions.chyf.flowpathconstructor.directionalize.DirectionalizeEngine;
 import net.refractions.chyf.flowpathconstructor.rank.RankEngine;
+import net.refractions.chyf.flowpathconstructor.skeletonizer.names.NameEngine;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.PointEngine;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi.SkeletonEngine;
 
@@ -88,8 +89,10 @@ public class FlowpathConstructor {
 				DirectionalizeEngine.doWork(dataSource, prop);
 				logger.info("Computing Rank");
 				RankEngine.doWork(dataSource, prop);
+				logger.info("Applying Names To Skeletons");
+				NameEngine.doWork(dataSource, prop, runtime.getCores());
 			}catch (Exception ex) {
-				ChyfLogger.INSTANCE.logError(ex.getMessage(), null, ex, FlowpathConstructor.class);
+				ChyfLogger.INSTANCE.logError(ChyfLogger.Process.FLOWPATHFULL, ex.getMessage(), null, ex, FlowpathConstructor.class);
 			}
 			
 			dataSource.finish();
@@ -119,11 +122,12 @@ public class FlowpathConstructor {
 					DirectionalizeEngine.doWork(dataSource, prop);
 					logger.info("Computing Rank");
 					RankEngine.doWork(dataSource, prop);
-					
+					logger.info("Applying Names To Skeletons");
+					NameEngine.doWork(dataSource, prop, runtime.getCores());
 					dataSource.finish();
 					dataSource.setState(ProcessingState.FP_DONE);
 				}catch (Exception ex) {
-					ChyfLogger.INSTANCE.logError(ex.getMessage(), null, ex, FlowpathConstructor.class);
+					ChyfLogger.INSTANCE.logError(ChyfLogger.Process.FLOWPATHFULL, ex.getMessage(), null, ex, FlowpathConstructor.class);
 					dataSource.finish();
 					dataSource.setState(ProcessingState.FP_ERROR);
 				}

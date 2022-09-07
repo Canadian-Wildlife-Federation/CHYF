@@ -34,6 +34,17 @@ public enum ChyfLogger {
 
 	INSTANCE;
 	
+	public enum Process{
+		DIRECTION,
+		RANK,
+		CYCLE,
+		SKELETON,
+		CONSTRUCTION_POINT,
+		FLOWPATHFULL,
+		NAMING;
+		
+	};
+	
 	private ChyfDataSource source;
 	
 	public void setDataSource(ChyfDataSource source) {
@@ -47,44 +58,44 @@ public enum ChyfLogger {
 		}
 		return true;
 	}
-	public void logException(ExceptionWithLocation ex) throws IOException {
+	public void logException(Process type, ExceptionWithLocation ex) throws IOException {
 		if (!checkSource()) return;
-		source.logError(ex.getMessage(),  ex.getLocation());
+		source.logError(ex.getMessage(),  ex.getLocation(), type.name());
 	}
 	
-	public void logException(Exception ex) throws IOException {
+	public void logException(Process type, Exception ex) throws IOException {
 		if (!checkSource()) return;
-		source.logError(ex.getMessage(),  null);
+		source.logError(ex.getMessage(),  null, type.name());
 	}
 	
-	public void logError(String message, Geometry location) throws IOException{
+	public void logError(Process type, String message, Geometry location) throws IOException{
 		if (!checkSource()) return;
-		source.logError(message, location);
+		source.logError(message, location, type.name());
 	}
 	
-	public void logError(String message, Geometry location, Exception exception, Class<?> clazz) throws IOException{
+	public void logError(Process type, String message, Geometry location, Exception exception, Class<?> clazz) throws IOException{
 		LoggerFactory.getLogger(clazz).error(message, exception);
 		if (!checkSource()) return;
 		if (location == null && exception instanceof ExceptionWithLocation) {
 			location = ((ExceptionWithLocation)exception).getLocation();
 		}
-		source.logError(message, location);
+		source.logError(message, location, type.name());
 	}
 	
-	public void logWarning(String message, Geometry location) throws IOException{
+	public void logWarning(Process type, String message, Geometry location) throws IOException{
 		if (!checkSource()) return;
-		source.logWarning(message, location);
+		source.logWarning(message, location, type.name());
 	}
 	
-	public void logError(String message, Geometry location, Class<?> clazz) throws IOException{
+	public void logError(Process type, String message, Geometry location, Class<?> clazz) throws IOException{
 		LoggerFactory.getLogger(clazz).error(message + " " + location.toText());
 		if (!checkSource()) return;
-		source.logError(message, location);
+		source.logError(message, location, type.name());
 	}
 	
-	public void logWarning(String message, Geometry location, Class<?> clazz) throws IOException{
+	public void logWarning(Process type, String message, Geometry location, Class<?> clazz) throws IOException{
 		LoggerFactory.getLogger(clazz).warn(message + " " + location.toText());
 		if (!checkSource()) return;
-		source.logWarning(message, location);
+		source.logWarning(message, location, type.name());
 	}
 }

@@ -56,10 +56,10 @@ public class RankEngine {
 			try {
 				doWork(dataSource, properties);
 			}catch (ExceptionWithLocation ex) {
-				ChyfLogger.INSTANCE.logException(ex);
+				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.RANK, ex);
 				throw ex;
 			}catch (Exception ex) {
-				ChyfLogger.INSTANCE.logException(ex);
+				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.RANK, ex);
 				throw ex;
 			}				
 		}
@@ -116,6 +116,7 @@ public class RankEngine {
 			}else if (runtime.isPostigs()){
 				if (!runtime.hasAoi()) return;
 				dataSource = new FlowpathPostGisLocalDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+				((FlowpathPostGisLocalDataSource)dataSource).setAoi(runtime.getAoi());
 			}
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());

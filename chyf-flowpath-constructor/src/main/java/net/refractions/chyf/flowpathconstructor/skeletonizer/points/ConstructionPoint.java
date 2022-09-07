@@ -15,6 +15,9 @@
  */
 package net.refractions.chyf.flowpathconstructor.skeletonizer.points;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.locationtech.jts.geom.Coordinate;
 
 import net.refractions.chyf.datasource.FlowDirection;
@@ -22,6 +25,7 @@ import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource.N
 
 /**
  * Represents a skeleton input/ouput point
+ * 
  * @author Emily
  *
  */
@@ -32,14 +36,26 @@ public class ConstructionPoint {
 	private FlowDirection fd;
 	private PolygonInfo pinfo;
 	
+	//array of list of names so we can treat different name attribute differently (name1 vs name2)
+	//a construction point can have multiple names for each name attribute
+	//the list is one array for each set of names. The array is the set of names for that point
+	//[ [NameA-1, NameA-2]  [NameB-1, NameB-2]]
+	private List<String[]> nameids;
+	
 	public ConstructionPoint(Coordinate coordinate, NodeType type, FlowDirection fd, PolygonInfo pinfo) {
-		if (coordinate == null) {
-			System.out.println("stop");
-		}
+		this(coordinate, type, fd, pinfo, null);
+	}
+	
+	public ConstructionPoint(Coordinate coordinate, NodeType type, FlowDirection fd, PolygonInfo pinfo, String[] ids) {
 		this.point = coordinate;
 		this.type = type;
 		this.fd = fd;
 		this.pinfo = pinfo;
+		
+		if (ids != null) {
+			nameids = new ArrayList<>();
+			nameids.add(ids);
+		}
 	}
 	
 	public PolygonInfo getWaterbodyInfo() {
@@ -60,7 +76,24 @@ public class ConstructionPoint {
 	
 	public void toText() {
 		System.out.println("POINT(" + point.x +" " + point.y + ")");
-//		System.out.println("expected.add(new SkeletonPoint(new Coordinate(" + point.x + "," + point.y + "),Type." + type + ",FlowDirection." + fd + "));");
-//		System.out.println("POINT(" + point.x +" " + point.y + ") : " + type + ":" + fd);
+	}
+	
+	/**
+	 * < [NameA-1, NameA-2]  [NameB-1, NameB-2] >
+	 * @return list of name sets that flow into or out of this construction point, generally only
+	 * one set but may be multiple if multiple name streams flow into the waterbody at a specific point
+	 */
+	public List<String[]> getNameIds() {
+		return this.nameids;
+	}
+	
+	public void addNames(String[] ids) {
+		if (nameids == null) nameids = new ArrayList<>();
+		
+		for (String[] s : nameids) {
+			//already exists
+			if (s[0].equals(ids[0])) return;
+		}
+		nameids.add(ids);
 	}
 }

@@ -70,6 +70,8 @@ eflowpath feature.
 5. Bank Flowpath Generator - This tool uses existing skeletons and waterbody and
 generates only bank flowpaths.
 
+6. Skeleton Namer - This tool attempts to reapply names to skeletons after generation based on
+names generated during the construction point generator.
 
 
 Each of these tools can be run independently as follows, modifying as required for your operating system.
@@ -88,6 +90,12 @@ java -cp lib/* net.refractions.chyf.flowpathconstructor.rank.RankEngine [OPTIONS
 
 5.  Bank Flowpath Generator
 java -cp lib/*  net.refractions.chyf.flowpathconstructor.skeletonizer.bank.Bank[OPTIONS] <INFILE> <OUTFILE>
+
+6.  Skeleton Namer
+If using postgis data source this tool will update the 
+data in the schema and NOT create a copy of it so <IN> and <OUT> must be 
+the same value in this case. 
+java -cp lib/*  net.refractions.chyf.flowpathconstructor.skeletonizer.names.NameEngine [OPTIONS] <IN> <OUT>
 
 
 ---------------------------------------

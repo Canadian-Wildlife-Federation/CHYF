@@ -36,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.ChyfLogger;
+import net.refractions.chyf.ChyfLogger.Process;
 import net.refractions.chyf.ExceptionWithLocation;
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
@@ -49,6 +50,7 @@ import net.refractions.chyf.flowpathconstructor.FlowpathArgs;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisLocalDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
+import net.refractions.chyf.flowpathconstructor.datasource.TerminalNode;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DEdge;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DGraph;
 import net.refractions.chyf.flowpathconstructor.directionalize.graph.DNode;
@@ -68,10 +70,10 @@ public class DirectionalizeEngine {
 			try {
 				doWork(dataSource, properties);
 			}catch (ExceptionWithLocation ex) {
-				ChyfLogger.INSTANCE.logException(ex);
+				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.DIRECTION, ex);
 				throw ex;
 			}catch (Exception ex) {
-				ChyfLogger.INSTANCE.logException(ex);
+				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.DIRECTION, ex);
 				throw ex;
 			}
 		}
@@ -167,9 +169,18 @@ public class DirectionalizeEngine {
 		
 		
 		logger.info("checking output for cycles");
-		CycleChecker checker = new CycleChecker();
-		if (checker.checkCycles(dataSource)) {
+		CycleChecker checker = new CycleChecker(dataSource);
+		if (checker.checkCycles()) {
 			throw new Exception("Dataset contains cycles after directionalization.");
+		}
+		
+		logger.info("checking output for invalid source/sink nodes");
+		List<Point>[] warnings = checker.findInvalidSourceSinkNodes();
+		for (Point p : warnings[0]) {
+			ChyfLogger.INSTANCE.logWarning(Process.DIRECTION, "Potential sink error", p);
+		}
+		for (Point p : warnings[1]) {
+			ChyfLogger.INSTANCE.logWarning(Process.DIRECTION, "Potential source error", p);
 		}
 	}
 
@@ -182,9 +193,9 @@ public class DirectionalizeEngine {
 	 */
 	private static List<Coordinate> getSinkPoints(IFlowpathDataSource source, DGraph graph) throws Exception {
 		List<Coordinate> sinks = new ArrayList<>();
-		for (Point p : source.getTerminalNodes()) {
-			if ( ((FlowDirection)p.getUserData()) == FlowDirection.OUTPUT ) {
-				if (!sinks.contains(p.getCoordinate())) sinks.add(p.getCoordinate());
+		for (TerminalNode p : source.getTerminalNodes()) {
+			if ( p.getDirection() == FlowDirection.OUTPUT ) {
+				if (!sinks.contains(p.getPoint().getCoordinate())) sinks.add(p.getPoint().getCoordinate());
 			}
 		}
 		

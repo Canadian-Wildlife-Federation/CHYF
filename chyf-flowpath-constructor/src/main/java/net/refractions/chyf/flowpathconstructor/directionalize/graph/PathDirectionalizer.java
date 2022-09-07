@@ -150,7 +150,7 @@ public class PathDirectionalizer {
 					out.setKnown();
 				}
 			}
-			ChyfLogger.INSTANCE.logWarning("Loop case detected where a random source node will be created. Source node created.", src.toGeometry(), PathDirectionalizer.class);			
+			ChyfLogger.INSTANCE.logWarning(ChyfLogger.Process.DIRECTION, "Loop case detected where a random source node will be created. Source node created.", src.toGeometry(), PathDirectionalizer.class);			
 		}
 		dir(subGraph, sinks, sources);
 	}
@@ -180,10 +180,22 @@ public class PathDirectionalizer {
 				if (!path.edges.isEmpty()) {
 					directionalizePath(path);				
 					path.edges.forEach(e->e.pathedge = true);
+					
+					for (DEdge e : path.edges) {
+						if ((e.getNodeA().getCoordinate().x == -112.54747909999998967  && 
+								e.getNodeA().getCoordinate().y == 50.15299539999999467) ||
+						(e.getNodeB().getCoordinate().x == -112.54747909999998967  && 
+						e.getNodeB().getCoordinate().y == 50.15299539999999467) )
+						
+						{
+							System.out.println("break");
+						}
+					}
+					
 					paths.add(path);
 				}
 			}else {
-				ChyfLogger.INSTANCE.logError("Path shouldn't be null.", sourcenode.toGeometry(), PathDirectionalizer.class);
+				ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION, "Path shouldn't be null.", sourcenode.toGeometry(), PathDirectionalizer.class);
 			}
 		}		
 		//for remaining edges; find shortest path from that edge to sink
@@ -193,16 +205,30 @@ public class PathDirectionalizer {
 		//find a path for (only happens when some edges) are already
 		//directionalized, we don't want to retry them
 		Set<DEdge> fail = new HashSet<>();
+		
 
 		while(true) {
 			//find edge to visit next
 			DEdge toprocess = findUnvisitedEdge(graph, paths, sinks, fail);
 			if (toprocess == null) break;
 
-
+//			if (toprocess.getNodeA().getCoordinate().x == -112.540906191775  && 
+//					toprocess.getNodeA().getCoordinate().y == 50.14845096268312) {
+//				System.out.println("break");
+//			}
+//
+//			if ((toprocess.getNodeA().getCoordinate().x == -112.54747909999998967  && 
+//					toprocess.getNodeA().getCoordinate().y == 50.15299539999999467) ||
+//			(toprocess.getNodeB().getCoordinate().x == -112.54747909999998967  && 
+//					toprocess.getNodeB().getCoordinate().y == 50.15299539999999467) )
+//			
+//			{
+//				System.out.println("break");
+//			}
+//			
 			//create a path
 			DPath temp = findStraightestPath(toprocess, sinks, graph);
-			if (temp == null ) {
+			if (temp == null) {
 				temp = PathFinder.findPath(toprocess.getNodeB(), sinks, graph);
 			}
 			
@@ -268,6 +294,17 @@ public class PathDirectionalizer {
 			
 			temp.nodes.forEach(n->n.pathnode = true);
 			temp.edges.forEach(e->e.pathedge = true);
+			
+//			for (DEdge e : temp.edges) {
+//				if ((e.getNodeA().getCoordinate().x == -112.54747909999998967  && 
+//						e.getNodeA().getCoordinate().y == 50.15299539999999467) ||
+//				(e.getNodeB().getCoordinate().x == -112.54747909999998967  && 
+//				e.getNodeB().getCoordinate().y == 50.15299539999999467) )
+//				
+//				{
+//					System.out.println("break");
+//				}
+//			}
 			
 			if (canflip) {
 				
@@ -471,21 +508,30 @@ public class PathDirectionalizer {
 		for (DNode n : graph.nodes) {
 			n.pathvisited = false;
 		}
+		
+		//if we stop at a known edge we don't necessarily want to stop here
+		//as this might lead to invalid source/sinks - we really only
+		//want to stop when we hit an edge we've already processed
+		boolean stopatknown = false;
+		
 		while(true) {
 			double mangle = Double.MAX_VALUE;
 			DEdge lnextEdge = null;
 			DNode lnextNode = null;
 			
 			nextNode.pathvisited = true;
+			stopatknown = false;
 			for (DEdge out : nextNode.getEdges()) {
-				if (out.getDType() == DirectionType.KNOWN) {
-					if (out.getNodeA() != nextNode) continue;
-				}
-
 				if (out.pathedge) continue;
 				if (out == nextEdge) continue;
 				
-				
+				if (out.getDType() == DirectionType.KNOWN) {
+					if (out.getNodeA() != nextNode) {
+						stopatknown = true;
+						continue;
+					}
+				}
+
 				DNode next = null;
 				Coordinate c2 = null;
 				if (out.getNodeA() == nextNode) {
@@ -527,6 +573,10 @@ public class PathDirectionalizer {
 		if (!path.edges.isEmpty() && inEdge.getOtherNode(inEdge.getNodeB()) == nextNode) {
 			return null;
 		}
+		if (stopatknown) {
+			return null;
+		}
+		
 		return path;
 	}
 		

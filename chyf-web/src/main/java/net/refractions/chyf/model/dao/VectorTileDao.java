@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and 
  * limitations under the License.
  */
-package net.refractions.chyf.model;
+package net.refractions.chyf.model.dao;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -24,6 +24,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
 import net.refractions.chyf.controller.VectorTileController;
+import net.refractions.chyf.model.DataSourceTable;
+import net.refractions.chyf.model.ECatchment;
+import net.refractions.chyf.model.HydroFeature;
+import net.refractions.chyf.model.VectorTileLayer;
 
 /**
  * Data access interface for vector tiles
@@ -61,6 +65,24 @@ public class VectorTileDao {
 		sb.append("	SELECT st_transform(" + stenv + ", " + DataSourceTable.DATA_SRID + ") AS geom, ");
 		sb.append(stenv + "::box2d AS b2d  ");
 		sb.append(" ), ");
+		
+		if (layer.isWaterbody()) {
+			//compute catchment order
+			sb.append("catchment_order AS (");
+			sb.append("SELECT b.id, max(a.strahler_order) as strahler_order ");
+			sb.append("FROM ");
+			sb.append(DataSourceTable.ECATCHMENT.tableName);
+			sb.append(" b LEFT JOIN ");
+			sb.append(DataSourceTable.EFLOWPATH.tableName);
+			sb.append(" c on c.ecatchment_id = b.id LEFT JOIN ");
+			sb.append(DataSourceTable.EFLOWPATH_PROPERTIES.tableName); 
+			sb.append(" a on a.id = c.id, bounds");
+			sb.append("	WHERE b.ec_type IN ( " + ECatchment.EcType.WATER.code + ") ");
+			sb.append(" AND st_intersects(b.geometry,  bounds.geom) ");
+			sb.append("GROUP BY b.id");
+			sb.append("), ");				
+		}
+		
 		sb.append("	mvtgeom AS (");
 
 		if (layer.isWorkUnit()) {
@@ -102,7 +124,7 @@ public class VectorTileDao {
 				union = true;
 				// waterbodies
 				sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
-				sb.append(" 'waterbody' as type, ");
+				sb.append(" '" + HydroFeature.Type.WATERBODY.typeName + "' as " + HydroFeature.TYPE_FIELD_NAME + ", ");
 				sb.append(" et.name as feature_type_name, ");
 				sb.append(" t.ec_type as feature_type, ");
 				sb.append(" est.name as subtype_name, ");
@@ -111,10 +133,13 @@ public class VectorTileDao {
 				sb.append(" t.is_reservoir as is_reservoir, ");
 				sb.append(" n.name_en as name_en,");
 				sb.append(" n.name_fr as name_fr,");
-				sb.append(" null as rank ");
+				sb.append(" null as rank, ");
+				sb.append(" co.strahler_order as strahler_order ");
 				sb.append(" FROM ");
 				sb.append(DataSourceTable.ECATCHMENT.tableName);
 				sb.append(" t LEFT JOIN ");
+				sb.append(" catchment_order co on co.id = t.id ");
+				sb.append(" LEFT JOIN ");
 				sb.append(DataSourceTable.NAMES.tableName);				
 				sb.append(" n ON t.name_id = n.name_id ");
 				sb.append(" LEFT JOIN ");
@@ -124,7 +149,7 @@ public class VectorTileDao {
 				sb.append(DataSourceTable.EC_SUBTYPE.tableName);
 				sb.append(" est ON t.ec_subtype = est.code ");
 				sb.append(", bounds ");
-				sb.append("	WHERE t.ec_type IN (4) ");
+				sb.append("	WHERE t.ec_type IN ( " + ECatchment.EcType.WATER.code + ") ");
 				sb.append(" AND st_intersects(t.geometry,  bounds.geom) ");
 			}
 
@@ -134,7 +159,7 @@ public class VectorTileDao {
 				union = true;
 				// flowpath
 				sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
-				sb.append(" 'flowpath' as type, ");
+				sb.append(" '" + HydroFeature.Type.FLOWPATH.typeName + "' as " + HydroFeature.TYPE_FIELD_NAME + ", ");
 				sb.append(" et.name as feature_type_name, ");
 				sb.append(" t.ef_type as feature_type, ");
 				sb.append(" est.name as subtype_name, ");
@@ -143,18 +168,22 @@ public class VectorTileDao {
 				sb.append(" null as is_reservoir, ");
 				sb.append(" n.name_en as name_en, ");
 				sb.append(" n.name_fr as name_fr, ");
-				sb.append(" t.rank as rank ");
+				sb.append(" t.rank as rank, ");
+				sb.append(" ea.strahler_order as strahler_order ");
 				sb.append(" FROM ");
 				sb.append(DataSourceTable.EFLOWPATH.tableName);
 				sb.append(" t LEFT JOIN ");
 				sb.append(DataSourceTable.NAMES.tableName);
 				sb.append(" n ON t.name_id = n.name_id ");
 				sb.append(" LEFT JOIN ");
-				sb.append(DataSourceTable.EC_TYPE.tableName);
+				sb.append(DataSourceTable.EF_TYPE.tableName);
 				sb.append(" et ON t.ef_type = et.code ");
 				sb.append(" LEFT JOIN ");
-				sb.append(DataSourceTable.EC_SUBTYPE.tableName);
+				sb.append(DataSourceTable.EF_SUBTYPE.tableName);
 				sb.append(" est ON t.ef_subtype = est.code ");
+				sb.append(" LEFT JOIN ");
+				sb.append(DataSourceTable.EFLOWPATH_PROPERTIES.tableName);
+				sb.append(" ea ON ea.id = t.id ");
 				sb.append(", bounds ");
 				sb.append("	WHERE st_intersects(t.geometry,  bounds.geom) ");
 			}
@@ -166,7 +195,7 @@ public class VectorTileDao {
 				union = true;
 				
 				sb.append("	SELECT ST_AsMVTGeom(ST_Transform(t.geometry, " + srid + "), bounds.b2d) AS geom, ");
-				sb.append(" 'catchment' as type, ");
+				sb.append(" '" + HydroFeature.Type.CATCHMENT.typeName + "' as " + HydroFeature.TYPE_FIELD_NAME + ", ");
 				sb.append(" et.name as feature_type_name, ");
 				sb.append(" t.ec_type as feature_type, ");
 				sb.append(" est.name as subtype_name, ");
@@ -175,7 +204,8 @@ public class VectorTileDao {
 				sb.append(" t.is_reservoir as is_reservoir, ");
 				sb.append(" n.name_en as name_en,");
 				sb.append(" n.name_fr as name_fr,");
-				sb.append(" null as rank ");
+				sb.append(" null as rank, ");
+				sb.append(" null as strahler_order ");
 				sb.append(" FROM ");
 				sb.append(DataSourceTable.ECATCHMENT.tableName);
 				sb.append(" t LEFT JOIN ");
@@ -188,7 +218,7 @@ public class VectorTileDao {
 				sb.append(DataSourceTable.EC_SUBTYPE.tableName);
 				sb.append(" est ON t.ec_subtype = est.code ");
 				sb.append(", bounds ");
-				sb.append("	WHERE t.ec_type in (1, 2, 3, 5) ");
+				sb.append("	WHERE t.ec_type not in (" + ECatchment.EcType.WATER.code + ") ");
 				sb.append(" AND st_intersects(t.geometry,  bounds.geom) ");
 			}
 		}

@@ -15,14 +15,24 @@
  */
 package net.refractions.chyf;
 
+import java.nio.charset.Charset;
+
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.http.MediaType;
 
 @SpringBootApplication
 @ComponentScan(basePackages = { "net.refractions.chyf" })
 public class ChyfWebApplication extends SpringBootServletInitializer {
+
+	/**
+	 * Maximum number of features to return from search results
+	 */
+	public static final int MAX_RESULTS = 5000;
+	
+	public static final MediaType GEOJSON_MEDIA_TYPE = new MediaType("application", "geo+json",Charset.forName("UTF-8"));
 
 	public static void main(String[] args) {
 		SpringApplication.run(ChyfWebApplication.class, args);

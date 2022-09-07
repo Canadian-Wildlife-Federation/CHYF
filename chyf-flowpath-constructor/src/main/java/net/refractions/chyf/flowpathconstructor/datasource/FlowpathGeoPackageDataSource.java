@@ -21,10 +21,12 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.UUID;
 
 import org.geotools.data.DataUtilities;
@@ -75,7 +77,7 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	static final Logger logger = LoggerFactory.getLogger(FlowpathGeoPackageDataSource.class.getCanonicalName());
 
 	public static final String CONSTRUCTION_PNTS_LAYER = "ConstructionPoints";
-
+	
 	private boolean cIsMulti = false;
 	
 	private List<SkelLineString> skeletonWriteCache;
@@ -90,7 +92,7 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 		
 		ChyfLogger.INSTANCE.setDataSource(this);
 	}
-
+	
 	/**
 	 * Gets the construction point feature layer
 	 * @return
@@ -132,15 +134,19 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	 * @throws Exception
 	 */
 	@Override
-	public List<Point> getTerminalNodes() throws Exception{
-		List<Point> pnt = new ArrayList<>();
-		try(SimpleFeatureReader reader = getFeatureReader(Layer.TERMINALNODES, Filter.INCLUDE, null)){
+	public List<TerminalNode> getTerminalNodes() throws Exception{
+		List<TerminalNode> pnt = new ArrayList<>();
+		try(SimpleFeatureReader reader = getFeatureReader(Layer.TERMINALNODES, Filter.INCLUDE, null)){		
 			Name flowdirAttribute = ChyfDataSource.findAttribute(reader.getFeatureType(), ChyfAttribute.FLOWDIRECTION);
+			Map<ChyfAttribute, Name> nameAttributes = findRiverNameAttributes(reader.getFeatureType());
+			
 			while(reader.hasNext()){
 				SimpleFeature point = reader.next();
 				Point pg = ChyfDataSource.getPoint(point);
-				pg.setUserData(FlowDirection.parseValue( ((Number)point.getAttribute(flowdirAttribute)).intValue() ));
-				pnt.add(pg);
+				FlowDirection fd = FlowDirection.parseValue( ((Number)point.getAttribute(flowdirAttribute)).intValue() );
+				TerminalNode node = new TerminalNode(pg, fd);
+				node.setNames(getRiverNameIds(nameAttributes, point));
+				pnt.add(node);
 			}
 		}
 		return pnt;
@@ -167,7 +173,9 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	}
 	
 	/**
-	 * Create a new layer for skeleton construction points
+	 * Create a new layer for skeleton construction points. The name field for a construction point is
+	 * of the form NameA-1,NameA-2;NameB-1,NameB-2
+	 * 
 	 * @param points
 	 * @throws IOException
 	 */
@@ -180,6 +188,8 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 		builder.add(CATCHMENT_INTERNALID_ATTRIBUTE, String.class);
 		builder.add("node_type", Integer.class);
 		builder.add(ChyfAttribute.FLOWDIRECTION.getFieldName(), Integer.class);
+		builder.add(RIVERNAMEIDS_ATTRIBUTE, String.class);
+		
 		builder.setName("ConstructionPoints");
 		SimpleFeatureType pntType = builder.buildFeatureType();
 		
@@ -197,6 +207,22 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 			featureBuilder.set(ChyfAttribute.FLOWDIRECTION.getFieldName(), pnt.getDirection().getChyfValue());
 			featureBuilder.set(ChyfAttribute.INTERNAL_ID.getFieldName(), uuid);
 			featureBuilder.set(CATCHMENT_INTERNALID_ATTRIBUTE, pnt.getWaterbodyInfo().getCatchmentId());
+			
+			if (pnt.getNameIds() != null && !pnt.getNameIds().isEmpty()) {
+				StringJoiner sj = new StringJoiner(";");	
+				for (String[] s : pnt.getNameIds()) {
+					StringJoiner sj2 = new StringJoiner(",");
+					for(String s1 : s) {
+						sj2.add(s1 == null ? "" : s1);
+					}
+					sj.add(sj2.toString());
+					
+				}
+				featureBuilder.set(RIVERNAMEIDS_ATTRIBUTE, sj.toString());
+			}else {
+				featureBuilder.set(RIVERNAMEIDS_ATTRIBUTE, null);
+			}
+			
 			SimpleFeature sf = featureBuilder.buildFeature(uuid);
 			features.add(sf);
 		}
@@ -212,9 +238,10 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	 * @throws IOException
 	 */
 	@Override
-	public synchronized List<ConstructionPoint> getConstructionsPoints(Object catchmentId) throws IOException{
+	public List<ConstructionPoint> getConstructionsPoints(Object catchmentId) throws IOException{
 		Filter filter = ff.equals(ff.property(CATCHMENT_INTERNALID_ATTRIBUTE), ff.literal(catchmentId));
 		List<ConstructionPoint> points = new ArrayList<>();
+		
 		try(SimpleFeatureReader reader = geopkg.reader(getConstructionPointLayer(), filter, null)){
         	while(reader.hasNext()) {
         		SimpleFeature sf = reader.next();
@@ -222,7 +249,17 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
         		Coordinate c = ((Point)sf.getDefaultGeometry()).getCoordinate();
         		NodeType type = NodeType.parseValue((Integer)sf.getAttribute(NODETYPE_ATTRIBUTE));
         		FlowDirection fd = FlowDirection.parseValue((Integer)sf.getAttribute(ChyfAttribute.FLOWDIRECTION.getFieldName()));
+        		String names = (String) sf.getAttribute(RIVERNAMEIDS_ATTRIBUTE);
+        		
         		ConstructionPoint p = new ConstructionPoint(c, type, fd, null);
+        		if (names != null) {
+        			String bits[] = names.split(";");
+        			
+        			for (int i = 0; i < bits.length; i ++) {
+        				p.addNames(bits[i].split(","));
+        			}
+        		}
+        		
         		points.add(p);
         	}
         }
@@ -303,6 +340,33 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 		}
 	}
 	
+	@Override
+	public void writeFlowpathNames(HashMap<FeatureId, String[]> nameids) throws IOException{
+		
+		try(DefaultTransaction tx = new DefaultTransaction()){
+			
+			try(SimpleFeatureWriter writer = geopkg.writer(getEntry(Layer.EFLOWPATHS), false, Filter.INCLUDE, tx)){
+				
+				Name name1 = ChyfDataSource.findAttribute(writer.getFeatureType(), ChyfAttribute.RIVERNAMEID1);
+				Name name2 = ChyfDataSource.findAttribute(writer.getFeatureType(), ChyfAttribute.RIVERNAMEID2);
+				
+				while(writer.hasNext()) {
+					SimpleFeature sf = writer.next();
+					FeatureId fid = sf.getIdentifier();
+					
+					String[] ns = nameids.get(fid);
+					if (ns == null) continue;
+					
+					if (ns.length >= 1) sf.setAttribute(name1, ns[0]);
+					if (ns.length >= 2) sf.setAttribute(name2, ns[1]);
+					
+					writer.write();
+				}
+				
+			}
+			tx.commit();
+		}
+	}
 	/**
 	 * Updates the geometry of the give polygon.  The polygon must
 	 * have a user data set to PolygonInfo class.
@@ -502,15 +566,99 @@ public class FlowpathGeoPackageDataSource extends ChyfGeoPackageDataSource imple
 	public void addRankAttribute() throws Exception{	
 		String tablename = getEntry(Layer.EFLOWPATHS).getTableName();
 		
+		//only add if doesn't exist
+		boolean hasrank = false;
+		for (AttributeDescriptor d : getFeatureType(Layer.EFLOWPATHS).getAttributeDescriptors()) {
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RANK.getFieldName())) {
+				hasrank = true;
+				break;
+			}
+		}
 		try(Connection c = geopkg.getDataSource().getConnection()){
-			String query = "ALTER TABLE " + tablename + " add column " + ChyfAttribute.RANK.getFieldName()  + " integer ";
-			c.createStatement().execute(query);
+			if (!hasrank) {
+				String query = "ALTER TABLE " + tablename + " add column " + ChyfAttribute.RANK.getFieldName()  + " integer ";
+				c.createStatement().execute(query);
+			}else {
+				String query = "UPDATE " + tablename + " set " + ChyfAttribute.RANK.getFieldName()  + " = null ";
+				c.createStatement().execute(query);
+			}
 		}
 		
 		geopkg.close();
 		read();
 	}
 	
-	
+	/**
+	 * Populates the name id table based on names provided on flowpaths, 
+	 * catchments and terminal nodes.
+	 */
+	public void populateNameIdTable() throws IOException{
+		List<Object[]> namefields = new ArrayList<>();
+		for (AttributeDescriptor d : getFeatureType(Layer.EFLOWPATHS).getAttributeDescriptors()) {
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID1.getFieldName())) {
+				namefields.add(new Object[] {Layer.EFLOWPATHS, ChyfAttribute.RIVERNAMEID1, ChyfAttribute.RIVERNAME1});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID2.getFieldName())) {
+				namefields.add(new Object[] {Layer.EFLOWPATHS, ChyfAttribute.RIVERNAMEID2, ChyfAttribute.RIVERNAME2});
+			}
+		}
+		for (AttributeDescriptor d : getFeatureType(Layer.TERMINALNODES).getAttributeDescriptors()) {
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID1.getFieldName())) {
+				namefields.add(new Object[] {Layer.TERMINALNODES, ChyfAttribute.RIVERNAMEID1, ChyfAttribute.RIVERNAME1});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID2.getFieldName())) {
+				namefields.add(new Object[] {Layer.TERMINALNODES, ChyfAttribute.RIVERNAMEID2, ChyfAttribute.RIVERNAME2});
+			}
+		}
+		for (AttributeDescriptor d : getFeatureType(Layer.ECATCHMENTS).getAttributeDescriptors()) {
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID1.getFieldName())) {
+				namefields.add(new Object[] {Layer.ECATCHMENTS, ChyfAttribute.RIVERNAMEID1, ChyfAttribute.RIVERNAME1});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.RIVERNAMEID2.getFieldName())) {
+				namefields.add(new Object[] {Layer.ECATCHMENTS, ChyfAttribute.RIVERNAMEID2, ChyfAttribute.RIVERNAME2});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.LAKENAMEID1.getFieldName())) {
+				namefields.add(new Object[] {Layer.ECATCHMENTS, ChyfAttribute.LAKENAMEID1, ChyfAttribute.LAKENAME1});
+			}
+			if (d.getLocalName().equalsIgnoreCase(ChyfAttribute.LAKENAMEID2.getFieldName())) {
+				namefields.add(new Object[] {Layer.ECATCHMENTS, ChyfAttribute.LAKENAMEID2, ChyfAttribute.LAKENAME2});
+			}
+		}
+		
+		if (namefields.isEmpty()) return;
+		
+		
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("INSERT INTO ");
+		sb.append( Layer.FEATURENAMES.getLayerName() );
+		sb.append("(fid, name_id, geodbname, name) SELECT distinct * FROM (");
+		for (Object[] x : namefields) {
+			Layer layer = (Layer) x[0];
+			ChyfAttribute id = (ChyfAttribute)x[1];
+			ChyfAttribute name = (ChyfAttribute)x[2];
+			
+			sb.append("SELECT " + id.getFieldName() + " as fid, ");
+			sb.append( id.getFieldName() + " as nameid, ");
+			sb.append("geodbname, ");
+			sb.append(name.getFieldName() + " as name FROM ");
+			sb.append( getEntry(layer).getTableName() );
+			sb.append( " WHERE ");
+			sb.append(id.getFieldName() + " is not null and ");
+			sb.append(id.getFieldName() + " != ''");
+			sb.append( " UNION ");
+		}
+		for (int i = 0; i < " UNION ".length(); i ++) {
+			sb.deleteCharAt(sb.length() - 1);
+		}	
+		sb.append(" ) foo ");
+		
+		try(Connection c = geopkg.getDataSource().getConnection()){
+			c.createStatement().execute(sb.toString());
+		}catch (SQLException ex) {
+			throw new IOException (ex);
+		}
+
+	}
 
 }

@@ -52,10 +52,10 @@ public class SkeletonEngine {
 			try {
 				doWork(dataSource, props, cores);
 			}catch (ExceptionWithLocation ex) {
-				ChyfLogger.INSTANCE.logException(ex);
+				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.SKELETON, ex);
 				throw ex;
 			}catch (Exception ex) {
-				ChyfLogger.INSTANCE.logException(ex);
+				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.SKELETON, ex);
 				throw ex;
 			}
 		}
@@ -90,7 +90,7 @@ public class SkeletonEngine {
 		boolean haserrors = false;
 		for (SkeletonJob j : tasks) {
 			for (ExceptionWithLocation ex : j.getExceptions()) {
-				ChyfLogger.INSTANCE.logError("Skeleton Processing Error - " + ex.getMessage(), ex.getLocation(), ex, SkeletonEngine.class);
+				ChyfLogger.INSTANCE.logError(ChyfLogger.Process.SKELETON, "Skeleton Processing Error - " + ex.getMessage(), ex.getLocation(), ex, SkeletonEngine.class);
 				logger.error(ex.getMessage(), ex);
 				haserrors = true;
 			}
@@ -98,7 +98,7 @@ public class SkeletonEngine {
 		
 		for (SkeletonJob j : tasks) {
 			for ( SkeletonResult.Error e : j.getErrors()) {
-				ChyfLogger.INSTANCE.logError(e.getMessage(), e.getGeometry(), SkeletonEngine.class);
+				ChyfLogger.INSTANCE.logError(ChyfLogger.Process.SKELETON, e.getMessage(), e.getGeometry(), SkeletonEngine.class);
 			}
 		}
 		
@@ -123,6 +123,7 @@ public class SkeletonEngine {
 			}else if (runtime.isPostigs()){
 				if (!runtime.hasAoi()) return;
 				dataSource = new FlowpathPostGisLocalDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
+				((FlowpathPostGisLocalDataSource)dataSource).setAoi(runtime.getAoi());
 			}
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());

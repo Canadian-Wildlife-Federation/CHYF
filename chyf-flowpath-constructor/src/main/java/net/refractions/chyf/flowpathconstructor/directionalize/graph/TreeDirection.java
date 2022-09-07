@@ -89,12 +89,12 @@ public class TreeDirection {
 						}
 					}
 					if (e == null) {
-						ChyfLogger.INSTANCE.logError("Could not find an edge to walk up from sink node.  An internal source node will be created at ", sink.toGeometry(), TreeDirection.class);
+						ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION, "Could not find an edge to walk up from sink node.  An internal source node will be created at ", sink.toGeometry(), TreeDirection.class);
 						break;
 					}
 					if (e.getNodeB() != sink) {
 						if (localSinks.contains(e.getNodeB())) {
-							ChyfLogger.INSTANCE.logWarning("Potential loop detected; both ends of this subnetwork are classified as sinks.", sink.toGeometry(), TreeDirection.class);
+							ChyfLogger.INSTANCE.logWarning(ChyfLogger.Process.DIRECTION, "Potential loop detected; both ends of this subnetwork are classified as sinks.", sink.toGeometry(), TreeDirection.class);
 							break;
 						}else {
 							e.flip();
@@ -118,7 +118,7 @@ public class TreeDirection {
 		
 		for (DEdge d : graph.edges) {
 			if (!d.visited) {
-				ChyfLogger.INSTANCE.logError("Not all edges visited when directionalizing tree. At least one eddge missed. ", d.toGeometry(), TreeDirection.class);
+				ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION, "Not all edges visited when directionalizing tree. At least one eddge missed. ", d.toGeometry(), TreeDirection.class);
 			}
 		}
 	}

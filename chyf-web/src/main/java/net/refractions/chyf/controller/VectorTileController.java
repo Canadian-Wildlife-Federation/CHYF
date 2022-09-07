@@ -32,9 +32,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import net.refractions.chyf.model.VectorTileCacheDao;
-import net.refractions.chyf.model.VectorTileDao;
 import net.refractions.chyf.model.VectorTileLayer;
+import net.refractions.chyf.model.dao.VectorTileCacheDao;
+import net.refractions.chyf.model.dao.VectorTileDao;
 
 @RestController
 @RequestMapping("/tiles")

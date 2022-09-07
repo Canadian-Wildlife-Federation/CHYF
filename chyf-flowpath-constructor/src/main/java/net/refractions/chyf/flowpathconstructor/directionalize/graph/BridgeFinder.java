@@ -63,7 +63,7 @@ public class BridgeFinder {
     	for (DEdge e : v.getEdges()) {
     		DNode w = e.getOtherNode(v);
     		if (w == null) {
-    			ChyfLogger.INSTANCE.logError("Could not compute bridge edges in graph.", e.getNodeA().toGeometry());
+    			ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION," Could not compute bridge edges in graph.", e.getNodeA().toGeometry());
     			throw new RuntimeException("Could not compute bridge edges in graph (null pointer exception): " + e.getNodeA().toGeometry().toText());
     		}
     		if (w.bridgePre == -1) {

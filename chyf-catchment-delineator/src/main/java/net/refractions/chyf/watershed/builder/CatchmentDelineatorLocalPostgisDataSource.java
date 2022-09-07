@@ -71,7 +71,7 @@ public class CatchmentDelineatorLocalPostgisDataSource extends ChyfPostGisLocalD
 	 * @throws IOException
 	 */
 	@Override
-	protected void cleanOutputSchema(Transaction tx) throws IOException{
+	protected void cleanOutputSchema(Transaction tx, boolean includeAoi) throws IOException{
 		
 		Connection c = ((JDBCDataStore)outputDataStore).getConnection(tx);
 
@@ -99,7 +99,7 @@ public class CatchmentDelineatorLocalPostgisDataSource extends ChyfPostGisLocalD
 				}
 			}
 		}
-		super.cleanOutputSchema(tx);
+		super.cleanOutputSchema(tx, includeAoi);
 		
 	}
 	

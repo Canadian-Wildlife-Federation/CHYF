@@ -117,7 +117,7 @@ public class Directionalizer {
 		
 		for (DEdge e : graph.edges) {
 			if (e.getDType() == DirectionType.UNKNOWN) {
-				ChyfLogger.INSTANCE.logError("Edge not directionalized", e.toGeometry(), Directionalizer.class);
+				ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION, "Edge not directionalized", e.toGeometry(), Directionalizer.class);
 			}
 		}
 	}
@@ -160,7 +160,7 @@ public class Directionalizer {
 					//in the dataset when this is the case so warn user
 					List<Point> pnts = new ArrayList<>();
 					for (DNode n : localSinks) pnts.add((Point)n.toGeometry());
-					ChyfLogger.INSTANCE.logWarning("A sub network has multiple sinks.", (new GeometryFactory()).createMultiPoint(pnts.toArray(new Point[pnts.size()])), Directionalizer.class);
+					ChyfLogger.INSTANCE.logWarning(ChyfLogger.Process.DIRECTION, "A sub network has multiple sinks.", (new GeometryFactory()).createMultiPoint(pnts.toArray(new Point[pnts.size()])), Directionalizer.class);
 				
 					//add a single sink node and join all sinks to that node
 					Coordinate c = localSinks.get(0).getCoordinate();
@@ -282,7 +282,7 @@ public class Directionalizer {
 			if (e.getType() != EfType.SKELETON ) cnt++;
 		}
 		if (cnt > 5) {
-			ChyfLogger.INSTANCE.logWarning("An (isolated) subgraph without any defined sinks is larger than 5 edges in size (actual size: " + cnt + "). These will be directionalized by computing a sink based on the network.", sub.nodes.get(0).toGeometry(), Directionalizer.class);
+			ChyfLogger.INSTANCE.logWarning(ChyfLogger.Process.DIRECTION, "An (isolated) subgraph without any defined sinks is larger than 5 edges in size (actual size: " + cnt + "). These will be directionalized by computing a sink based on the network.", sub.nodes.get(0).toGeometry(), Directionalizer.class);
 		}
 		
 //		for (DNode n : graph.getNodes()) {

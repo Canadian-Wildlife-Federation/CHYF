@@ -18,6 +18,7 @@ package net.refractions.chyf.flowpathconstructor;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -31,6 +32,7 @@ import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.io.WKTReader;
 
+import net.refractions.chyf.datasource.DirectionType;
 import net.refractions.chyf.datasource.FlowDirection;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties.Property;
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource.NodeType;
@@ -61,7 +63,7 @@ public class PointGeneratorTest {
 		polygon.setUserData(new PolygonInfo(null, "1"));
 		
 		PointGenerator pg = createPointGenerator();
-		pg.processPolygon(polygon, Collections.emptyList(), Collections.emptyList());
+		pg.processPolygon(polygon, Collections.emptyList(), Collections.emptyList(), Collections.emptyMap());
 		List<ConstructionPoint> pnts = pg.getPoints();
 	
 		
@@ -1005,6 +1007,86 @@ public class PointGeneratorTest {
 		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
 		setEquals(expected, pnts);
 	}
+	
+	
+	
+	@Test
+	public void testApplyNames() throws Exception{
+		String waterbody = "POLYGON (( 0 0, 0 5, 3 5, 5 5, 5 2,  5 0, 0 0))";
+		Polygon polygon = (Polygon)reader.read(waterbody);
+		
+		String waterbody2 = "POLYGON (( 5 0, 5 2, 5 5, 8 5, 8 0, 5 0))";
+		Polygon polygon2 = (Polygon)reader.read(waterbody2);
+
+		String ls1 = "LINESTRING ( -1 -1, 0 0 )";
+		String ls2 = "LINESTRING ( -.4 -.2, 0 0)";
+		String ls3 = "LINESTRING ( 6 6, 3 5)";
+		
+		
+		ArrayList<LineString> items = new ArrayList<>();
+		LineString g1 = (LineString) reader.read(ls1);
+		g1.setUserData(new Object[] {DirectionType.KNOWN, new String[] {"edge1namea", "edge1nameb"}});
+		
+		LineString g2 = (LineString) reader.read(ls2);
+		g2.setUserData(new Object[] {DirectionType.KNOWN, new String[] {"edge2namea"}});
+		
+		LineString g3 = (LineString) reader.read(ls3);
+		g3.setUserData(new Object[] {DirectionType.KNOWN, new String[] {null, "edge3nameb"}});
+		
+		items.add(g1);
+		items.add(g2);
+		items.add(g3);
+		
+		List<Polygon> other = new ArrayList<>();
+		other.add(polygon2);
+		
+		HashMap<Coordinate, List<String[]>> skelnames = new HashMap<>();
+		List<String[]> names = new ArrayList<>();
+		names.add(new String[] {"skeletonnamea", "skeletonnameb"});
+		skelnames.put(new Coordinate(5, 2), names);
+		
+		PointGenerator pg = createPointGenerator();
+		pg.processPolygon(polygon, other, items, skelnames);
+		List<ConstructionPoint> pnts = pg.getPoints();
+
+		List<ConstructionPoint> expected = new ArrayList<>();
+		expected.add(new ConstructionPoint(new Coordinate(0, 0),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(3, 5),NodeType.FLOWPATH,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(5, 2.5),NodeType.WATER,FlowDirection.UNKNOWN, null));
+		expected.add(new ConstructionPoint(new Coordinate(4, 5),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(0, 5),NodeType.BANK,FlowDirection.INPUT, null));
+		expected.add(new ConstructionPoint(new Coordinate(2.5,0),NodeType.BANK,FlowDirection.INPUT, null));
+		Assert.assertEquals("invalid number of nodes", expected.size(), pnts.size());
+		setEquals(expected, pnts);
+		
+		for (ConstructionPoint pnt : pnts) {
+			if (pnt.getCoordinate().equals2D(new Coordinate(0, 0))) {
+				Assert.assertEquals("invalid number of names", pnt.getNameIds().size(), 2);
+				Assert.assertEquals("invalid number of names", pnt.getNameIds().get(0).length, 2);
+				Assert.assertEquals("invalid number of names", pnt.getNameIds().get(1).length, 1);
+				Assert.assertEquals("invalid number of name", pnt.getNameIds().get(0)[0], "edge1namea");
+				Assert.assertEquals("invalid number of name", pnt.getNameIds().get(0)[1], "edge1nameb");
+				Assert.assertEquals("invalid number of name", pnt.getNameIds().get(1)[0], "edge2namea");
+				
+			}else if (pnt.getCoordinate().equals2D(new Coordinate(3, 5))) {
+				Assert.assertEquals("invalid number of names", pnt.getNameIds().size(), 1);
+				Assert.assertEquals("invalid number of names", pnt.getNameIds().get(0).length, 2);
+				Assert.assertEquals("invalid number of name", pnt.getNameIds().get(0)[0], null);
+				Assert.assertEquals("invalid number of name", pnt.getNameIds().get(0)[1], "edge3nameb");
+			}else if (pnt.getCoordinate().equals2D(new Coordinate(5, 2.5))) {
+				Assert.assertEquals("invalid number of names", pnt.getNameIds().size(), 1);
+				Assert.assertEquals("invalid number of names", pnt.getNameIds().get(0).length, 2);
+				Assert.assertEquals("invalid number of name", pnt.getNameIds().get(0)[0], "skeletonnamea");
+				Assert.assertEquals("invalid number of name", pnt.getNameIds().get(0)[1], "skeletonnameb");
+			}else {
+				Assert.assertEquals("invalid number of names", null, pnt.getNameIds());
+				
+			}
+		}
+	}
+	
+	
+	
 	
 	private boolean equals(ConstructionPoint a, ConstructionPoint b) {
 		 if (!a.getCoordinate().equals2D(b.getCoordinate())) return false;
