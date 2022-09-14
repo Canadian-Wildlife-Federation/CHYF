@@ -161,41 +161,57 @@ public class PathDirectionalizer {
 
 		//order sources by distance to sink; max first
 		ArrayList<DNode> ordered = new ArrayList<>(sources);
-		sources.forEach(e->{
+		
+		//compute the primary sink as the sink furthest away
+		//from any source as a straight line distance.
+		//
+		//this helps with cases where there are multiple sinks by
+		//searching for the longest paths - see nhn workunit 07fd000
+		//might be better if we allow the user to identify the primary
+		//sink as opposed to define it as the straight line distance
+		//or at least give the users the option in the terminal nodes table
+		double dmax = Double.MIN_VALUE;
+		DNode psink = null;
+		
+		for (DNode e : sources) {
 			double max = 0;
 			for (DNode s : sinks) {
 				double t = e.getCoordinate().distance(s.getCoordinate());
 				if (t>max) max = t;	
+				
+				if (t > dmax) {
+					dmax = t;
+					psink = s;
+				}
 			}
 			e.pathdistance = max;
-		});
+		}
 		ordered.sort((a,b)-> -1* Double.compare(a.pathdistance, b.pathdistance));
 		
 		//find shortest path from every source to every sink
-		for (DNode sourcenode : ordered) {
-			DPath path = PathFinder.findPath(sourcenode,  sinks, graph);
+		Set<DNode> primarySink = new HashSet<>();
+		primarySink.add(psink);
+		
+		for(DNode next : ordered) {
+			DPath path = null;
+			
+			//find path to primary sink first
+			path = PathFinder.findPath(next,  primarySink, graph);
+			if (path == null) {
+				//if can't find then find path to any sink
+				path = PathFinder.findPath(next, sinks, graph);
+			}
+			
 			//directionalize path
 			if (path != null) {
 				path.nodes.forEach(n->n.pathnode = true);
 				if (!path.edges.isEmpty()) {
 					directionalizePath(path);				
 					path.edges.forEach(e->e.pathedge = true);
-					
-					for (DEdge e : path.edges) {
-						if ((e.getNodeA().getCoordinate().x == -112.54747909999998967  && 
-								e.getNodeA().getCoordinate().y == 50.15299539999999467) ||
-						(e.getNodeB().getCoordinate().x == -112.54747909999998967  && 
-						e.getNodeB().getCoordinate().y == 50.15299539999999467) )
-						
-						{
-							System.out.println("break");
-						}
-					}
-					
 					paths.add(path);
 				}
 			}else {
-				ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION, "Path shouldn't be null.", sourcenode.toGeometry(), PathDirectionalizer.class);
+				ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION, "Path shouldn't be null.", next.toGeometry(), PathDirectionalizer.class);
 			}
 		}		
 		//for remaining edges; find shortest path from that edge to sink
@@ -211,21 +227,7 @@ public class PathDirectionalizer {
 			//find edge to visit next
 			DEdge toprocess = findUnvisitedEdge(graph, paths, sinks, fail);
 			if (toprocess == null) break;
-
-//			if (toprocess.getNodeA().getCoordinate().x == -112.540906191775  && 
-//					toprocess.getNodeA().getCoordinate().y == 50.14845096268312) {
-//				System.out.println("break");
-//			}
-//
-//			if ((toprocess.getNodeA().getCoordinate().x == -112.54747909999998967  && 
-//					toprocess.getNodeA().getCoordinate().y == 50.15299539999999467) ||
-//			(toprocess.getNodeB().getCoordinate().x == -112.54747909999998967  && 
-//					toprocess.getNodeB().getCoordinate().y == 50.15299539999999467) )
-//			
-//			{
-//				System.out.println("break");
-//			}
-//			
+			
 			//create a path
 			DPath temp = findStraightestPath(toprocess, sinks, graph);
 			if (temp == null) {
