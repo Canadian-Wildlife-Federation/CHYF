@@ -37,7 +37,7 @@ public class PathFinder {
 
 	//the subgraph nodes can contain references to edges that are not
 	/**
-	 * Finds the shorest path from source to sink.  
+	 * Finds the shortest path from source to sink.  
 	 * @param source source node
 	 * @param sink sink nodes 
 	 * @param graph graph
