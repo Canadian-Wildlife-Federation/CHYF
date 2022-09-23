@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import org.geotools.data.DataStore;
 import org.geotools.data.DataUtilities;
 import org.geotools.data.FeatureWriter;
 import org.geotools.data.Transaction;
@@ -87,8 +88,7 @@ public class NameFlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSour
 	 * Do nothing here
 	 */
 	@Override
-	protected void cleanOutputSchema(Transaction tx, boolean includeAoi) throws IOException{
-		
+	protected void cleanOutputSchema(Connection c, Transaction tx, boolean includeAoi) throws IOException{
 		
 	}
 	
@@ -99,10 +99,9 @@ public class NameFlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSour
 	}
 	
 	@Override
-	protected void uploadResultsInternal(Transaction tx)  throws IOException {
-		
-		Connection c = ((JDBCDataStore)outputDataStore).getConnection(tx);
+	protected void uploadResultsInternal(DataStore outputDataStore, Transaction tx)  throws IOException {
 
+		Connection c = ((JDBCDataStore)outputDataStore).getConnection(tx);
 		
 		StringBuilder sb = new StringBuilder();
 		//clean out the errors table
@@ -135,9 +134,9 @@ public class NameFlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSour
 		}catch(SQLException ex) {
 			throw new IOException(ex);
 		}    		   
-		super.cleanOutputSchema(tx, false);
+		super.cleanOutputSchema(c, tx, false);
 		
-		super.uploadResultsInternal(tx);
+		super.uploadResultsInternal(outputDataStore, tx);
 		
 		//write construction points
 		FlowpathGeoPackageDataSource  pkg = (FlowpathGeoPackageDataSource) getLocalDataSource();
@@ -148,10 +147,8 @@ public class NameFlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSour
 	}
 	
 	@Override
-	protected void initOutputSchemaInternal(Connection c, Transaction tx) throws IOException{
-		super.initOutputSchemaInternal(c, tx);
-		
-		
+	protected void initOutputSchemaInternal(DataStore inputDataStore, DataStore outDataStore, Transaction tx) throws IOException{
+		super.initOutputSchemaInternal(inputDataStore, outDataStore, tx);
 	}
 	
 	@Override
@@ -256,8 +253,8 @@ public class NameFlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSour
 	}
 
 	@Override
-	protected void cacheData(GeoPackage geopkg) throws IOException {
-		super.cacheData(geopkg);
+	protected void cacheData(DataStore inputDataStore, GeoPackage geopkg) throws IOException {
+		super.cacheData(inputDataStore, geopkg);
 		//cache construction point table
 		
 		FeatureEntry entry = new FeatureEntry();

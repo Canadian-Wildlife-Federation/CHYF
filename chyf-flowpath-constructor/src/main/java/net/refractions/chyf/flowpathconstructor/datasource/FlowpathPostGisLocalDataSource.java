@@ -28,8 +28,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import org.geotools.data.DataStore;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.DefaultTransaction;
 import org.geotools.data.FeatureWriter;
 import org.geotools.data.Transaction;
 import org.geotools.data.simple.SimpleFeatureCollection;
@@ -75,6 +75,8 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 	static final Logger logger = LoggerFactory.getLogger(FlowpathPostGisLocalDataSource.class.getCanonicalName());
 	
 	public static final String CONSTRUCTION_PNTS_TABLE = "construction_points";
+	
+	private boolean addRankToOutput = false;
 
 	public FlowpathPostGisLocalDataSource(String connectionString, String inschema, String outschema) throws Exception {
 		super(connectionString, inschema, outschema);
@@ -88,15 +90,13 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 	 * If false we leave the record in the aoi table. 
 	 */
 	@Override
-	protected void cleanOutputSchema(Transaction tx, boolean includeAoi) throws IOException{
-		
-		SimpleFeatureType stype = null;
-		try{
-			stype = outputDataStore.getSchema(CONSTRUCTION_PNTS_TABLE);
-		}catch (Exception ex) {	}
-		if (stype == null) return;
-		
-		Connection c = ((JDBCDataStore)outputDataStore).getConnection(tx);
+	protected void cleanOutputSchema(Connection c, Transaction tx, boolean includeAoi) throws IOException{
+//		SimpleFeatureType stype = null;
+//		try{
+//			stype = outputDataStore.getSchema(CONSTRUCTION_PNTS_TABLE);
+//		}catch (Exception ex) {	}
+//		if (stype == null) return;
+//		
 		StringBuilder sb = new StringBuilder();
     	sb.append("DELETE FROM ");
 		sb.append(outputSchema + "." + CONSTRUCTION_PNTS_TABLE);
@@ -108,7 +108,7 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 			throw new IOException(e);
 		}
 		
-		super.cleanOutputSchema(tx, includeAoi);
+		super.cleanOutputSchema(c, tx, includeAoi);
 	}
 	
 	@Override
@@ -118,8 +118,29 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 	}
 	
 	@Override
-	protected void uploadResultsInternal(Transaction tx)  throws IOException {
-		super.uploadResultsInternal(tx);
+	protected void uploadResultsInternal(DataStore outputDataStore, Transaction tx)  throws IOException {
+		
+		if (addRankToOutput) {
+			//add rank attribute if it doesn't exist
+			Name rankatt = ChyfDataSource.findAttribute(outputDataStore.getSchema(getTypeName(Layer.EFLOWPATHS)), ChyfAttribute.RANK);
+			if (rankatt == null) {
+				StringBuilder sb = new StringBuilder();
+			   	sb.append("ALTER TABLE ");
+			   	sb.append(outputSchema + "." + getTypeName(Layer.EFLOWPATHS));
+			   	sb.append(" ADD COLUMN ");
+			   	sb.append(ChyfAttribute.RANK.getFieldName());
+			   	sb.append(" smallint ");
+			   	
+		   		Connection c = ((JDBCDataStore)outputDataStore).getConnection(tx);
+		   		try {
+					c.createStatement().executeUpdate(sb.toString());
+				} catch (SQLException e) {
+					throw new IOException(e);
+				}
+			}
+		}
+		
+		super.uploadResultsInternal(outputDataStore, tx);
 		
 		//write construction points
 		FlowpathGeoPackageDataSource  pkg = (FlowpathGeoPackageDataSource) getLocalDataSource();
@@ -130,12 +151,12 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 	}
 	
 	@Override
-	protected void initOutputSchemaInternal(Connection c, Transaction tx) throws IOException{
-		super.initOutputSchemaInternal(c, tx);
+	protected void initOutputSchemaInternal(DataStore inputDataStore, DataStore outDataStore, Transaction tx) throws IOException{
+		super.initOutputSchemaInternal(inputDataStore, outDataStore, tx);
 		
 		SimpleFeatureType stype = null;
 		try{
-			stype = outputDataStore.getSchema(CONSTRUCTION_PNTS_TABLE);
+			stype = outDataStore.getSchema(CONSTRUCTION_PNTS_TABLE);
 		}catch (Exception ex) {	}
 		
 		if (stype == null) {
@@ -154,6 +175,7 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 			sb.append(") ");
 			
 		    try {
+				Connection c = ((JDBCDataStore)outDataStore).getConnection(tx);
 		    	c.createStatement().executeUpdate(sb.toString());
 			} catch (SQLException e) {
 				throw new IOException(e);
@@ -180,8 +202,8 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 	}
 	
 	@Override
-	protected void cacheData(GeoPackage geopkg) throws IOException {
-		super.cacheData(geopkg);
+	protected void cacheData(DataStore inputDataStore, GeoPackage geopkg) throws IOException {
+		super.cacheData(inputDataStore, geopkg);
 		
 		//if construction points exist in schema, load these
 		boolean found = false;
@@ -340,24 +362,7 @@ public class FlowpathPostGisLocalDataSource extends ChyfPostGisLocalDataSource i
 	@Override
 	public void addRankAttribute() throws Exception{
 		((FlowpathGeoPackageDataSource)	getLocalDataSource()).addRankAttribute();
-		
-		//add rank attribute if it doesn't exist
-		Name rankatt = ChyfDataSource.findAttribute(outputDataStore.getSchema(getTypeName(Layer.EFLOWPATHS)), ChyfAttribute.RANK);
-		if (rankatt == null) {
-			StringBuilder sb = new StringBuilder();
-		   	sb.append("ALTER TABLE ");
-		   	sb.append(outputSchema + "." + getTypeName(Layer.EFLOWPATHS));
-		   	sb.append(" ADD COLUMN ");
-		   	sb.append(ChyfAttribute.RANK.getFieldName());
-		   	sb.append(" smallint ");
-		   	
-		   	try(Transaction tx = new DefaultTransaction()){
-		   		Connection c = ((JDBCDataStore)outputDataStore).getConnection(tx);
-		   		c.createStatement().executeUpdate(sb.toString());
-		   		tx.commit();
-		   	}
-		   	resetOutputSchema();
-		}
+		addRankToOutput = true;
 	}
 
 	@Override
