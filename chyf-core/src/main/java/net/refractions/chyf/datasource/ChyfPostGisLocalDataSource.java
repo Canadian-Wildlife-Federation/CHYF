@@ -393,22 +393,26 @@ public abstract class ChyfPostGisLocalDataSource implements ChyfDataSource{
 						
 					String aoitable = inputSchema + "." + Layer.AOI.getLayerName().toLowerCase();
 					try(Statement stmt = c.createStatement()){
-						stmt.executeUpdate("LOCK TABLE " + aoitable);
-						
 						//find the next aoi to process
 						StringBuilder sb = new StringBuilder();
-						sb.append("SELECT id, name, processing_parameters FROM ");
+						sb.append("WITH nextaoi AS (");
+						sb.append("SELECT id FROM ");
 						sb.append(aoitable);
-						sb.append(" WHERE status = '");
-						sb.append(current.name());
-						sb.append("'");
+						sb.append(" WHERE status = '" + current.name() + "' LIMIT 1) ");
+						sb.append(" UPDATE " + aoitable + " ");
+						sb.append(" SET STATUS = '" + processing.name() + "'");
+						sb.append(", processing_start_datetime = now(), "); 
+						sb.append(" processing_end_datetime = null ");
+						sb.append(" FROM nextaoi ");
+						sb.append(" WHERE status = '" + current.name() + "'");
+						sb.append(" AND ");
+						sb.append(aoitable + ".id = nextaoi.id ");
+						sb.append("RETURNING " + aoitable + ".name, " + aoitable + ".processing_parameters");
 							
-						UUID aoiId = null;
 						try(ResultSet rs = stmt.executeQuery(sb.toString())){
 							if (rs.next()) {
-								aoiId = (UUID) rs.getObject(1);
-								laoiId  = rs.getString(2);
-								parameters = rs.getString(3);
+								laoiId  = rs.getString(1);
+								parameters = rs.getString(2);
 								if (parameters != null && parameters.trim().isBlank()) {
 									parameters = null;
 								}else if (parameters != null){
@@ -418,19 +422,6 @@ public abstract class ChyfPostGisLocalDataSource implements ChyfDataSource{
 							}
 						}
 						
-						if (aoiId != null) {
-							sb = new StringBuilder();
-							sb.append("UPDATE ");
-							sb.append(aoitable);
-							sb.append(" SET status = ?, processing_start_datetime = now(), processing_end_datetime = null  ");
-							sb.append(" WHERE id = ?");
-							
-							try(PreparedStatement ps = c.prepareStatement(sb.toString())){
-								ps.setString(1, processing.name());
-								ps.setObject(2, aoiId);
-								ps.executeUpdate();
-							}
-						}
 					}
 					tx.commit();
 				}catch (SQLException ex) {
@@ -463,11 +454,10 @@ public abstract class ChyfPostGisLocalDataSource implements ChyfDataSource{
 						
 						String aoitable = schema + "." + Layer.AOI.getLayerName().toLowerCase();
 						try(Statement stmt = c.createStatement()){
-							stmt.executeUpdate("LOCK TABLE " + aoitable);
 							
 							StringBuilder sb = new StringBuilder();
 							sb.append("UPDATE ");
-							sb.append(schema + "." + Layer.AOI.getLayerName().toLowerCase());
+							sb.append( aoitable );
 							sb.append(" SET status = ?, processing_end_datetime = now() ");
 							sb.append(" WHERE id = ? ");
 							

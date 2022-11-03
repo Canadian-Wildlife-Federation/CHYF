@@ -163,54 +163,58 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 	 * @param processing the state to update to to flag aoi as processing
 	 * @return null if no more items to process
 	 */
-	public String getNextAoiToProcess(ProcessingState current, ProcessingState processing) throws IOException{
+	public String[] getNextAoiToProcess(ProcessingState current, ProcessingState processing) throws IOException{
 		String laoiId = null;
+		String parameters = null;
+		
 		try(Transaction tx = new DefaultTransaction()){
 			try {
 				Connection c = ((JDBCDataStore)workingDataStore).getConnection(tx);
 					
 				String aoitable = rawSchema + "." + getTypeName(Layer.AOI);
 				try(Statement stmt = c.createStatement()){
-					stmt.executeUpdate("LOCK TABLE " + aoitable);
-					
-					//find the next aoi to process
 					StringBuilder sb = new StringBuilder();
-					sb.append("SELECT id, name FROM ");
+					sb.append("WITH nextaoi AS (");
+					sb.append("SELECT id FROM ");
 					sb.append(aoitable);
-					sb.append(" WHERE status = '");
-					sb.append(current.name());
-					sb.append("'");
+					sb.append(" WHERE status = '" + current.name() + "' LIMIT 1) ");
+					sb.append(" UPDATE " + aoitable + " ");
+					sb.append(" SET STATUS = '" + processing.name() + "'");
+					sb.append(", processing_start_datetime = now(), "); 
+					sb.append(" processing_end_datetime = null ");
+					sb.append(" FROM nextaoi ");
+					sb.append(" WHERE status = '" + current.name() + "'");
+					sb.append(" AND ");
+					sb.append(aoitable + ".id = nextaoi.id ");
+					sb.append("RETURNING " + aoitable + ".name, " + aoitable + ".processing_parameters");
 						
-					UUID aoiId = null;
 					try(ResultSet rs = stmt.executeQuery(sb.toString())){
 						if (rs.next()) {
-							aoiId = (UUID) rs.getObject(1);
-							laoiId  = rs.getString(2);
+							laoiId  = rs.getString(1);
+							parameters = rs.getString(2);
+							if (parameters != null && parameters.trim().isBlank()) {
+								parameters = null;
+							}else if (parameters != null){
+								//convert ; into \n
+								parameters = parameters.replaceAll(";", System.lineSeparator());
+							}
 						}
 					}
 					
-					if (aoiId != null) {
+					if (laoiId != null) {
+						String wtable = workingSchema + "." + getTypeName(Layer.AOI); 
 						sb = new StringBuilder();
 						sb.append("UPDATE ");
+						sb.append(wtable);
+						sb.append(" SET status = a.status, processing_start_datetime = a.processing_start_datetime, processing_end_datetime = a.processing_end_datetime ");
+						sb.append(" FROM ");
 						sb.append(aoitable);
-						sb.append(" SET status = ? ");
-						sb.append(" WHERE id = ?");
+						sb.append(" WHERE ");
+						sb.append(wtable + ".id = " + aoitable + ".id ");
+						sb.append(" AND ");
+						sb.append(aoitable + ".name= '" + laoiId + "'");
 						
 						try(PreparedStatement ps = c.prepareStatement(sb.toString())){
-							ps.setString(1, processing.name());
-							ps.setObject(2, aoiId);
-							ps.executeUpdate();
-						}
-						
-						sb = new StringBuilder();
-						sb.append("UPDATE ");
-						sb.append(workingSchema + "." + getTypeName(Layer.AOI));
-						sb.append(" SET status = ? ");
-						sb.append(" WHERE id = ?");
-						
-						try(PreparedStatement ps = c.prepareStatement(sb.toString())){
-							ps.setString(1, processing.name());
-							ps.setObject(2, aoiId);
 							ps.executeUpdate();
 						}
 					}
@@ -222,7 +226,7 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 			}
 		}
 		
-		return laoiId;
+		return new String[] {laoiId, parameters};
 	}
 	/**
 	 * Updates the state of the aoi processing (both the working 
@@ -240,11 +244,10 @@ public class ChyfPostGisDataSource implements ChyfDataSource{
 					
 					String aoitable = schema + "." + getTypeName(Layer.AOI);
 					try(Statement stmt = c.createStatement()){
-						stmt.executeUpdate("LOCK TABLE " + aoitable);
 						
 						StringBuilder sb = new StringBuilder();
 						sb.append("UPDATE ");
-						sb.append(schema + "." + getTypeName(Layer.AOI));
+						sb.append(aoitable);
 						sb.append(" SET status = ? ");
 						sb.append(" WHERE ");
 						sb.append(getAoiFieldName(Layer.AOI));
