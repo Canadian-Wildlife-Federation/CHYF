@@ -1,2 +1,2 @@
 #!/bin/sh
-java -cp lib/*;lib-chyf/chyf-core-${chyf.core.version}.jar;lib-chyf/chyf-flowpath-constructor-${flowpath.constructor.version}.jar net.refractions.chyf.flowpathconstructor.directionalize.CycleCheckEngine $@
+java -cp lib/*:lib-chyf/chyf-core-${chyf.core.version}.jar:lib-chyf/chyf-flowpath-constructor-${flowpath.constructor.version}.jar net.refractions.chyf.flowpathconstructor.directionalize.CycleCheckEngine $@
