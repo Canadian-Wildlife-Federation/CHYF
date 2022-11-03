@@ -46,6 +46,10 @@ public class TreeDirection {
 	public void directionalize(DGraph graph, List<DNode> localSinks) throws Exception {
 		graph.edges.forEach(e->e.visited = false);
 		
+		if (localSinks.isEmpty()) {
+			ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION, "Graph has no sink, edges not directionalized", graph.getEdges().get(0).toGeometry(), TreeDirection.class);
+			throw new Exception("No sink edges found");
+		}
 		//process main sink first
 		DNode sink = localSinks.get(0);
 		visitUpstream(sink);
@@ -118,7 +122,7 @@ public class TreeDirection {
 		
 		for (DEdge d : graph.edges) {
 			if (!d.visited) {
-				ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION, "Not all edges visited when directionalizing tree. At least one eddge missed. ", d.toGeometry(), TreeDirection.class);
+				ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION, "Not all edges visited when directionalizing tree. At least one edge missed. ", d.toGeometry(), TreeDirection.class);
 			}
 		}
 	}

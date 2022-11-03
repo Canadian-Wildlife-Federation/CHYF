@@ -16,10 +16,18 @@
 package net.refractions.chyf.flowpathconstructor.directionalize.graph;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
+import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.io.ParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.ChyfLogger;
+import net.refractions.chyf.datasource.DirectionType;
+import net.refractions.chyf.datasource.EfType;
+import net.refractions.chyf.flowpathconstructor.directionalize.Directionalizer;
 
 /**
  * Computes "bridge" edges in a graph.  Sets
@@ -32,6 +40,8 @@ import net.refractions.chyf.ChyfLogger;
  */
 public class BridgeFinder {
 	
+//	private static final Logger logger = LoggerFactory.getLogger(BridgeFinder.class.getCanonicalName());
+
     private int cnt;          // counter
 
     public BridgeFinder() {
@@ -53,11 +63,17 @@ public class BridgeFinder {
     	});
     	source.bridgePre = -1;
         	
+//    	logger.info("bridges: " + graph.edges.size() + ":" + graph.nodes.size());
+//    	for (DEdge e : graph.edges) {
+//    		logger.info(e.toString());
+//    	}
     	dfs(source, source);
     }
     
     //TODO: make not recursive
     private void dfs(DNode u, DNode v) throws IOException, ParseException {
+//		logger.info("Processing node: " + u.toString() + " " + v.toString());
+
     	v.bridgePre = cnt++;
     	v.bridgeMin = v.bridgePre;
     	for (DEdge e : v.getEdges()) {
@@ -77,5 +93,5 @@ public class BridgeFinder {
     		}
     	}     
     }
-    
+
 }

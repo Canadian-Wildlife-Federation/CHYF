@@ -31,6 +31,7 @@ import org.opengis.feature.type.Name;
 import org.opengis.filter.identity.FeatureId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
@@ -53,14 +54,16 @@ public class NameJob implements Runnable {
 	
 	private IFlowpathDataSource dataSource;
 	private WaterbodyIterator iterator;
+	private Map<String,String> mdccontext;
 	
 	private Exception exception;
 	private HashMap<FeatureId, String[]> allnames;
 	
-	public NameJob(IFlowpathDataSource dataSource, WaterbodyIterator iterator) {
+	public NameJob(IFlowpathDataSource dataSource, WaterbodyIterator iterator, Map<String,String> mdccontext) {
 		this.dataSource = dataSource;
 		this.iterator = iterator;
 		allnames = new HashMap<>();
+		this.mdccontext = mdccontext;
 	}
 	
 	/**
@@ -82,7 +85,7 @@ public class NameJob implements Runnable {
 	
 	@Override
 	public void run() {
-
+		MDC.setContextMap(mdccontext);
 		try {
 			SimpleFeature toProcess = null;
 			while((toProcess = iterator.getNextWaterbody()) != null) {

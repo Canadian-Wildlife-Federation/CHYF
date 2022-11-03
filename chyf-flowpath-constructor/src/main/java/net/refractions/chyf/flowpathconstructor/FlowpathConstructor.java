@@ -21,8 +21,8 @@ import java.nio.file.Paths;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
-import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.datasource.ProcessingState;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
@@ -45,7 +45,6 @@ public class FlowpathConstructor {
 	static final Logger logger = LoggerFactory.getLogger(FlowpathConstructor.class.getCanonicalName());
 
 	public static void main(String[] args) throws Exception {
-		
 		FlowpathArgs runtime = new FlowpathArgs("FlowpathConstructor");
 		if (!runtime.parseArguments(args)) return;
 		
@@ -79,6 +78,9 @@ public class FlowpathConstructor {
 	private static void runDatasource(IFlowpathDataSource dataSource, FlowpathArgs runtime) {
 		try {
 			try {
+				MDC.put("aoi_id", runtime.getAoi());
+				logger.warn("Processing AOI: " + runtime.getAoi());
+				
 				ChyfProperties prop = runtime.getPropertiesFile();
 				if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 				logger.info("Generating Constructions Points");
@@ -91,13 +93,13 @@ public class FlowpathConstructor {
 				RankEngine.doWork(dataSource, prop);
 				logger.info("Applying Names To Skeletons");
 				NameEngine.doWork(dataSource, prop, runtime.getCores());
-			}catch (Exception ex) {
-				ChyfLogger.INSTANCE.logError(ChyfLogger.Process.FLOWPATHFULL, ex.getMessage(), null, ex, FlowpathConstructor.class);
+			}catch (Throwable ex) {
+				logger.error(ex.getMessage(), ex);
 			}
 			
 			dataSource.finish();
 		}catch (IOException ex) {
-			LoggerFactory.getLogger(FlowpathConstructor.class).error(ex.getMessage(), ex);
+			logger.error(ex.getMessage(), ex);
 		}
 	}
 	
@@ -106,29 +108,41 @@ public class FlowpathConstructor {
 		try {
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+			
 			while(true) {
-				String aoi = dataSource.getNextAoiToProcess(ProcessingState.READY, ProcessingState.FP_PROCESSING);
-				if (aoi == null) break;
+				String[] next = dataSource.getNextAoiToProcess(ProcessingState.READY, ProcessingState.FP_PROCESSING);
+				if (next == null || next[0] == null) break;
+				String aoi = next[0];
 				
+				
+				MDC.put("aoi_id", aoi);
 				logger.info("Processing: " + aoi);
-				
 				try {
 					dataSource.setAoi(aoi);
+					
+					ChyfProperties localprop = prop;
+					if (next[1] != null) localprop = ChyfProperties.getProperties(next[1]);
+					
 					logger.info("Generating Constructions Points");
-					PointEngine.doWork(dataSource, prop);
+					PointEngine.doWork(dataSource, localprop);
 					logger.info("Generating Skeletons");
-					SkeletonEngine.doWork(dataSource, prop, runtime.getCores());
+					SkeletonEngine.doWork(dataSource, localprop, runtime.getCores());
 					logger.info("Directionalizing Dataset");
-					DirectionalizeEngine.doWork(dataSource, prop);
+					DirectionalizeEngine.doWork(dataSource, localprop);
 					logger.info("Computing Rank");
-					RankEngine.doWork(dataSource, prop);
+					RankEngine.doWork(dataSource, localprop);
 					logger.info("Applying Names To Skeletons");
-					NameEngine.doWork(dataSource, prop, runtime.getCores());
+					NameEngine.doWork(dataSource, localprop, runtime.getCores());
 					dataSource.finish();
 					dataSource.setState(ProcessingState.FP_DONE);
-				}catch (Exception ex) {
-					ChyfLogger.INSTANCE.logError(ChyfLogger.Process.FLOWPATHFULL, ex.getMessage(), null, ex, FlowpathConstructor.class);
-					dataSource.finish();
+				}catch (Throwable ex) {
+					logger.error(ex.getMessage(), ex);
+					try {
+						dataSource.finish();
+					}catch (Throwable ex2) {
+						logger.error(ex2.getMessage(), ex2);	
+					}
+					
 					dataSource.setState(ProcessingState.FP_ERROR);
 				}
 			}

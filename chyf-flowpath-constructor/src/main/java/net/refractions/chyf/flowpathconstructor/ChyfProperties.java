@@ -16,6 +16,8 @@
 package net.refractions.chyf.flowpathconstructor;
 
 import java.io.InputStream;
+import java.io.Reader;
+import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -94,6 +96,21 @@ public class ChyfProperties implements IChyfProperties, Cloneable{
 
 		try(InputStream is = Files.newInputStream(filename)){
 			p.load(is);
+		}
+		
+		for (Property prop : Property.values()) {
+			String value = 	p.getProperty(prop.key);
+			props.properties.put(prop,  Double.valueOf(value));
+		}
+		return props;
+	}
+	
+	public static ChyfProperties getProperties(String properties) throws Exception{
+		Properties p = new Properties();
+		ChyfProperties props = new ChyfProperties();
+		
+		try(Reader r = new StringReader(properties)){
+			p.load(r);
 		}
 		
 		for (Property prop : Property.values()) {

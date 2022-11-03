@@ -27,6 +27,7 @@ import java.util.concurrent.Executors;
 import org.opengis.filter.identity.FeatureId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.ExceptionWithLocation;
@@ -70,7 +71,7 @@ public class NameEngine {
 		WaterbodyIterator iterator = new WaterbodyIterator(dataSource);
 		
 		for (int i = 0; i < cores; i ++) {
-			NameJob job = new NameJob(dataSource, iterator);
+			NameJob job = new NameJob(dataSource, iterator, MDC.getCopyOfContextMap());
 			tasks.add(job);
 		}
 		CompletableFuture<?>[] futures = tasks.stream()

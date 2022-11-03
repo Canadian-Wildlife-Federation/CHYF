@@ -142,6 +142,9 @@ public class Directionalizer {
 			for (DNode s : sinkNodes) {
 				if (sub.getNodes().contains(s)) {
 					localSinks.add(s);
+					if (toProcess.contains(s)) {
+						toProcess.remove(s);
+					}
 				}
 			}
 			
@@ -197,10 +200,11 @@ public class Directionalizer {
 					sub = SubGraph.computeSubGraph(graph, sink);
 				}
 			}
+			
 			try {
-			//find bridge nodes
-			BridgeFinder bb = new BridgeFinder();
-			bb.computeBridges(sub, sink);
+				//find bridge nodes
+				BridgeFinder bb = new BridgeFinder();
+				bb.computeBridges(sub, sink);
 			}catch (Throwable t) {
 				t.printStackTrace();
 				throw t;

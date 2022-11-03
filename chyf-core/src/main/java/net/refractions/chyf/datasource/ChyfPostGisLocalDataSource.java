@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 import java.util.UUID;
 
 import org.geotools.data.DataStore;
@@ -317,14 +318,37 @@ public abstract class ChyfPostGisLocalDataSource implements ChyfDataSource{
 	    }
 	    
 	    if (includeAoi) {
-		    StringBuilder sb = new StringBuilder();
+	    	
+	    	//get aoi column names for use in select/insert query
+	    	StringJoiner columns = new StringJoiner(",");
+	    	
+	    	StringBuilder sb = new StringBuilder();
+	    	sb.append("SELECT column_name FROM information_schema.columns ");
+	    	sb.append("WHERE table_schema = ? AND table_name = ?");
+	    	
+	    	try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+    			ps.setObject(1, inputSchema);
+    			ps.setObject(2, getTypeName(Layer.AOI));
+    			try(ResultSet rs = ps.executeQuery()){
+    				while(rs.next()) {
+    					columns.add(rs.getString(1));
+    				}
+    			}
+    		}catch(SQLException ex) {
+    			throw new IOException(ex);
+    		}    		  
+	    	
+	    	
+		    sb = new StringBuilder();
 			sb.append("INSERT INTO ");
 			sb.append(outputSchema + "." + getTypeName(Layer.AOI));
-			sb.append(" SELECT * FROM ");
+			sb.append("(" + columns.toString() + ")");
+			sb.append(" SELECT " + columns.toString());
+			sb.append(" FROM ");
 			sb.append(inputSchema + "." + getTypeName(Layer.AOI));
 			sb.append(" WHERE ");
 			sb.append(getAoiFieldName(Layer.AOI) + " = ? ");
-			
+						
 			try(PreparedStatement ps = c.prepareStatement(sb.toString())){
 				ps.setObject(1, aoiUuid);
 				ps.executeUpdate();
@@ -357,8 +381,9 @@ public abstract class ChyfPostGisLocalDataSource implements ChyfDataSource{
 	 * @param processing the state to update to to flag aoi as processing
 	 * @return null if no more items to process
 	 */
-	public String getNextAoiToProcess(ProcessingState current, ProcessingState processing) throws IOException{
+	public String[] getNextAoiToProcess(ProcessingState current, ProcessingState processing) throws IOException{
 		String laoiId = null;
+		String parameters = null;
 		
 		DataStore inputDataStore = createInputDataStore();
 		try {
@@ -372,7 +397,7 @@ public abstract class ChyfPostGisLocalDataSource implements ChyfDataSource{
 						
 						//find the next aoi to process
 						StringBuilder sb = new StringBuilder();
-						sb.append("SELECT id, name FROM ");
+						sb.append("SELECT id, name, processing_parameters FROM ");
 						sb.append(aoitable);
 						sb.append(" WHERE status = '");
 						sb.append(current.name());
@@ -383,6 +408,13 @@ public abstract class ChyfPostGisLocalDataSource implements ChyfDataSource{
 							if (rs.next()) {
 								aoiId = (UUID) rs.getObject(1);
 								laoiId  = rs.getString(2);
+								parameters = rs.getString(3);
+								if (parameters != null && parameters.trim().isBlank()) {
+									parameters = null;
+								}else if (parameters != null){
+									//convert ; into \n
+									parameters = parameters.replaceAll(";", System.lineSeparator());
+								}
 							}
 						}
 						
@@ -390,7 +422,7 @@ public abstract class ChyfPostGisLocalDataSource implements ChyfDataSource{
 							sb = new StringBuilder();
 							sb.append("UPDATE ");
 							sb.append(aoitable);
-							sb.append(" SET status = ? ");
+							sb.append(" SET status = ?, processing_start_datetime = now(), processing_end_datetime = null  ");
 							sb.append(" WHERE id = ?");
 							
 							try(PreparedStatement ps = c.prepareStatement(sb.toString())){
@@ -407,7 +439,7 @@ public abstract class ChyfPostGisLocalDataSource implements ChyfDataSource{
 				}
 			}
 			
-			return laoiId;
+			return new String[] {laoiId, parameters};
 		} finally {
 			inputDataStore.dispose();
 		}
@@ -436,7 +468,7 @@ public abstract class ChyfPostGisLocalDataSource implements ChyfDataSource{
 							StringBuilder sb = new StringBuilder();
 							sb.append("UPDATE ");
 							sb.append(schema + "." + Layer.AOI.getLayerName().toLowerCase());
-							sb.append(" SET status = ? ");
+							sb.append(" SET status = ?, processing_end_datetime = now() ");
 							sb.append(" WHERE id = ? ");
 							
 							try(PreparedStatement ps = c.prepareStatement(sb.toString())){
