@@ -73,11 +73,11 @@ public class CatchmentDelineator {
     	CatchmentDelineatorLocalPostgisDataSource dataSource = new CatchmentDelineatorLocalPostgisDataSource(args.dbstring, args.getInput(), args.getOutput());
 
     	while(true) {
-			String aoi = dataSource.getNextAoiToProcess(ProcessingState.FP_DONE, ProcessingState.WS_PROCESSING);
-			if (aoi == null) break;
+			String[] aoi = dataSource.getNextAoiToProcess(ProcessingState.FP_DONE, ProcessingState.WS_PROCESSING);
+			if (aoi == null || aoi[0] == null) break;
 			try {
 				logger.info("Processing AOI: " + aoi);
-				dataSource.setAoi(aoi);
+				dataSource.setAoi(aoi[0]);
 				CatchmentDelineator cd = new CatchmentDelineator(dataSource, args);
 		    	cd.build();
 		    	dataSource.finish();
