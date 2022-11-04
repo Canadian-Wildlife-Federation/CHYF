@@ -142,9 +142,6 @@ public class Directionalizer {
 			for (DNode s : sinkNodes) {
 				if (sub.getNodes().contains(s)) {
 					localSinks.add(s);
-					if (toProcess.contains(s)) {
-						toProcess.remove(s);
-					}
 				}
 			}
 			

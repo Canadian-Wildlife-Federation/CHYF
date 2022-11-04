@@ -16,18 +16,12 @@
 package net.refractions.chyf.flowpathconstructor.directionalize.graph;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Stack;
 
-import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.io.ParseException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.ChyfLogger;
-import net.refractions.chyf.datasource.DirectionType;
-import net.refractions.chyf.datasource.EfType;
-import net.refractions.chyf.flowpathconstructor.directionalize.Directionalizer;
 
 /**
  * Computes "bridge" edges in a graph.  Sets
@@ -40,7 +34,7 @@ import net.refractions.chyf.flowpathconstructor.directionalize.Directionalizer;
  */
 public class BridgeFinder {
 	
-//	private static final Logger logger = LoggerFactory.getLogger(BridgeFinder.class.getCanonicalName());
+	//private static final Logger logger = LoggerFactory.getLogger(BridgeFinder.class.getCanonicalName());
 
     private int cnt;          // counter
 
@@ -63,35 +57,92 @@ public class BridgeFinder {
     	});
     	source.bridgePre = -1;
         	
-//    	logger.info("bridges: " + graph.edges.size() + ":" + graph.nodes.size());
-//    	for (DEdge e : graph.edges) {
-//    		logger.info(e.toString());
-//    	}
-    	dfs(source, source);
+    	dfs2(source, source);    	
+    }
+
+    //no recursive version of function
+    private void dfs2(DNode us, DNode vs) throws IOException, ParseException {
+    	
+    	Stack<TaskDetails> tasks = new Stack<>();
+    	
+    	tasks.push(new TaskDetails(us, vs, null, null, 1)); 
+    	
+    	while(!tasks.isEmpty()) {
+    		
+    		TaskDetails next = tasks.pop();
+        	if (next.tasktype == 1 ) {
+    			next.v.bridgePre = cnt++;
+    			next.v.bridgeMin = next.v.bridgePre;
+   			
+    			List<DEdge> items = next.v.getEdges();
+    			for (int i = items.size() - 1; i >= 0; i --) {
+    				DEdge e = items.get(i);
+    	    		
+    	    		DNode w = e.getOtherNode(next.v);
+    	    		if (w == null) {
+    	    			ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION," Could not compute bridge edges in graph.", e.getNodeA().toGeometry());
+    	    			throw new RuntimeException("Could not compute bridge edges in graph (null pointer exception): " + e.getNodeA().toGeometry().toText());
+    	    		}
+    	    		tasks.push(new TaskDetails(next.u, next.v, w, e, 4));
+    	    		
+    	    	}
+        	}else if (next.tasktype == 2) {
+        		next.v.bridgeMin = Math.min(next.v.bridgeMin, next.w.bridgePre);
+    		}else if (next.tasktype == 3) {
+    			next.v.bridgeMin = Math.min(next.v.bridgeMin, next.w.bridgeMin);
+	    		if (next.w.bridgeMin == next.w.bridgePre) {
+	    			next.e.setBridge();
+	    		}
+    		}else if (next.tasktype == 4) {
+	    		if (next.w.bridgePre == -1) {
+	    			tasks.push(new TaskDetails(next.u, next.v, next.w, next.e, 3));
+    	    		tasks.push(new TaskDetails(next.v, next.w, null, null, 1));
+    	    		
+    	    	}else if (next.w != next.u){
+    	    		tasks.push(new TaskDetails(next.u, next.v, next.w, next.e, 2));
+    	    	}
+    		}
+    	}
+    }
+
+    class TaskDetails{
+    	DNode u;
+    	DNode v;
+    	DNode w;
+    	DEdge e;
+    	int tasktype;
+    	
+    	public TaskDetails(DNode u, DNode v, DNode w, DEdge e, int tasktype) {
+    		this.u = u;
+    		this.v = v;
+    		this.w = w;
+    		this.tasktype = tasktype;
+    		this.e = e;
+    	}
     }
     
-    //TODO: make not recursive
-    private void dfs(DNode u, DNode v) throws IOException, ParseException {
-//		logger.info("Processing node: " + u.toString() + " " + v.toString());
-
-    	v.bridgePre = cnt++;
-    	v.bridgeMin = v.bridgePre;
-    	for (DEdge e : v.getEdges()) {
-    		DNode w = e.getOtherNode(v);
-    		if (w == null) {
-    			ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION," Could not compute bridge edges in graph.", e.getNodeA().toGeometry());
-    			throw new RuntimeException("Could not compute bridge edges in graph (null pointer exception): " + e.getNodeA().toGeometry().toText());
-    		}
-    		if (w.bridgePre == -1) {
-    			dfs(v, w);
-    			v.bridgeMin = Math.min(v.bridgeMin, w.bridgeMin);
-    			if (w.bridgeMin == w.bridgePre) {
-    				e.setBridge();
-    			}
-    		}else if (w != u){
-    			v.bridgeMin = Math.min(v.bridgeMin, w.bridgePre);
-    		}
-    	}     
-    }
-
+    //original recursive function
+//    private void dfs(DNode u, DNode v) throws IOException, ParseException {
+//    	v.bridgePre = cnt++;
+//    	v.bridgeMin = v.bridgePre;
+//    	
+//    	for (DEdge e : v.getEdges()) {
+//    		DNode w = e.getOtherNode(v);
+//    		if (w == null) {
+//    			ChyfLogger.INSTANCE.logError(ChyfLogger.Process.DIRECTION," Could not compute bridge edges in graph.", e.getNodeA().toGeometry());
+//    			throw new RuntimeException("Could not compute bridge edges in graph (null pointer exception): " + e.getNodeA().toGeometry().toText());
+//    		}
+//    		if (w.bridgePre == -1) {
+//    			dfs(v, w);
+//    			v.bridgeMin = Math.min(v.bridgeMin, w.bridgeMin);
+//    			if (w.bridgeMin == w.bridgePre) {
+//    				e.setBridge();
+//    			}
+//    		}else if (w != u){
+//    			v.bridgeMin = Math.min(v.bridgeMin, w.bridgePre);
+//    		}
+//    	}     
+//    }
+    
 }
+
