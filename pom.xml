@@ -29,6 +29,14 @@
 		<maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
 	</properties>
 
+	<repositories>
+		<repository>
+			<id>osgeo</id>
+			<name>Open Source Geospatial Foundation Repository</name>
+			<url>https://repo.osgeo.org/repository/release/</url>
+		</repository>
+	</repositories>
+
 	<profiles>
 		<profile>
 			<id>webapp</id>
@@ -156,12 +164,5 @@
 
 	</dependencies>
 
-	<repositories>
-		<repository>
-			<id>osgeo</id>
-			<name>OSGeo Release Repository</name>
-			<url>https://repo.osgeo.org/repository/release/</url>
-		</repository>
-	</repositories>
 
 </project>

@@ -40,7 +40,7 @@ public enum DataSourceTable {
 	EC_SUBTYPE("chyf2.ec_subtype_codes"),
 	EF_TYPE("chyf2.ef_type_codes"),
 	EF_SUBTYPE("chyf2.ef_subtype_codes"),
-	NEXUS_TYPE("chyf2.nexut_type_codes");
+	NEXUS_TYPE("chyf2.nexus_type_codes");
 	
 	public static final int DATA_SRID = 4617;
 

@@ -145,6 +145,10 @@ public class NameSearchParameters {
 				throw new InvalidParameterException("The feature-type is not supported when groupby type is '" + ResultType.GROUP_BY_NAME.name() + "'");
 			}
 		}
+		if (this.name == null) {
+//			throw new InvalidParameterException("A name is required");
+			this.name = "";
+		}
 	}
 	
 	/**

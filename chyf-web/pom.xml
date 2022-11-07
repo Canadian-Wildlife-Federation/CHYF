@@ -18,7 +18,17 @@
 	
 	<properties>
 		<java.version>11</java.version>
+		<geotools.version>26.1</geotools.version>
 	</properties>
+	
+	<repositories>
+		<repository>
+			<id>osgeo</id>
+			<name>Open Source Geospatial Foundation Repository</name>
+			<url>https://repo.osgeo.org/repository/release/</url>
+		</repository>
+	</repositories>
+	
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -63,6 +73,18 @@
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-ui</artifactId>
 			<version>1.6.1</version>
+		</dependency>
+		
+		<!-- geotools dependency -->
+		<dependency>
+			<groupId>org.geotools</groupId>
+			<artifactId>gt-geopkg</artifactId>
+			<version>${geotools.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.geotools</groupId>
+			<artifactId>gt-epsg-hsql</artifactId>
+			<version>${geotools.version}</version>
 		</dependency>
 	</dependencies>
 

@@ -123,7 +123,6 @@ public class FeatureController {
 						@Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))})			 
 			 })
 	@GetMapping(produces = {MediaType.APPLICATION_JSON_VALUE, "application/geo+json"})
-	
 	public ResponseEntity<HydroFeatureList> getFeatureByName(@ParameterObject NameSearchParameters params, HttpServletRequest request) {
 		
 		params.parseAndValidate();
