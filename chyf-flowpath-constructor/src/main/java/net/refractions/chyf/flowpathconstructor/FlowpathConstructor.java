@@ -23,6 +23,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import net.refractions.chyf.ChyfLogger;
+import net.refractions.chyf.ChyfLogger.Process;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.datasource.ProcessingState;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
@@ -78,8 +80,8 @@ public class FlowpathConstructor {
 	private static void runDatasource(IFlowpathDataSource dataSource, FlowpathArgs runtime) {
 		try {
 			try {
-				MDC.put("aoi_id", runtime.getAoi());
-				logger.warn("Processing AOI: " + runtime.getAoi());
+				MDC.put("aoi_id", runtime.getLogFileName());
+				logger.info("Processing AOI: " + runtime.getAoi());
 				
 				ChyfProperties prop = runtime.getPropertiesFile();
 				if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
@@ -94,10 +96,14 @@ public class FlowpathConstructor {
 				logger.info("Applying Names To Skeletons");
 				NameEngine.doWork(dataSource, prop, runtime.getCores());
 			}catch (Throwable ex) {
+				ChyfLogger.INSTANCE.logException(Process.FLOWPATHFULL, ex);
 				logger.error(ex.getMessage(), ex);
 			}
 			
 			dataSource.finish();
+			
+			logger.info("Finished Processing AOI: " + runtime.getAoi());
+			
 		}catch (IOException ex) {
 			logger.error(ex.getMessage(), ex);
 		}
@@ -142,9 +148,9 @@ public class FlowpathConstructor {
 					}catch (Throwable ex2) {
 						logger.error(ex2.getMessage(), ex2);	
 					}
-					
 					dataSource.setState(ProcessingState.FP_ERROR);
 				}
+				logger.info("Finished Processing AOI: " + aoi);
 			}
 		}finally {
 			if (dataSource != null) dataSource.close();

@@ -53,19 +53,23 @@ public class RankEngine {
 
 	public static void doWork(Path output, ChyfProperties properties) throws Exception {
 		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
-			try {
-				doWork(dataSource, properties);
-			}catch (ExceptionWithLocation ex) {
-				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.RANK, ex);
-				throw ex;
-			}catch (Exception ex) {
-				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.RANK, ex);
-				throw ex;
-			}				
+			doWork(dataSource, properties);
 		}
 	}
 	
 	public static void doWork(IFlowpathDataSource dataSource, ChyfProperties properties) throws Exception {
+		try {
+			doWorkInternal(dataSource, properties);
+		}catch (ExceptionWithLocation ex) {
+			ChyfLogger.INSTANCE.logException(ChyfLogger.Process.RANK, ex);
+			throw ex;
+		}catch (Exception ex) {
+			ChyfLogger.INSTANCE.logException(ChyfLogger.Process.RANK, ex);
+			throw ex;
+		}
+	}
+	
+	private static void doWorkInternal(IFlowpathDataSource dataSource, ChyfProperties properties) throws Exception {
 		logger.info("build graph");
 		RGraph graph = new RGraph();
 		CoordinateReferenceSystem crs;

@@ -63,7 +63,7 @@ public enum ChyfLogger {
 		source.logError(ex.getMessage(),  ex.getLocation(), type.name());
 	}
 	
-	public void logException(Process type, Exception ex) throws IOException {
+	public void logException(Process type, Throwable ex) throws IOException {
 		if (!checkSource()) return;
 		source.logError(ex.getMessage(),  null, type.name());
 	}

@@ -246,6 +246,7 @@ public class PathDirectionalizer {
 			//add start node/edge to path
 			temp.nodes.add(0, toprocess.getNodeA());
 			temp.edges.add(0, toprocess);
+					
 			directionalizePath(temp);
 			
 			boolean canflip = true;
@@ -271,10 +272,9 @@ public class PathDirectionalizer {
 						
 						temp2.getEdges().add(temp.getEdges().get(i));
 						if (i == 0) temp2.getNodes().add(temp.getEdges().get(i).getNodeA());
-						temp2.getNodes().add(temp.getEdges().get(i).getNodeB());
-						
-	
+						temp2.getNodes().add(temp.getEdges().get(i).getNodeB());		
 					}
+					
 					if (temp.edges.size() > temp2.edges.size()) {
 						for (DEdge e : temp.edges) {
 							if (!temp2.edges.contains(e)) {

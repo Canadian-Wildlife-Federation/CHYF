@@ -67,21 +67,24 @@ public class DirectionalizeEngine {
 
 	public static void doWork(Path output, ChyfProperties properties) throws Exception {
 		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
-			try {
-				doWork(dataSource, properties);
-			}catch (ExceptionWithLocation ex) {
-				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.DIRECTION, ex);
-				throw ex;
-			}catch (Exception ex) {
-				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.DIRECTION, ex);
-				throw ex;
-			}
+			doWork(dataSource, properties);
 		}
-		
-		
 	}
 	
+	
 	public static void doWork(IFlowpathDataSource dataSource, ChyfProperties properties) throws Exception {
+		try {
+			doWorkInternal(dataSource, properties);
+		}catch (ExceptionWithLocation ex) {
+			ChyfLogger.INSTANCE.logException(ChyfLogger.Process.DIRECTION, ex);
+			throw ex;
+		}catch (Exception ex) {
+			ChyfLogger.INSTANCE.logException(ChyfLogger.Process.DIRECTION, ex);
+			throw ex;
+		}
+	}
+	
+	private static void doWorkInternal(IFlowpathDataSource dataSource, ChyfProperties properties) throws Exception {
 		if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 
 		CoordinateReferenceSystem sourceCRS = null;	

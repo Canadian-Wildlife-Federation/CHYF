@@ -52,19 +52,23 @@ public class NameEngine {
 
 	public static void doWork(Path output, ChyfProperties properties, int cores) throws Exception {
 		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
-			try {
-				doWork(dataSource, properties, cores);
-			}catch (ExceptionWithLocation ex) {
-				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.NAMING, ex);
-				throw ex;
-			}catch (Exception ex) {
-				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.NAMING, ex);
-				throw ex;
-			}
+			doWork(dataSource, properties, cores);
 		}
-	}	
+	}
 	
 	public static void doWork(IFlowpathDataSource dataSource, ChyfProperties properties, int cores) throws Exception {
+		try {
+			doWorkInternal(dataSource, properties, cores);
+		}catch (ExceptionWithLocation ex) {
+			ChyfLogger.INSTANCE.logException(ChyfLogger.Process.NAMING, ex);
+			throw ex;
+		}catch (Exception ex) {
+			ChyfLogger.INSTANCE.logException(ChyfLogger.Process.NAMING, ex);
+			throw ex;
+		}
+	}
+	
+	private static void doWorkInternal(IFlowpathDataSource dataSource, ChyfProperties properties, int cores) throws Exception {
 		
 		ExecutorService service = Executors.newFixedThreadPool(4);
 		List<NameJob> tasks = new ArrayList<>();

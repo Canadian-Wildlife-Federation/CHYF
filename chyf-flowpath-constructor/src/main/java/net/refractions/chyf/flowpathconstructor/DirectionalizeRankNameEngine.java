@@ -20,6 +20,7 @@ import java.nio.file.Paths;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
@@ -46,6 +47,8 @@ public class DirectionalizeRankNameEngine {
 		long now = System.nanoTime();
 		IFlowpathDataSource dataSource = null;
 		try{
+			MDC.put("aoi_id", runtime.getLogFileName());
+			
 			if (runtime.isGeopackage()) {
 				Path input = Paths.get(runtime.getInput());
 				Path output = Paths.get(runtime.getOutput());
@@ -60,14 +63,22 @@ public class DirectionalizeRankNameEngine {
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			
-			logger.info("Directionalizing Dataset");
-			DirectionalizeEngine.doWork(dataSource, prop);
-			logger.info("Computing Rank");
-			RankEngine.doWork(dataSource, prop);
-			logger.info("Applying Names To Skeletons");
-			NameEngine.doWork(dataSource, prop, runtime.getCores());
-			
-			dataSource.finish();
+			try {
+				logger.info("Directionalizing Dataset");
+				DirectionalizeEngine.doWork(dataSource, prop);
+				logger.info("Computing Rank");
+				RankEngine.doWork(dataSource, prop);
+				logger.info("Applying Names To Skeletons");
+				NameEngine.doWork(dataSource, prop, runtime.getCores());
+				dataSource.finish();
+			}catch (Throwable ex) {
+				logger.error(ex.getMessage(), ex);
+				try {
+					dataSource.finish();
+				}catch (Throwable ex2) {
+					logger.error(ex2.getMessage(), ex2);	
+				}
+			}
 		}finally {
 			if (dataSource != null) dataSource.close();
 		}

@@ -192,6 +192,18 @@ public abstract class Args {
 	}
 	
 	/**
+	 * return aoi for the log file name;
+	 * if using geopackage file then geopackage is returned
+	 * if aoi not specified return deafault
+	 * @return
+	 */
+	public String getLogFileName() {
+		if (this.isGeopackage()) return "geopackagefile";
+		if (this.aoi == null) return "default";
+		return this.aoi;
+	}
+	
+	/**
 	 * @return the database connection string
 	 */
 	public String getDbConnectionString() {

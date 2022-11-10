@@ -20,8 +20,11 @@ import java.nio.file.Paths;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
+import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.datasource.ChyfGeoPackageDataSource;
+import net.refractions.chyf.datasource.ProcessingState;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathGeoPackageDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.FlowpathPostGisLocalDataSource;
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource;
@@ -42,10 +45,12 @@ public class DirectionalizeRankEngine {
 	public static void main(String[] args) throws Exception {		
 		FlowpathArgs runtime = new FlowpathArgs("DirectionalizeRankEngine");
 		if (!runtime.parseArguments(args)) return;
-			
+
 		long now = System.nanoTime();
 		IFlowpathDataSource dataSource = null;
 		try{
+			MDC.put("aoi_id", runtime.getLogFileName());
+
 			if (runtime.isGeopackage()) {
 				Path input = Paths.get(runtime.getInput());
 				Path output = Paths.get(runtime.getOutput());
@@ -59,13 +64,22 @@ public class DirectionalizeRankEngine {
 			}
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
+			try {
+				logger.info("Directionalizing Dataset");
+				DirectionalizeEngine.doWork(dataSource, prop);
+				logger.info("Computing Rank");
+				RankEngine.doWork(dataSource, prop);
+				dataSource.finish();
+			}catch (Throwable ex) {
+				logger.error(ex.getMessage(), ex);
+				try {
+					dataSource.finish();
+				}catch (Throwable ex2) {
+					logger.error(ex2.getMessage(), ex2);	
+				}
+			}
 			
-			logger.info("Directionalizing Dataset");
-			DirectionalizeEngine.doWork(dataSource, prop);
-			logger.info("Computing Rank");
-			RankEngine.doWork(dataSource, prop);
 			
-			dataSource.finish();
 		}finally {
 			if (dataSource != null) dataSource.close();
 		}

@@ -683,6 +683,8 @@ public abstract class ChyfPostGisLocalDataSource implements ChyfDataSource{
 	 */
 	@Override
 	public void finish() throws IOException {
+		local.finish();
+		
 		DataStore outputDataStore = createOutputDataStore();
 		try {
 			try(DefaultTransaction tx = new DefaultTransaction()){
