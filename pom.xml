@@ -15,7 +15,7 @@
 		<!-- flowpath constructor version -->
 		<flowpath.constructor.version>1.5.6</flowpath.constructor.version>
 		<!-- catchment delineator version -->
-		<catchment.version>1.565</catchment.version>
+		<catchment.version>1.5.6</catchment.version>
 		<!-- stream order version -->
 		<streamorder.version>1.0.0</streamorder.version>
 
