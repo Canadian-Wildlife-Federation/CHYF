@@ -115,6 +115,8 @@ public class NameEngine {
 		long now = System.nanoTime();
 		IFlowpathDataSource dataSource = null;
 		try{
+			MDC.put("aoi_id", runtime.getLogFileName());
+
 			if (runtime.isGeopackage()) {
 				Path input = Paths.get(runtime.getInput());
 				Path output = Paths.get(runtime.getOutput());
@@ -129,8 +131,20 @@ public class NameEngine {
 			
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
-			NameEngine.doWork(dataSource, prop, runtime.getCores());
-			dataSource.finish();
+			
+			try {
+				logger.info("Applying Names To Skeletons");
+				NameEngine.doWork(dataSource, prop, runtime.getCores());
+				dataSource.finish();
+			}catch (Throwable ex) {
+				logger.error(ex.getMessage(), ex);
+				try {
+					dataSource.finish();
+				}catch (Throwable ex2) {
+					logger.error(ex2.getMessage(), ex2);	
+				}
+			}
+			
 		}finally {
 			if (dataSource != null) dataSource.close();
 		}

@@ -59,7 +59,8 @@ public class NameJob implements Runnable {
 	private Exception exception;
 	private HashMap<FeatureId, String[]> allnames;
 	
-	public NameJob(IFlowpathDataSource dataSource, WaterbodyIterator iterator, Map<String,String> mdccontext) {
+	public NameJob(IFlowpathDataSource dataSource, WaterbodyIterator iterator, 
+			Map<String,String> mdccontext) {
 		this.dataSource = dataSource;
 		this.iterator = iterator;
 		allnames = new HashMap<>();
