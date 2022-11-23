@@ -2,6 +2,7 @@ package net.refractions.chyf.controller;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.MessageFormat;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +27,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import net.refractions.chyf.ChyfWebApplication;
+import net.refractions.chyf.exceptions.ForbiddenException;
 import net.refractions.chyf.exceptions.InvalidParameterException;
 import net.refractions.chyf.model.DataSourceTable;
 import net.refractions.chyf.model.GraphExport;
@@ -42,6 +44,8 @@ import net.refractions.chyf.model.GraphExport;
 public class GraphExportController {
 
 	public static final String PATH = "graph";
+	
+	public static final int MAX_EDGES = 500_000;
 	
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -122,6 +126,18 @@ public class GraphExportController {
 			throw new Exception("Invalid parameters");
 		}
 		
+		//query the number of flowpath results and ensure less than limit
+		StringBuilder limit = new StringBuilder();
+		limit.append("SELECT count(*) FROM ");
+		limit.append(DataSourceTable.EFLOWPATH.tableName + " a ");
+		limit.append(" WHERE ");
+		limit.append(flowpathWhere);
+		Integer count = jdbcTemplate.queryForObject(limit.toString(), Integer.class);
+		if (count > MAX_EDGES) {
+			throw new ForbiddenException(MessageFormat.format("Maximum number of edges ({0}) reached. Please reduce your request size by shrinking the bounding box or reducing the number of aois queried", MAX_EDGES));
+		}
+
+		
 		//flowpath query
 		StringBuilder fp = new StringBuilder();
 		fp.append("SELECT a.id, a.nid, a.ef_type as ef_type_code, eftype.name as ef_type, ");
@@ -149,17 +165,18 @@ public class GraphExportController {
 		
 		//nexus query
 		StringBuilder nx = new StringBuilder();
+		nx.append("WITH edges as (");
+		nx.append("SELECT a.from_nexus_id, a.to_nexus_id FROM ");
+		nx.append(DataSourceTable.EFLOWPATH.tableName );
+		nx.append(" a WHERE ");
+		nx.append(flowpathWhere.toString());
+		nx.append(") ");
 		nx.append("SELECT a.id, a.nexus_type as nexus_type_code, nt.name as nexus_type, st_asbinary(a.geometry) as geometry ");
 		nx.append("FROM ");
 		nx.append(DataSourceTable.NEXUS.tableName + " a LEFT JOIN ");
 		nx.append(DataSourceTable.NEXUS_TYPE.tableName + "  nt ON a.nexus_type = nt.code");
-		nx.append(" AND a.id IN (");
-		nx.append(" SELECT a.from_nexus_id FROM " + DataSourceTable.EFLOWPATH.tableName + " a WHERE ");
-		nx.append(flowpathWhere.toString());
-		nx.append(" UNION ");
-		nx.append(" SELECT a.to_nexus_id FROM " + DataSourceTable.EFLOWPATH.tableName + " a WHERE ");
-		nx.append(flowpathWhere.toString());
-		nx.append(" )");
+		nx.append(" WHERE a.id IN ");
+		nx.append(" ( SELECT from_nexus_id FROM edges UNION select to_nexus_id FROM edges )");
 		
 		//catchment query
 		StringBuilder ct = new StringBuilder();

@@ -69,4 +69,13 @@ public class ExceptionMapper {
 			InvalidParameterException ipe) {
 		return new ResponseEntity<ApiError>(ipe.getError(), HttpStatus.BAD_REQUEST);
 	}
+	
+	@ExceptionHandler(ForbiddenException.class)
+	public ResponseEntity<ApiError> forbiddenException(
+			ForbiddenException ipe) {
+		return new ResponseEntity<ApiError>(ipe.getError(), HttpStatus.FORBIDDEN);
+	}
+	
+	
+	
 }
