@@ -24,6 +24,7 @@ import java.sql.Statement;
 import java.util.Collection;
 import java.util.function.BiConsumer;
 
+import org.geotools.data.DataStore;
 import org.geotools.data.FeatureReader;
 import org.geotools.data.FeatureWriter;
 import org.geotools.data.Transaction;
@@ -71,35 +72,25 @@ public class CatchmentDelineatorLocalPostgisDataSource extends ChyfPostGisLocalD
 	 * @throws IOException
 	 */
 	@Override
-	protected void cleanOutputSchema(Transaction tx, boolean includeAoi) throws IOException{
-		
-		Connection c = ((JDBCDataStore)outputDataStore).getConnection(tx);
+	protected void cleanOutputSchema(Connection c, Transaction tx, boolean includeAoi) throws IOException{
 
 		for (ILayer l : CatchmentLayer.values()) {
 			
-			SimpleFeatureType schema = null;
-			try{
-				schema = outputDataStore.getSchema(getTypeName(l));
-			}catch (Exception ex) {
+			StringBuilder sb = new StringBuilder();
+			sb.append("DELETE FROM ");
+			sb.append(outputSchema + "." + getTypeName(l));
+			sb.append(" WHERE ");
+			sb.append(getAoiFieldName(l));
+			sb.append(" = ? ");
 				
-			}
-			if (schema != null) {
-				StringBuilder sb = new StringBuilder();
-				sb.append("DELETE FROM ");
-				sb.append(outputSchema + "." + getTypeName(l));
-				sb.append(" WHERE ");
-				sb.append(getAoiFieldName(l));
-				sb.append(" = ? ");
-				
-				try(PreparedStatement ps = c.prepareStatement(sb.toString())){
-					ps.setObject(1,  aoiUuid);
-					ps.executeUpdate();
-				}catch (SQLException ex) {
-					throw new IOException(ex);
-				}
+			try(PreparedStatement ps = c.prepareStatement(sb.toString())){
+				ps.setObject(1,  aoiUuid);
+				ps.executeUpdate();
+			}catch (SQLException ex) {
+				throw new IOException(ex);
 			}
 		}
-		super.cleanOutputSchema(tx, includeAoi);
+		super.cleanOutputSchema(c, tx, includeAoi);
 		
 	}
 	
@@ -177,8 +168,9 @@ public class CatchmentDelineatorLocalPostgisDataSource extends ChyfPostGisLocalD
 	
 	
 	@Override
-	protected void initOutputSchemaInternal(Connection c, Transaction tx) throws IOException{
-		super.initOutputSchemaInternal(c, tx);
+	protected void initOutputSchemaInternal(DataStore inputDataStore, DataStore outDataStore, Transaction tx) throws IOException{
+
+		super.initOutputSchemaInternal(inputDataStore, outDataStore, tx);
 		
 		for (ILayer l : CatchmentLayer.values() ) {
 			SimpleFeatureType stype = null;
@@ -190,7 +182,7 @@ public class CatchmentDelineatorLocalPostgisDataSource extends ChyfPostGisLocalD
 			//workingDataStore.createSchema(ft) doesn't support UUID data types in postgis
 			//so instead of adding the aoi to the feature type builder I'm adding it as
 			//an alter table statement 
-			outputDataStore.createSchema(stype);
+			outDataStore.createSchema(stype);
 			
 			StringBuilder sb = new StringBuilder();
 			sb.append("ALTER TABLE ");
@@ -199,18 +191,22 @@ public class CatchmentDelineatorLocalPostgisDataSource extends ChyfPostGisLocalD
 			sb.append(getAoiFieldName(null));
 			sb.append(" uuid NOT NULL ");
 			
-			try(Statement s = c.createStatement()){
-				s.execute(sb.toString());
-			}catch(SQLException ex) {
-				throw new IOException (ex);
+		    try {
+				Connection c = ((JDBCDataStore)outDataStore).getConnection(tx);
+				try(Statement s = c.createStatement()){
+					s.execute(sb.toString());
+				}
+			} catch (SQLException e) {
+				throw new IOException(e);
 			}
+			
 		}
 	}
 	
 	
 	@Override
-	protected void uploadResultsInternal(Transaction tx)  throws IOException {
-		super.uploadResultsInternal(tx);
+	protected void uploadResultsInternal(DataStore outputDataStore, Transaction tx)  throws IOException {
+		super.uploadResultsInternal(outputDataStore, tx);
 		
 		//catchment layers
 		for (ILayer l : CatchmentLayer.values() ) {

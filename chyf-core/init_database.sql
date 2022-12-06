@@ -9,6 +9,9 @@ create table raw.aoi(
  name varchar unique,
  geometry geometry(POLYGON, 4326) NOT NULL,
  status varchar not null default 'READY' check (status in ('READY', 'FP_PROCESSING', 'FP_ERROR', 'FP_DONE', 'WS_PROCESSING','WS_DONE','WS_ERROR')),
+ processing_start_datetime timestamp,
+ processing_end_datetime timestamp,
+ processing_parameters varchar,
  primary key (id)
 );
 

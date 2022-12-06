@@ -46,6 +46,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.ChyfLogger;
+import net.refractions.chyf.ChyfLogger.Process;
 import net.refractions.chyf.ExceptionWithLocation;
 import net.refractions.chyf.datasource.ChyfAttribute;
 import net.refractions.chyf.datasource.ChyfDataSource;
@@ -114,120 +115,128 @@ public class PointEngine {
 	}
 
 	public void doWork(IFlowpathDataSource dataSource) throws Exception{
-		this.dataSource = dataSource;
-		if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
-		
-		dataSource.populateNameIdTable();
-		
-		int cnt = 1;
-		
-		List<Polygon> ptouch = new ArrayList<>();
-		List<LineString> fpTouches = new ArrayList<>();
-		
-		PointGenerator generator = new PointGenerator(getBoundary(),  properties);
-		
-		Name idAttribute = ChyfDataSource.findAttribute(dataSource.getFeatureType(Layer.ECATCHMENTS), ChyfAttribute.INTERNAL_ID);
-		
-		WaterbodyIterator iterator = new WaterbodyIterator(dataSource);
-		SimpleFeature toProcess = null;
-		while((toProcess = iterator.getNextWaterbody()) != null) {
-
-			logger.info("POINT GENERATOR: " + cnt);
-			cnt++;
+		try {
+			this.dataSource = dataSource;
+			if (properties == null) properties = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
 			
-			fpTouches.clear();
-			ptouch.clear();
+			dataSource.populateNameIdTable();
+			
+			int cnt = 1;
+			
+			List<Polygon> ptouch = new ArrayList<>();
+			List<LineString> fpTouches = new ArrayList<>();
+			
+			PointGenerator generator = new PointGenerator(getBoundary(),  properties);
+			
+			Name idAttribute = ChyfDataSource.findAttribute(dataSource.getFeatureType(Layer.ECATCHMENTS), ChyfAttribute.INTERNAL_ID);
+			
+			WaterbodyIterator iterator = new WaterbodyIterator(dataSource);
+			SimpleFeature toProcess = null;
+			while((toProcess = iterator.getNextWaterbody()) != null) {
+	
+				logger.info("POINT GENERATOR: " + cnt);
+				cnt++;
 				
-			Polygon workingPolygon = ChyfDataSource.getPolygon(toProcess);
-			if (!workingPolygon.isValid()) throw new Exception("Polygon not a valid geometry.  Centroid: " + workingPolygon.getCentroid().toText());
-			
-			workingPolygon.setUserData(new PolygonInfo(toProcess.getIdentifier(), toProcess.getAttribute(idAttribute)));
-			
-			//get overlapping polygons
-			ReferencedEnvelope env = new ReferencedEnvelope(workingPolygon.getEnvelopeInternal(), toProcess.getType().getCoordinateReferenceSystem());
-			try(FeatureReader<SimpleFeatureType, SimpleFeature> wbtouches = dataSource.query(Layer.ECATCHMENTS, env, dataSource.getWbTypeFilter())){
-				while(wbtouches.hasNext()) {
-					SimpleFeature t = wbtouches.next();
+				fpTouches.clear();
+				ptouch.clear();
 					
-					if (t.getIdentifier().equals(toProcess.getIdentifier())) continue;
-					Polygon temp = ChyfDataSource.getPolygon(t);
-					
-					if (workingPolygon.intersects(temp)) {
-						ptouch.add(temp);
-						temp.setUserData(new PolygonInfo(t.getIdentifier(), t.getAttribute(idAttribute)));
+				Polygon workingPolygon = ChyfDataSource.getPolygon(toProcess);
+				if (!workingPolygon.isValid()) throw new Exception("Polygon not a valid geometry.  Centroid: " + workingPolygon.getCentroid().toText());
+				
+				workingPolygon.setUserData(new PolygonInfo(toProcess.getIdentifier(), toProcess.getAttribute(idAttribute)));
+				
+				//get overlapping polygons
+				ReferencedEnvelope env = new ReferencedEnvelope(workingPolygon.getEnvelopeInternal(), toProcess.getType().getCoordinateReferenceSystem());
+				try(FeatureReader<SimpleFeatureType, SimpleFeature> wbtouches = dataSource.query(Layer.ECATCHMENTS, env, dataSource.getWbTypeFilter())){
+					while(wbtouches.hasNext()) {
+						SimpleFeature t = wbtouches.next();
+						
+						if (t.getIdentifier().equals(toProcess.getIdentifier())) continue;
+						Polygon temp = ChyfDataSource.getPolygon(t);
+						
+						if (workingPolygon.intersects(temp)) {
+							ptouch.add(temp);
+							temp.setUserData(new PolygonInfo(t.getIdentifier(), t.getAttribute(idAttribute)));
+						}
 					}
 				}
-			}
-			//get overlapping flowpaths							
-			HashMap<Coordinate, List<String[]>> skeletonnameids = new HashMap<>();
-			
-			
-			try(FeatureReader<SimpleFeatureType, SimpleFeature> flowtouches = dataSource.query(Layer.EFLOWPATHS, env)){
-				Name eftypeatt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), ChyfAttribute.EFTYPE);
-				Name diratt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), ChyfAttribute.DIRECTION);
+				//get overlapping flowpaths							
+				HashMap<Coordinate, List<String[]>> skeletonnameids = new HashMap<>();
 				
-				Map<ChyfAttribute, Name> nameAttributes = dataSource.findRiverNameAttributes(flowtouches.getFeatureType());
 				
-				while(flowtouches.hasNext()) {
-					SimpleFeature t = flowtouches.next();
+				try(FeatureReader<SimpleFeatureType, SimpleFeature> flowtouches = dataSource.query(Layer.EFLOWPATHS, env)){
+					Name eftypeatt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), ChyfAttribute.EFTYPE);
+					Name diratt = ChyfDataSource.findAttribute(flowtouches.getFeatureType(), ChyfAttribute.DIRECTION);
 					
-					EfType type = EfType.parseValue( ((Number)t.getAttribute(eftypeatt)).intValue() );
-					if (type == EfType.BANK) continue; //skip banks
-					if (type == EfType.SKELETON) {
-						//find any names and add these to a named point layers
-						String[] nameids = dataSource.getRiverNameIds(nameAttributes, t);
-						if (nameids != null ) {
-							LineString temp = ChyfDataSource.getLineString(t);
-							if (temp.relate(workingPolygon, "****0****")) {
-								List<Geometry> boundaryIntersections = new ArrayList<>();
-								boundaryIntersections.add(workingPolygon.getExteriorRing().intersection(temp));
-								for (int i = 0; i < workingPolygon.getNumInteriorRing(); i ++) {
-									boundaryIntersections.add(workingPolygon.getInteriorRingN(i).intersection(temp));	
-								}
-								for (Geometry g : boundaryIntersections) {
-									for (int i = 0 ; i < g.getNumGeometries(); i ++) {
-										Geometry gn = g.getGeometryN(i);
-										if (gn.isEmpty()) continue;
-										if (gn instanceof Point) {
-											Coordinate ct = ((Point)gn).getCoordinate();
-											List<String[]> namelist = skeletonnameids.get(ct);
-											
-											if (namelist == null) {
-												namelist = new ArrayList<>();
-												skeletonnameids.put(ct, namelist);
+					Map<ChyfAttribute, Name> nameAttributes = dataSource.findRiverNameAttributes(flowtouches.getFeatureType());
+					
+					while(flowtouches.hasNext()) {
+						SimpleFeature t = flowtouches.next();
+						
+						EfType type = EfType.parseValue( ((Number)t.getAttribute(eftypeatt)).intValue() );
+						if (type == EfType.BANK) continue; //skip banks
+						if (type == EfType.SKELETON) {
+							//find any names and add these to a named point layers
+							String[] nameids = dataSource.getRiverNameIds(nameAttributes, t);
+							if (nameids != null ) {
+								LineString temp = ChyfDataSource.getLineString(t);
+								if (temp.relate(workingPolygon, "****0****")) {
+									List<Geometry> boundaryIntersections = new ArrayList<>();
+									boundaryIntersections.add(workingPolygon.getExteriorRing().intersection(temp));
+									for (int i = 0; i < workingPolygon.getNumInteriorRing(); i ++) {
+										boundaryIntersections.add(workingPolygon.getInteriorRingN(i).intersection(temp));	
+									}
+									for (Geometry g : boundaryIntersections) {
+										for (int i = 0 ; i < g.getNumGeometries(); i ++) {
+											Geometry gn = g.getGeometryN(i);
+											if (gn.isEmpty()) continue;
+											if (gn instanceof Point) {
+												Coordinate ct = ((Point)gn).getCoordinate();
+												List<String[]> namelist = skeletonnameids.get(ct);
+												
+												if (namelist == null) {
+													namelist = new ArrayList<>();
+													skeletonnameids.put(ct, namelist);
+												}
+												namelist.add(nameids);
+											}else {
+												throw new Exception("Invalid data at: " +gn.toText());
 											}
-											namelist.add(nameids);
-										}else {
-											throw new Exception("Invalid data at: " +gn.toText());
 										}
 									}
+									
+									
 								}
-								
-								
 							}
-						}
-						continue;
-					}else {
-						LineString temp = ChyfDataSource.getLineString(t);
-						if (workingPolygon.relate(temp, "FF*F0****")) {
-							DirectionType dtype = DirectionType.parseValue( ((Number)t.getAttribute(diratt)).intValue());
-							String[] nameids = dataSource.getRiverNameIds(nameAttributes, t);
-							temp.setUserData(new Object[] {dtype, nameids});						
-							fpTouches.add(temp);
+							continue;
+						}else {
+							LineString temp = ChyfDataSource.getLineString(t);
+							if (workingPolygon.relate(temp, "FF*F0****")) {
+								DirectionType dtype = DirectionType.parseValue( ((Number)t.getAttribute(diratt)).intValue());
+								String[] nameids = dataSource.getRiverNameIds(nameAttributes, t);
+								temp.setUserData(new Object[] {dtype, nameids});						
+								fpTouches.add(temp);
+							}
 						}
 					}
 				}
+	
+				//generate points
+				generator.processPolygon(workingPolygon, ptouch, fpTouches, skeletonnameids);
+	
+				//update polygons as required
+				dataSource.updateWaterbodyGeometries(generator.getUpdatedPolygons());
 			}
-
-			//generate points
-			generator.processPolygon(workingPolygon, ptouch, fpTouches, skeletonnameids);
-
-			//update polygons as required
-			dataSource.updateWaterbodyGeometries(generator.getUpdatedPolygons());
+						
+			//write point layers
+			dataSource.createConstructionsPoints(generator.getPoints());
+		}catch (ExceptionWithLocation ex) {
+			ChyfLogger.INSTANCE.logException(Process.CONSTRUCTION_POINT, ex);
+			throw ex;
+		}catch (Exception ex) {
+			ChyfLogger.INSTANCE.logException(Process.CONSTRUCTION_POINT, ex);
+			throw ex;
 		}
-					
-		//write point layers
-		dataSource.createConstructionsPoints(generator.getPoints());
 	}
 	
 

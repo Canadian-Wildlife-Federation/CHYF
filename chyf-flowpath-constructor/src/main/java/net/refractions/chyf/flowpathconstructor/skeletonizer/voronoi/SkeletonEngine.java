@@ -26,6 +26,7 @@ import java.util.concurrent.Executors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.ExceptionWithLocation;
@@ -74,9 +75,10 @@ public class SkeletonEngine {
 		WaterbodyIterator iterator = new WaterbodyIterator(dataSource);
 		
 		for (int i = 0; i < cores; i ++) {
-			SkeletonJob j1 = new SkeletonJob(dataSource, iterator, generator);
+			SkeletonJob j1 = new SkeletonJob(dataSource, iterator, generator, MDC.getCopyOfContextMap());
 			tasks.add(j1);
 		}
+		
 		CompletableFuture<?>[] futures = tasks.stream()
 		                               .map(task -> CompletableFuture.runAsync(task, service))
 		                               .toArray(CompletableFuture[]::new);

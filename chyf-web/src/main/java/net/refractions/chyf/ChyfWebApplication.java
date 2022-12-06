@@ -31,9 +31,15 @@ public class ChyfWebApplication extends SpringBootServletInitializer {
 	 * Maximum number of features to return from search results
 	 */
 	public static final int MAX_RESULTS = 5000;
-	
+
 	public static final MediaType GEOJSON_MEDIA_TYPE = new MediaType("application", "geo+json",Charset.forName("UTF-8"));
 
+	public static final String GEOPKG_MEDIA_TYPE_STR = "application/geopackage+sqlite3";
+	public static final MediaType GEOPKG_MEDIA_TYPE = new MediaType("application", "geopackage+sqlite3", Charset.forName("UTF-8"));
+	
+	public static final String DOWNLOAD_DATETIME_KEY = "download_datetime";
+	public static final String DATA_LICENSE_KEY = "data_licence";
+	
 	public static void main(String[] args) {
 		SpringApplication.run(ChyfWebApplication.class, args);
 	}

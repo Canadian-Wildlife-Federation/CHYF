@@ -67,6 +67,8 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	protected GeoPackage geopkg;
 	protected CoordinateReferenceSystem crs;
 	
+	protected List<LogItem> logitems = new ArrayList<>();
+	
 	
 	/**
 	 * Deletes any existing output files and copies the input
@@ -83,6 +85,28 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 		ChyfLogger.INSTANCE.setDataSource(this);
 		this.geopackageFile = geopackageFile;
 		read();
+	}
+	
+	@Override
+	public void finish() throws IOException{
+		try(Transaction tx = new DefaultTransaction()) {	
+			try(SimpleFeatureWriter fw = geopkg.writer(getEntry(Layer.ERRORS), true, Filter.EXCLUDE, tx)){
+				for (LogItem it : logitems) {
+					SimpleFeature fs = fw.next();
+					fs.setAttribute("type", it.type);
+					fs.setAttribute("message", it.message);
+					fs.setAttribute("process", it.process);
+					fs.setDefaultGeometry(it.location);
+					fw.write();
+				}
+				tx.commit();
+				logitems.clear();
+			}catch(IOException ex) {
+				tx.rollback();
+				throw ex;
+			}
+		}		
+		//super.finish();
 	}
 	
 	/**
@@ -165,22 +189,7 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 	}
 	
 	private synchronized void logInternal(String type, Geometry location, String message, String process) throws IOException {
-		
-		try(Transaction tx = new DefaultTransaction()) {	
-			try(SimpleFeatureWriter fw = geopkg.writer(getEntry(Layer.ERRORS), true, Filter.EXCLUDE, tx)){
-
-				SimpleFeature fs = fw.next();
-				fs.setAttribute("type", type);
-				fs.setAttribute("message", message);
-				fs.setAttribute("process", process);
-				fs.setDefaultGeometry(location);
-				fw.write();
-				tx.commit();
-			} catch(Exception ioe) {
-				tx.rollback();
-				throw ioe;
-			}
-		}
+		logitems.add(new LogItem(type, location, message, process));
 	}
 	
 	/**
@@ -415,5 +424,20 @@ public class ChyfGeoPackageDataSource implements ChyfDataSource{
 			if (Files.exists(p)) Files.delete(p);
 		}
 	}
-
+	
+	class LogItem{
+		
+		String type;
+		Geometry location;
+		String message;
+		String process;
+		
+		public LogItem(String type,	Geometry location,	String message,	String process) {
+			this.type = type;
+			this.location = location;
+			this.message = message;
+			this.process = process;
+		}
+	
+	}
 }

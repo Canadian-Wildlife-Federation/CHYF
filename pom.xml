@@ -9,13 +9,13 @@
 
 	<properties>
 		<!-- processing tools version (combines flowpath and catchments) -->
-		<chyf.processingtools.version>1.5.1</chyf.processingtools.version>
+		<chyf.processingtools.version>1.5.7</chyf.processingtools.version>
 		<!-- core library version -->
-		<chyf.core.version>1.5.0</chyf.core.version>
+		<chyf.core.version>1.5.7</chyf.core.version>
 		<!-- flowpath constructor version -->
-		<flowpath.constructor.version>1.5.1</flowpath.constructor.version>
+		<flowpath.constructor.version>1.5.7</flowpath.constructor.version>
 		<!-- catchment delineator version -->
-		<catchment.version>1.5.0</catchment.version>
+		<catchment.version>1.5.7</catchment.version>
 		<!-- stream order version -->
 		<streamorder.version>1.0.0</streamorder.version>
 
@@ -28,6 +28,14 @@
 		<timestamp>${maven.build.timestamp}</timestamp>
 		<maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
 	</properties>
+
+	<repositories>
+		<repository>
+			<id>osgeo</id>
+			<name>Open Source Geospatial Foundation Repository</name>
+			<url>https://repo.osgeo.org/repository/release/</url>
+		</repository>
+	</repositories>
 
 	<profiles>
 		<profile>
@@ -156,12 +164,5 @@
 
 	</dependencies>
 
-	<repositories>
-		<repository>
-			<id>osgeo</id>
-			<name>OSGeo Release Repository</name>
-			<url>https://repo.osgeo.org/repository/release/</url>
-		</repository>
-	</repositories>
 
 </project>

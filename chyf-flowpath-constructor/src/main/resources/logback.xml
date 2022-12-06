@@ -7,19 +7,33 @@
 
 	<timestamp key="startTimestamp" datePattern="yyyyMMdd-HHmmss"/>
 
-	<appender name="ERRORFILE" class="ch.qos.logback.core.FileAppender">
+	<appender name="ERRORFILE" class="ch.qos.logback.classic.sift.SiftingAppender">
+		<discriminator class="ch.qos.logback.classic.sift.MDCBasedDiscriminator">
+			<key>aoi_id</key>
+			<defaultValue>default</defaultValue>
+		</discriminator>
+		
+		<sift>
+			<appender name="SIFTING-${aoi_id}" class="ch.qos.logback.core.FileAppender">
+				<file>flowpathgenerator-${startTimestamp}-${aoi_id}.log</file>
+				<encoder>
+    	  			<pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    			</encoder>
+    		</appender>
+    	</sift>
+  	</appender>
+
+<!-- 
+	<appender name="ERRORFILE2" class="ch.qos.logback.core.FileAppender">
 		<file>flowpathgenerator-${startTimestamp}.log</file>
-		<filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-         	<level>WARN</level>
-      	</filter>
     	<encoder>
     	  	<pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
     	</encoder>
   	</appender>
-
+  	 -->
   <root level="info">
     <appender-ref ref="STDOUT" />
-    <appender-ref ref="ERRORFILE" />
+    <appender-ref ref="ERRORFILE" />    
   </root>
   
 </configuration>

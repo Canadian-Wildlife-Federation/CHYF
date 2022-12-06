@@ -17,11 +17,13 @@ package net.refractions.chyf.flowpathconstructor.skeletonizer.voronoi;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.locationtech.jts.geom.Polygon;
 import org.opengis.feature.simple.SimpleFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import net.refractions.chyf.ExceptionWithLocation;
 import net.refractions.chyf.datasource.ChyfAttribute;
@@ -44,14 +46,16 @@ public class SkeletonJob implements Runnable{
 	private SkeletonGenerator generator;
 	private WaterbodyIterator iterator;
 	
-	
+	private Map<String,String> mdccontext;
 	private List<ExceptionWithLocation> exerrors;
 	private List<SkeletonResult.Error> skelerrors;
 	
-	public SkeletonJob(IFlowpathDataSource dataSource, WaterbodyIterator iterator, SkeletonGenerator generator) {
+	public SkeletonJob(IFlowpathDataSource dataSource, WaterbodyIterator iterator, 
+			SkeletonGenerator generator, Map<String,String> mdccontext) {
 		this.dataSource = dataSource;
 		this.generator = generator;
 		this.iterator = iterator;
+		this.mdccontext = mdccontext;
 	}
 	
 	public List<ExceptionWithLocation> getExceptions() {
@@ -63,6 +67,7 @@ public class SkeletonJob implements Runnable{
 	
 	@Override
 	public void run() {
+		MDC.setContextMap(mdccontext);
 		exerrors = new ArrayList<>();
 		skelerrors = new ArrayList<>();
 		

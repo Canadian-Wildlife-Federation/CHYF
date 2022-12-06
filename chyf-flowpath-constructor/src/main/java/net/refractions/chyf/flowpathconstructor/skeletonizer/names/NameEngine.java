@@ -27,6 +27,7 @@ import java.util.concurrent.Executors;
 import org.opengis.filter.identity.FeatureId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import net.refractions.chyf.ChyfLogger;
 import net.refractions.chyf.ExceptionWithLocation;
@@ -51,26 +52,30 @@ public class NameEngine {
 
 	public static void doWork(Path output, ChyfProperties properties, int cores) throws Exception {
 		try(FlowpathGeoPackageDataSource dataSource = new FlowpathGeoPackageDataSource(output)){
-			try {
-				doWork(dataSource, properties, cores);
-			}catch (ExceptionWithLocation ex) {
-				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.NAMING, ex);
-				throw ex;
-			}catch (Exception ex) {
-				ChyfLogger.INSTANCE.logException(ChyfLogger.Process.NAMING, ex);
-				throw ex;
-			}
+			doWork(dataSource, properties, cores);
 		}
-	}	
+	}
 	
 	public static void doWork(IFlowpathDataSource dataSource, ChyfProperties properties, int cores) throws Exception {
+		try {
+			doWorkInternal(dataSource, properties, cores);
+		}catch (ExceptionWithLocation ex) {
+			ChyfLogger.INSTANCE.logException(ChyfLogger.Process.NAMING, ex);
+			throw ex;
+		}catch (Exception ex) {
+			ChyfLogger.INSTANCE.logException(ChyfLogger.Process.NAMING, ex);
+			throw ex;
+		}
+	}
+	
+	private static void doWorkInternal(IFlowpathDataSource dataSource, ChyfProperties properties, int cores) throws Exception {
 		
 		ExecutorService service = Executors.newFixedThreadPool(4);
 		List<NameJob> tasks = new ArrayList<>();
 		WaterbodyIterator iterator = new WaterbodyIterator(dataSource);
 		
 		for (int i = 0; i < cores; i ++) {
-			NameJob job = new NameJob(dataSource, iterator);
+			NameJob job = new NameJob(dataSource, iterator, MDC.getCopyOfContextMap());
 			tasks.add(job);
 		}
 		CompletableFuture<?>[] futures = tasks.stream()
@@ -110,6 +115,8 @@ public class NameEngine {
 		long now = System.nanoTime();
 		IFlowpathDataSource dataSource = null;
 		try{
+			MDC.put("aoi_id", runtime.getLogFileName());
+
 			if (runtime.isGeopackage()) {
 				Path input = Paths.get(runtime.getInput());
 				Path output = Paths.get(runtime.getOutput());
@@ -124,8 +131,20 @@ public class NameEngine {
 			
 			ChyfProperties prop = runtime.getPropertiesFile();
 			if (prop == null) prop = ChyfProperties.getProperties(dataSource.getCoordinateReferenceSystem());
-			NameEngine.doWork(dataSource, prop, runtime.getCores());
-			dataSource.finish();
+			
+			try {
+				logger.info("Applying Names To Skeletons");
+				NameEngine.doWork(dataSource, prop, runtime.getCores());
+				dataSource.finish();
+			}catch (Throwable ex) {
+				logger.error(ex.getMessage(), ex);
+				try {
+					dataSource.finish();
+				}catch (Throwable ex2) {
+					logger.error(ex2.getMessage(), ex2);	
+				}
+			}
+			
 		}finally {
 			if (dataSource != null) dataSource.close();
 		}
