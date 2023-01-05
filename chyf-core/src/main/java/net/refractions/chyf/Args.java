@@ -52,6 +52,7 @@ public abstract class Args {
 		options.addOption("g", false, "use geopackage data source");
 		options.addOption("d", true, "use postgis data source");
 		options.addOption("a", true, "if postgis is using this specifies the aoi to process; if not specified the next unprocessed aoi will be processed until no more to process");
+		options.addOption("a1", false, "if postgis is using this specifies this will process the next aoi in the table then exit (only one of a or a1 can be specified)");
 	}
 	
 	protected String inData = null;
@@ -64,6 +65,7 @@ public abstract class Args {
 	
 	protected String dbstring = "";
 	protected String aoi = "";
+	protected boolean singleAoi = false;
 	
 	/**
 	 * Parses the command line arguments.  Returns true
@@ -117,7 +119,11 @@ public abstract class Args {
 		if (cmd.hasOption("a")) {
 			aoi = cmd.getOptionValue("a").trim();
 			if (aoi.isBlank()) aoi = null;
-			
+		}
+		
+		this.singleAoi = false;
+		if (cmd.hasOption("a1")) {
+			this.singleAoi = true;
 		}
 	}
 	
@@ -149,6 +155,11 @@ public abstract class Args {
 			}
 			if (!hostfound || !dbfound || !userfound) {
 				System.err.println("Database connection string invalid. Must be of the form host=HOST;port=PORT;db=NAME;user=USERNAME;password=PASSWORD");
+				return false;
+			}
+			
+			if (this.singleAoi && this.hasAoi()) {
+				System.err.println("Only one of -a or -a1 can be provided.");
 				return false;
 			}
 		}
@@ -241,6 +252,14 @@ public abstract class Args {
 	 * @throws Exception
 	 */
 	public abstract IChyfProperties getPropertiesFile() throws Exception;
+	
+	/**
+	 * 
+	 * @return true if tools should next the next aoi and stop
+	 */
+	public boolean runOneAoi() {
+		return this.singleAoi;
+	}
 	
 	public boolean hasAoi() {
 		if (getAoi() == null || getAoi().isEmpty()) {

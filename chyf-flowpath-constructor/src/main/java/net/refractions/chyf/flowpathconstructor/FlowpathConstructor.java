@@ -65,8 +65,10 @@ public class FlowpathConstructor {
 					dataSource = new FlowpathPostGisLocalDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
 					((FlowpathPostGisLocalDataSource)dataSource).setAoi(runtime.getAoi());	
 					runDatasource(dataSource, runtime);
+				}else if (runtime.runOneAoi()) {
+					runAois(runtime, false);
 				}else {
-					runAllAois(runtime);
+					runAois(runtime, true);
 				}
 			}		
 			
@@ -109,7 +111,13 @@ public class FlowpathConstructor {
 		}
 	}
 	
-	private static void runAllAois(FlowpathArgs runtime) throws Exception {
+	/**
+	 * 
+	 * @param runtime
+	 * @param all if true all aois are run; if false one aoi is run then the app is stopped
+	 * @throws Exception
+	 */
+	private static void runAois(FlowpathArgs runtime, boolean all) throws Exception {
 		FlowpathPostGisLocalDataSource dataSource = new FlowpathPostGisLocalDataSource(runtime.getDbConnectionString(), runtime.getInput(), runtime.getOutput());
 		try {
 			ChyfProperties prop = runtime.getPropertiesFile();
@@ -151,6 +159,7 @@ public class FlowpathConstructor {
 					dataSource.setState(ProcessingState.FP_ERROR);
 				}
 				logger.info("Finished Processing AOI: " + aoi);
+				if (!all) break;
 			}
 		}finally {
 			if (dataSource != null) dataSource.close();

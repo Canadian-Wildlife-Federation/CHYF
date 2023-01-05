@@ -132,7 +132,9 @@ public class TreeDirection {
 		tovisit.add(sink);
 		while(!tovisit.isEmpty()) {
 			DNode current = tovisit.remove(0);
-	
+			if(current == null) {
+				System.out.println("ERROR: " + sink.toString());
+			}
 			for (DEdge e : current.getEdges()) {
 				if (e.visited) continue;
 				if (e.getDType() == DirectionType.KNOWN) {
