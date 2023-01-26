@@ -9,11 +9,11 @@
 
 	<properties>
 		<!-- processing tools version (combines flowpath and catchments) -->
-		<chyf.processingtools.version>1.5.8</chyf.processingtools.version>
+		<chyf.processingtools.version>1.5.9</chyf.processingtools.version>
 		<!-- core library version -->
-		<chyf.core.version>1.5.8</chyf.core.version>
+		<chyf.core.version>1.5.9</chyf.core.version>
 		<!-- flowpath constructor version -->
-		<flowpath.constructor.version>1.5.8</flowpath.constructor.version>
+		<flowpath.constructor.version>1.5.9</flowpath.constructor.version>
 		<!-- catchment delineator version -->
 		<catchment.version>1.5.7</catchment.version>
 		<!-- stream order version -->

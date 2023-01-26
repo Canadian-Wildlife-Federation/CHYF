@@ -118,9 +118,16 @@ public class PointGenerator {
 				}
 			}
 		}
-				
+		
+		//this has boundary point was added for the case of a waterbody
+		//that didn't have any stream input or outputs but did intersect the 
+		//aoi boundary at a line. If we didn't do this check the waterbody gets 
+		//treated as an isolated wb and points are not correctly generated along the boundary
+		//edge
+		boolean hasBoundaryPoint = false;
+		
 		//boundary points
-		//make points out of all boundary points
+		//make points out of all boundary points		
 		for (BoundaryEdge be: boundaries) {
 			if (be.getLineString() == null) {
 				if (be.getInOut().getEnvelopeInternal().intersects(waterbodya.getEnvelopeInternal()) &&
@@ -131,10 +138,15 @@ public class PointGenerator {
 					
 					addPoint(wbpoints, cp);
 				}
+			}else {
+				if (be.getLineString().getEnvelopeInternal().intersects(workingWaterbody.getEnvelopeInternal()) &&
+						be.getLineString().intersects(workingWaterbody) && be.getInOut().intersects(workingWaterbody)) {
+					hasBoundaryPoint = true;
+				}	
 			}
 		}
 		
-		if (flowpaths.isEmpty() && touches.isEmpty()) {
+		if (flowpaths.isEmpty() && touches.isEmpty() && !hasBoundaryPoint) {
 			for (ConstructionPoint cp : processIsolated(workingWaterbody) ) {
 				addPoint(wbpoints,cp);
 			}

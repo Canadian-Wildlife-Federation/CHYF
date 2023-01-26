@@ -28,6 +28,7 @@ import org.junit.Test;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.io.WKTReader;
@@ -36,6 +37,8 @@ import net.refractions.chyf.datasource.DirectionType;
 import net.refractions.chyf.datasource.FlowDirection;
 import net.refractions.chyf.flowpathconstructor.ChyfProperties.Property;
 import net.refractions.chyf.flowpathconstructor.datasource.IFlowpathDataSource.NodeType;
+import net.refractions.chyf.flowpathconstructor.datasource.TerminalNode;
+import net.refractions.chyf.flowpathconstructor.skeletonizer.points.BoundaryEdge;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.ConstructionPoint;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.PointGenerator;
 import net.refractions.chyf.flowpathconstructor.skeletonizer.points.PolygonInfo;
@@ -55,6 +58,58 @@ public class PointGeneratorTest {
 		prop.setProperty(Property.PNT_VERTEX_DISTANCE, 0.0001);
 		return new PointGenerator(Collections.emptyList(), prop);
 	}
+	
+	@Test
+	public void testIsolatedWaterbodyWithAoiIntersection() throws Exception{
+		String waterbody = "POLYGON((-134.20654679999998 68.303493,-134.2074862 68.30316189999999,-134.2084256 68.3028308,-134.2091222 68.302716,";
+		waterbody += "-134.2098188 68.3026012,-134.21043709999998 68.3026369,-134.2110554 68.3026726,-134.21217249999998 68.30280929999999,";
+		waterbody += "-134.21317779999998 68.3031109,-134.21367375 68.30335395,-134.21416969999999 68.303597,-134.21462279999997 68.30377775,";
+		waterbody += "-134.2150759 68.3039585,-134.2153531 68.30405535,-134.2156303 68.30415219999999,-134.21580409999999 68.30416319999999,";
+		waterbody += "-134.21591429999998 68.3041569,-134.2160448 68.30414529999999,-134.2161753 68.3041337,-134.2157288 68.3044429,-134.2152255 68.3046428,";
+		waterbody += "-134.2150433 68.3046114,-134.2149246 68.3045973,-134.2148288 68.3046111,-134.2145449 68.30467425,-134.214261 68.3047374,-134.2136932 68.3048637,";
+		waterbody += "-134.213151825 68.304918025,-134.21261045 68.30497235,-134.21152769999998 68.305081,-134.21044494999998 68.30518964999999,-134.2093622 68.30529829999999,";
+		waterbody += "-134.20854 68.30521999999999,-134.2077127 68.3050751,-134.2070177 68.3050312,-134.206727 68.3051187,-134.20655159999998 68.3052665,";
+		waterbody += "-134.2068763 68.3055318,-134.2075214 68.3059165,-134.20733669999998 68.3061232,-134.2070842 68.3064381,-134.2068333 68.3065943,";
+		waterbody += "-134.2065172 68.3066206,-134.20623659999998 68.30656979999999,-134.20609579999999 68.3064485,-134.2055991 68.3062848,-134.2048294 68.30617,";
+		waterbody += "-134.20414789999998 68.30594169999999,-134.2038351 68.3056507,-134.2033349 68.30553309999999,-134.2029535 68.3054296,-134.2026941 68.3052941,";
+		waterbody += "-134.20316235 68.3049962,-134.2036306 68.3046983,-134.20428535 68.3044419,-134.2049401 68.3041855,-134.20574345 68.30383925000001,-134.20654679999998 68.303493))";
+		Polygon polygon = (Polygon)reader.read(waterbody);
+		polygon.setUserData(new PolygonInfo(null, "1"));
+		
+		TerminalNode tn = new TerminalNode( (Point)reader.read("POINT (-134.2157288 68.3044429)"), FlowDirection.OUTPUT);
+		LineString bs = (LineString) reader.read("LINESTRING (-134.2161753 68.3041337, -134.2157288 68.3044429, -134.2152255 68.3046428)");
+		BoundaryEdge be = new BoundaryEdge(bs, tn);
+		
+		ChyfProperties prop = new ChyfProperties();
+		prop.setProperty(Property.PNT_VERTEX_DISTANCE, 0.0001);
+		PointGenerator gen = new PointGenerator(Collections.singletonList(be), prop);
+		
+		gen.processPolygon(polygon, Collections.emptyList(), Collections.emptyList(), Collections.emptyMap());
+		List<ConstructionPoint> pnts = gen.getPoints();
+		
+		//there should be three 
+		Assert.assertEquals("invalid number of nodes", 3, pnts.size());
+		
+		//the terminal node must be one
+		boolean foundtn = false;
+		boolean foundhead = false;
+		boolean foundbank = false;
+		for (ConstructionPoint pnt : pnts) {
+			if (pnt.getCoordinate().equals2D(tn.getPoint().getCoordinate())) {
+				if (pnt.getDirection() != FlowDirection.OUTPUT) Assert.fail("Construction point flow direction is wrong");
+				if (pnt.getType() != NodeType.WATER) Assert.fail("Construction point node type is wrong");
+				foundtn = true;
+			}
+			if (pnt.getDirection() == FlowDirection.INPUT && pnt.getType() == NodeType.BANK) foundbank = true;
+			if (pnt.getDirection() == FlowDirection.INPUT && pnt.getType() == NodeType.HEADWATER) foundhead = true;
+			
+		}
+		
+		if (!foundtn) Assert.fail("Construction point at terminal node not found");
+		if (!foundhead) Assert.fail("Headwater construction point not found");
+		if (!foundbank) Assert.fail("Bank construction point not found");
+	}
+	
 	
 	@Test
 	public void testIsolatedSelfIntersecting() throws Exception{
