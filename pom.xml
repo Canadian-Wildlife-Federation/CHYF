@@ -17,7 +17,7 @@
 		<!-- catchment delineator version -->
 		<catchment.version>1.5.7</catchment.version>
 		<!-- stream order version -->
-		<streamorder.version>1.0.0</streamorder.version>
+		<streamorder.version>1.1.0</streamorder.version>
 
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<geotools.version>25.1</geotools.version>

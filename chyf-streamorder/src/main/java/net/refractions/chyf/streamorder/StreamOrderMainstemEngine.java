@@ -74,7 +74,9 @@ public class StreamOrderMainstemEngine {
 			source.loadGraph(graph, group);
 			computeOrder(graph);
 			source.saveData(graph);
-
+		}catch (Exception ex) {
+			logger.error(ex.getMessage(), ex);
+			throw ex;
 		} finally {
 			graph.shutdown();
 		}

@@ -268,7 +268,7 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 		try {
 
 			StringBuilder sb = new StringBuilder();
-			sb.append("SELECT from_nexus_id, to_nexus_id, id, ef_type, ef_subtype, length, rank, name_id ");
+			sb.append("SELECT from_nexus_id, to_nexus_id, id, ef_type, ef_subtype, length, rank, rivernameid1 ");
 			sb.append(" FROM ");
 			sb.append(eflowpathTable);
 			sb.append(" WHERE aoi_id IN (");
