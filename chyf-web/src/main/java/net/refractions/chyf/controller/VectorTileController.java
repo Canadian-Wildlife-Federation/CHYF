@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import net.refractions.chyf.ChyfWebApplication;
 import net.refractions.chyf.model.VectorTileLayer;
 import net.refractions.chyf.model.dao.VectorTileCacheDao;
 import net.refractions.chyf.model.dao.VectorTileDao;
@@ -139,6 +140,8 @@ public class VectorTileController {
 	}
 
 	private String getTileKey(int z, int x, int y, VectorTileLayer layer) {
-		return layer.name() + "_" + z + "_" + x + "_" + y;
+		String lang = "en";
+		if (ChyfWebApplication.isFrench()) lang = "fr";
+		return layer.name() + "_" + lang + "_" + z + "_" + x + "_" + y;
 	}
 }
