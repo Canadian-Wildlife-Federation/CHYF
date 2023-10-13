@@ -140,8 +140,6 @@ public class VectorTileController {
 	}
 
 	private String getTileKey(int z, int x, int y, VectorTileLayer layer) {
-		String lang = "en";
-		if (ChyfWebApplication.isFrench()) lang = "fr";
-		return layer.name() + "_" + lang + "_" + z + "_" + x + "_" + y;
+		return layer.name() + "_" + "_" + z + "_" + x + "_" + y;
 	}
 }
