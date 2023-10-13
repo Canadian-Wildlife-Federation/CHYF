@@ -16,13 +16,11 @@
 package net.refractions.chyf;
 
 import java.nio.charset.Charset;
-import java.util.Locale;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.MediaType;
 
 @SpringBootApplication
@@ -46,11 +44,4 @@ public class ChyfWebApplication extends SpringBootServletInitializer {
 		SpringApplication.run(ChyfWebApplication.class, args);
 	}
 
-	/**
-	 * 
-	 * @return true if the currently locale is French
-	 */
-    public static final boolean isFrench() {
-    	return (LocaleContextHolder.getLocale().getLanguage() == Locale.FRENCH.getLanguage()) ;
-    }
 }
