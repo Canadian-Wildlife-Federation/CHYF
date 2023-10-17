@@ -107,8 +107,7 @@ public class VectorTileDao {
 			}
 			sb.append(" , " + srid );
 			sb.append("), bounds.b2d) AS geom, ");
-			sb.append(" id, name_en, name_fr, ");
-			sb.append(" major_drainage_area_en as major_drainage_area, sub_drainage_area_en as sub_drainage_area, sub_sub_drainage_area_en as sub_sub_drainage_area");
+			sb.append(" id, name_en, name_fr ");
 			sb.append("	FROM ");
 			sb.append(DataSourceTable.WORK_UNIT.tableName);
 			sb.append(" t, bounds ");
