@@ -107,7 +107,11 @@ public class VectorTileDao {
 			}
 			sb.append(" , " + srid );
 			sb.append("), bounds.b2d) AS geom, ");
-			sb.append(" id, name_en, name_fr ");
+			sb.append(" id, name_en, name_fr, ");
+			sb.append("st_xmin(box2d(st_transform(t.geometry, 4617))) as minx, ");
+			sb.append("st_ymin(box2d(st_transform(t.geometry, 4617))) as miny, ");
+			sb.append("st_xmax(box2d(st_transform(t.geometry, 4617))) as maxx, ");
+			sb.append("st_ymax(box2d(st_transform(t.geometry, 4617))) as maxy ");
 			sb.append("	FROM ");
 			sb.append(DataSourceTable.WORK_UNIT.tableName);
 			sb.append(" t, bounds ");
