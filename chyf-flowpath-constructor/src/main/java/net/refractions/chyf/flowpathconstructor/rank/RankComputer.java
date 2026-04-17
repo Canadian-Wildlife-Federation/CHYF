@@ -30,6 +30,9 @@ import org.locationtech.jts.geom.LineSegment;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.prep.PreparedGeometry;
+import org.locationtech.jts.geom.prep.PreparedGeometryFactory;
+import org.locationtech.jts.index.strtree.STRtree;
 import org.locationtech.jts.linearref.LengthIndexedLine;
 import org.locationtech.jts.operation.distance.DistanceOp;
 import org.opengis.feature.simple.SimpleFeature;
@@ -124,19 +127,19 @@ public class RankComputer {
 			List<LineString> wbparts = new ArrayList<>();
 			wbparts.add(wb.getExteriorRing());
 			for (int i = 0; i < wb.getNumInteriorRing();i ++) wbparts.add(wb.getInteriorRingN(i));
-				
+			
 			List<LineString> tempparts = new ArrayList<>();
-				
 			//break waterbody parts where they intersect with another waterbody or the coastline
 			try(FeatureReader<SimpleFeatureType, SimpleFeature> reader = source.query(Layer.ECATCHMENTS, new ReferencedEnvelope(wb.getEnvelopeInternal(), sourceCRS), source.getWbTypeFilter())){
 				while(reader.hasNext()) {
 					SimpleFeature sf = reader.next();
 					if (sf.getIdentifier().equals(wbfid)) continue;
 					Polygon p = ChyfDataSource.getPolygon(sf);
-					
+			        PreparedGeometry pp = PreparedGeometryFactory.prepare(p);
+			        
 					tempparts.clear();
 					for (LineString l : wbparts) {
-						if (l.getEnvelopeInternal().intersects(p.getEnvelopeInternal()) && l.intersects(p)) {
+						if (l.getEnvelopeInternal().intersects(p.getEnvelopeInternal()) && pp.intersects(l)) {
 							Geometry g = l.difference(p);
 							for (int i = 0; i < g.getNumGeometries(); i ++) {
 								LineString ls = ((LineString)g.getGeometryN(i));
@@ -146,6 +149,7 @@ public class RankComputer {
 							tempparts.add(l);
 						}
 					}
+					
 					wbparts.clear();
 					wbparts.addAll(tempparts);
 					
