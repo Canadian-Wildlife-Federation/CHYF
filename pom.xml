@@ -11,7 +11,7 @@
 		<!-- processing tools version (combines flowpath and catchments) -->
 		<chyf.processingtools.version>1.5.9</chyf.processingtools.version>
 		<!-- core library version -->
-		<chyf.core.version>1.5.9</chyf.core.version>
+		<chyf.core.version>1.5.10</chyf.core.version>
 		<!-- flowpath constructor version -->
 		<flowpath.constructor.version>1.5.10</flowpath.constructor.version>
 		<!-- catchment delineator version -->
