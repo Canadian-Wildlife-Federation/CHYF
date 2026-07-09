@@ -7,7 +7,8 @@ drop view chyf2.eflowpath_vw;
 alter table chyf2.eflowpath alter column geometry type geometry;
 --after elevation
 alter table chyf2.eflowpath alter column geometry type geometry(linestringz, 4617);
-
+--after smoothing
+alter table chyf2.eflowpath alter column geometry type geometry(linestringzm, 4617);
 
 CREATE OR REPLACE VIEW chyf2.eflowpath_vw
 AS SELECT a.id,

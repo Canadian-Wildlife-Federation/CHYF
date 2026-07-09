@@ -21,12 +21,13 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.geometry.jts.WKBReader;
 import org.geotools.referencing.CRS;
@@ -34,8 +35,6 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
 import org.locationtech.jts.io.WKBWriter;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,15 +50,9 @@ public class ElevationPostGisDataSource implements IElevationDataSource {
 
 	public static final String WORKING_TABLE = "public.elevation_processing";
 	
-	public static final double BLOCK_SIZE = 0.4;
-
 	protected Connection connection;
-	private Integer eflowpathSrid = null;
-
-	private String eflowpathTable = "";
-	private String eflowpathSchema = "";
-	private String geomField = "";
-	private String cogPath = "";
+	
+	protected AppProperties properties;
 
 	/**
 	 * Connects to the database and configures the working table (if necessary)
@@ -70,15 +63,8 @@ public class ElevationPostGisDataSource implements IElevationDataSource {
 	 * @param doInit
 	 * @throws Exception
 	 */
-	public ElevationPostGisDataSource(String connectionString, String eflowpathTable, 
-			String geometryCol, int srid, String cogPath, boolean doInit) throws Exception {
-		String[] bits = eflowpathTable.split("\\.");
-		this.eflowpathSchema = bits[0];
-		this.eflowpathTable = bits[1];
-		this.geomField = geometryCol;
-		this.eflowpathSrid = srid;
-		this.cogPath = cogPath;
-		
+	public ElevationPostGisDataSource(String connectionString, AppProperties properties, boolean doInit) throws Exception {
+		this.properties = properties;
 		connect(connectionString);
 		if (doInit) {
 			initWorkingTable();
@@ -86,7 +72,7 @@ public class ElevationPostGisDataSource implements IElevationDataSource {
 	}
 	
 	public String getCogPath() {
-		return this.cogPath;
+		return this.properties.getCogPath();
 	}
 
 	public synchronized void connect(String connectionString) throws SQLException, IOException {
@@ -188,29 +174,47 @@ public class ElevationPostGisDataSource implements IElevationDataSource {
 		sb.append("SELECT ST_XMin(ext),ST_YMin(ext), ");
 		sb.append("ST_XMax(ext), ST_YMax(ext) ");
 		sb.append("FROM (");
-		sb.append(" SELECT ST_Extent(" + geomField + ") AS ext ");
+		sb.append(" SELECT ST_Extent(a." + this.properties.getGeometryColumn() + ") AS ext ");
 		sb.append(" FROM ");
-		sb.append(eflowpathSchema + "." + eflowpathTable);
+		sb.append(this.properties.getEflowpathTable() + " a ");
+		if (properties.hasAoiFilter()) {
+			sb.append(" JOIN " );
+			sb.append(properties.getAoiTable());
+			sb.append(" b on a.aoi_id = b.id ");
+			sb.append(" WHERE  b.short_name in (" + "?,".repeat(properties.getAoi().size()-1) + "?)");
+		}
 		//sb.append(" WHERE id = '867f8d54-b337-4650-9c67-e72241fe9537'");
 		sb.append(") AS sub");
 
 		ReferencedEnvelope env = null;
-		try (Statement st = connection.createStatement(); ResultSet rs = st.executeQuery(sb.toString())) {
+		try (PreparedStatement st = connection.prepareStatement(sb.toString())) {
+			if (properties.hasAoiFilter()) {
+				for (int i = 0; i < properties.getAoi().size(); i ++) {
+					st.setString(i+1, properties.getAoi().get(i));
+				}
+			}
 
-			if (rs.next()) {
-				double minX = rs.getDouble(1);
-				double minY = rs.getDouble(2);
-				double maxX = rs.getDouble(3);
-				double maxY = rs.getDouble(4);
+			try (ResultSet rs = st.executeQuery()) {
 
-				CoordinateReferenceSystem crs = CRS.decode("EPSG:" + eflowpathSrid, true);
-				env = new ReferencedEnvelope(minX, maxX, minY, maxY, crs);
-			} else {
-				throw new IOException("No extent found for " + eflowpathSchema + "." + eflowpathTable);
+				if (rs.next()) {
+					double minX = rs.getDouble(1);
+					double minY = rs.getDouble(2);
+					double maxX = rs.getDouble(3);
+					double maxY = rs.getDouble(4);
+					if (minX == maxX || minY == maxY) {
+						//nothing to do
+						logger.info("Nothing to do - no edges found for given aoi filter");
+						return;
+					}
+					CoordinateReferenceSystem crs = CRS.decode("EPSG:" + this.properties.getSrid(), true);
+					env = new ReferencedEnvelope(minX, maxX, minY, maxY, crs);
+				} else {
+					throw new IOException("No extent found for " + this.properties.getEflowpathTable());
+				}
 			}
 
 		} catch (SQLException | FactoryException e) {
-			throw new IOException("Error retrieving extent for " + eflowpathSchema + "." + eflowpathTable, e);
+			throw new IOException("Error retrieving extent for " + this.properties.getEflowpathTable(), e);
 		}
 
 		sb = new StringBuilder();
@@ -221,15 +225,16 @@ public class ElevationPostGisDataSource implements IElevationDataSource {
 			connection.setAutoCommit(false);
 			try (PreparedStatement ps = connection.prepareStatement(sb.toString())) {
 				// break env into .1 degree increments
+				double blockSize = properties.getBlockSize();
 				
-				for (double x = env.getMinX(); x <= env.getMaxX(); x += BLOCK_SIZE) {
-					for (double y = env.getMinY(); y <= env.getMaxY(); y += BLOCK_SIZE) {
+				for (double x = env.getMinX(); x <= env.getMaxX(); x += blockSize) {
+					for (double y = env.getMinY(); y <= env.getMaxY(); y += blockSize) {
 						ps.setString(1, "ready");
 						ps.setDouble(2, x);
-						ps.setDouble(3, x + BLOCK_SIZE);
+						ps.setDouble(3, x + blockSize);
 						ps.setDouble(4, y);
-						ps.setDouble(5, y + BLOCK_SIZE);
-						ps.setInt(6, eflowpathSrid);
+						ps.setDouble(5, y + blockSize);
+						ps.setInt(6, properties.getSrid());
 						ps.addBatch();
 					}
 					ps.executeBatch();
@@ -255,14 +260,13 @@ public class ElevationPostGisDataSource implements IElevationDataSource {
 	@Override
 	public void updateFlowathGeometries(Collection<EFlowpath> features) throws Exception {
 
-		//TODO: need to upgrade to write 4d geometries
 		WKBWriter writer = new WKBWriter(3);
 	    
 		StringBuilder sb = new StringBuilder();
 		sb.append("UPDATE ");
-		sb.append(eflowpathSchema + "." + eflowpathTable);
+		sb.append(properties.getEflowpathTable());
 		sb.append(" SET ");
-		sb.append(geomField);
+		sb.append(properties.getGeometryColumn());
 		sb.append(" = st_setsrid(ST_GeomFromEWKB(?), ?) WHERE id = ?");
 
 		connection.setAutoCommit(false);
@@ -277,7 +281,7 @@ public class ElevationPostGisDataSource implements IElevationDataSource {
 				}
 				cnt++;
 				ps.setObject(1, writer.write(edge.getLineString()));
-				ps.setObject(2, eflowpathSrid);
+				ps.setObject(2, properties.getSrid());
 				ps.setObject(3, edge.getId());
 				
 				ps.addBatch();
@@ -296,9 +300,18 @@ public class ElevationPostGisDataSource implements IElevationDataSource {
 	public List<EFlowpath> getFlowPaths(ReferencedEnvelope bounds) throws Exception {
 
 		StringBuilder sb = new StringBuilder();
-		sb.append("SELECT id, ST_AsEWKB(ST_Force3D(" + geomField + ")) FROM ");
-		sb.append(eflowpathSchema + "." + eflowpathTable);
-		sb.append(" WHERE st_intersects(" + geomField + ", ST_MakeEnvelope(?, ?, ?, ?, ?)) ");
+		sb.append("SELECT a.id, ST_AsEWKB(ST_Force3D(a." + properties.getGeometryColumn() + ")) FROM ");
+		sb.append(properties.getEflowpathTable() + " a ");
+		if (properties.hasAoiFilter()) {
+			sb.append(" JOIN " );
+			sb.append(properties.getAoiTable());
+			sb.append(" b on a.aoi_id = b.id ");
+			sb.append(" WHERE  b.short_name in (" + "?,".repeat(properties.getAoi().size()-1) + "?)");
+			sb.append(" AND ");
+		}else {
+			sb.append(" WHERE ");
+		}
+		sb.append(" st_intersects(a." + properties.getGeometryColumn() + ", ST_MakeEnvelope(?, ?, ?, ?, ?)) ");
 		//sb.append(" and id = '867f8d54-b337-4650-9c67-e72241fe9537'");
 
 		PackedCoordinateSequenceFactory sequenceFactory = 
@@ -309,18 +322,22 @@ public class ElevationPostGisDataSource implements IElevationDataSource {
 
 		List<EFlowpath> edges = new ArrayList<>();
 		try (PreparedStatement ps = connection.prepareStatement(sb.toString())) {
-
-			ps.setDouble(1, bounds.getMinX());
-			ps.setDouble(2, bounds.getMinY());
-			ps.setDouble(3, bounds.getMaxX());
-			ps.setDouble(4, bounds.getMaxY());
-			ps.setInt(5, eflowpathSrid);
+			int i = 1;
+			if (properties.hasAoiFilter()) {
+				for(String aoi : properties.getAoi()) {
+					ps.setString(i++, aoi);
+				}
+			}
+			ps.setDouble(i++, bounds.getMinX());
+			ps.setDouble(i++, bounds.getMinY());
+			ps.setDouble(i++, bounds.getMaxX());
+			ps.setDouble(i++, bounds.getMaxY());
+			ps.setInt(i++, properties.getSrid());
 
 			try (ResultSet rs = ps.executeQuery()) {
 				while (rs.next()) {
-					EFlowpath i = new EFlowpath((UUID) rs.getObject(1), (LineString) wkbReader.read(rs.getBytes(2)));
-					edges.add(i);
-
+					EFlowpath edge = new EFlowpath((UUID) rs.getObject(1), (LineString) wkbReader.read(rs.getBytes(2)));
+					edges.add(edge);
 				}
 			}
 		}

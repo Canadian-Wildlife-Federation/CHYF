@@ -17,9 +17,9 @@ package net.refractions.chyf.elevation;
 
 import java.util.List;
 
+import org.geotools.api.referencing.operation.TransformException;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
-import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

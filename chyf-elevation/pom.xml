@@ -18,6 +18,9 @@
 	<version>${elevation.version}</version>
 
 	<properties>
+	    <maven.compiler.release>25</maven.compiler.release>
+
+
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.compiler.source>1.25</maven.compiler.source>
 		<maven.compiler.target>1.25</maven.compiler.target>
@@ -42,18 +45,24 @@
 		<dependency>
 			<groupId>org.geotools</groupId>
 			<artifactId>gt-geotiff</artifactId>
-			<version>28.0</version>
+			<version>35.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.geotools</groupId>
 			<artifactId>gt-epsg-hsql</artifactId>
-			<version>28.0</version> <!-- match your GeoTools version -->
+			<version>35.0</version> <!-- match your GeoTools version -->
+		</dependency>
+		<dependency>
+			<groupId>org.geotools</groupId>
+		    <artifactId>gt-referencing</artifactId>
+		    <version>35.0</version>
 		</dependency>
 		<dependency>
 			<groupId>it.geosolutions.imageio-ext</groupId>
 			<artifactId>imageio-ext-cog-reader</artifactId>
 			<version>2.1.0</version>
 		</dependency>
+
 
 		<!-- HTTP Range Reader (for reading COGs over HTTPS/S3 URLs) -->
 		<dependency>
@@ -65,7 +74,7 @@
 		<dependency>
 			<groupId>org.geotools.jdbc</groupId>
 			<artifactId>gt-jdbc-postgis</artifactId>
-			<version>${geotools.version}</version>
+			<version>35.0</version>
 		</dependency>	
 		<!-- logging -->
 		<dependency>
@@ -84,6 +93,14 @@
 	<build>
 		<finalName>${project.artifactId}-${project.version}-${timestamp}</finalName>
 		<plugins>
+			<plugin>
+    	        <groupId>org.apache.maven.plugins</groupId>
+	            <artifactId>maven-compiler-plugin</artifactId>
+	            <version>3.13.0</version>
+            	<configuration>
+        	        <release>25</release>
+    	        </configuration>
+	        </plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-assembly-plugin</artifactId>
