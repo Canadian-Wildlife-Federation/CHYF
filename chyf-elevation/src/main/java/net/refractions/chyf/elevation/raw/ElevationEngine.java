@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package net.refractions.chyf.elevation;
+package net.refractions.chyf.elevation.raw;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,9 +23,13 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import net.refractions.chyf.elevation.AppProperties;
+import net.refractions.chyf.elevation.ElevationArgs;
 
 /**
  * Main entry point for the elevation processor. Reads configuration
@@ -46,7 +50,7 @@ public class ElevationEngine {
 		this.numThreads = numThreads;
 	}
 	
-	public void doElevation(IElevationDataSource dataSource) throws InterruptedException {
+	public void doElevation(Supplier<IElevationDataSource> dataSource) throws InterruptedException {
 		ExecutorService service = Executors.newFixedThreadPool(numThreads);
 				
 		for (int i = 0; i < numThreads; i ++) {
@@ -68,11 +72,15 @@ public class ElevationEngine {
 		
 		Long now = System.nanoTime();
 		try (ElevationPostGisDataSource source = new ElevationPostGisDataSource(
-				cargs.getDbConnectionString(), props, !cargs.getDoContinue())) {
-
-			ElevationEngine computer = new ElevationEngine(props.getNumThreads());
-			computer.doElevation(source);
+				cargs.getDbConnectionString(), props)) {
+			if (!cargs.getDoContinue()) {
+				source.initWorkingTable();
+			}
 		}
+		
+		ElevationEngine computer = new ElevationEngine(props.getNumThreads());
+		computer.doElevation(()->new ElevationPostGisDataSource(cargs.getDbConnectionString(), props));
+		
 
 		Long end = System.nanoTime();
 		double time = (end - now) / (double) Math.pow(10, 9);

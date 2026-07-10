@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package net.refractions.chyf.elevation;
+package net.refractions.chyf.elevation.raw;
 
 import java.awt.image.BufferedImage;
 
 import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.api.referencing.operation.MathTransform;
 import org.geotools.api.referencing.operation.TransformException;
 import org.geotools.geometry.jts.JTS;
@@ -37,22 +38,18 @@ public class GridBlock {
 	private BufferedImage elevations;
 
 	private ReferencedEnvelope gridEnv;
-	private Block block;
 	private MathTransform transform;
 
-	public GridBlock(BufferedImage elevations, ReferencedEnvelope gridEnv, Block block)
+	public GridBlock(BufferedImage elevations, ReferencedEnvelope gridEnv, CoordinateReferenceSystem blockCrs)
 			throws FactoryException {
 		super();
 		this.elevations = elevations;
 		this.gridEnv = gridEnv;
-		this.block = block;
-		transform = CRS.findMathTransform(block.getBounds().getCoordinateReferenceSystem(), gridEnv.getCoordinateReferenceSystem());
+		transform = CRS.findMathTransform(blockCrs, gridEnv.getCoordinateReferenceSystem());
 	}
 
 	public double getValue(Coordinate c) throws TransformException {
-		// not within this grid; don't do anything with this coordinate
-		if (!block.getBounds().contains(c))
-			return c.z;
+
 		
 		Coordinate target = new Coordinate();
 		JTS.transform(c, target, transform);

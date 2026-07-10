@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package net.refractions.chyf.elevation;
+package net.refractions.chyf.elevation.raw;
 
 import java.sql.SQLException;
 import java.util.Collection;
@@ -36,7 +36,7 @@ public interface IElevationDataSource extends AutoCloseable {
 	 * @param features
 	 * @throws Exception
 	 */
-	public void updateFlowathGeometries(Collection<EFlowpath> features) throws Exception;
+	public void updateFlowpathGeometries(Collection<EFlowpath> features) throws Exception;
 
 	/**
 	 * Retrieves the flowpaths intersecting the given bounds.

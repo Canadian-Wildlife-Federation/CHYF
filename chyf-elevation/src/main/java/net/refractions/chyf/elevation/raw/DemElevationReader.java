@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package net.refractions.chyf.elevation;
+package net.refractions.chyf.elevation.raw;
 
 import java.awt.Rectangle;
 import java.awt.geom.AffineTransform;
@@ -116,11 +116,11 @@ public class DemElevationReader implements AutoCloseable {
 
 	}
 
-	public GridBlock getElevations(Block block) throws Exception {
+	public GridBlock getElevations(Block block, ReferencedEnvelope expandedBlockEnv) throws Exception {
 
 		logger.info("Loading DEM for block: " + block.getBlockId());
 
-		ReferencedEnvelope re = block.getBounds();
+		ReferencedEnvelope re = expandedBlockEnv;
 		ReferencedEnvelope blockEnv = re.transform(gridCrs, false);
 		
 		ReferencedEnvelope gridEnv = new ReferencedEnvelope(blockEnv);
@@ -153,7 +153,7 @@ public class DemElevationReader implements AutoCloseable {
 				gridOrigin.getY() + cogImage.getHeight() * scaleY, gridCrs);
 		//writeToTestFile(cogImage, gridEnv);
 
-		return new GridBlock(cogImage, gridEnv, block);
+		return new GridBlock(cogImage, gridEnv, block.getBounds().getCoordinateReferenceSystem());
 
 	}
 

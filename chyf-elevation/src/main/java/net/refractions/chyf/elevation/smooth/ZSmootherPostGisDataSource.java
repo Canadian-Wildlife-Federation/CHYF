@@ -49,7 +49,8 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 
 	public static final String WORKING_TABLE = "public.elevation_smoothing";
 	public static final String WORKING_LINK_TABLE = "public.elevation_smoothing_link";
-	
+
+	private String connectionString;
 	protected Connection connection;
 	protected AppProperties properties;
 	
@@ -63,17 +64,15 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 	 * @param doInit
 	 * @throws Exception
 	 */
-	public ZSmootherPostGisDataSource(String connectionString, AppProperties properties, boolean doInit) throws Exception {
+	public ZSmootherPostGisDataSource(String connectionString, AppProperties properties) {
 		this.properties = properties;
-		
-		connect(connectionString);
-		if (doInit) {
-			initWorkingTable();
-		}
+		this.connectionString = connectionString;
 	}
 	
-	public synchronized void connect(String connectionString) throws SQLException, IOException {
-		String[] bits = connectionString.split(";");
+	private synchronized Connection getConnection() throws SQLException {
+		if (connection != null) return this.connection;
+		
+		String[] bits = this.connectionString.split(";");
 		String host = null;
 		Integer port = null;
 		String db = null;
@@ -98,7 +97,7 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 
 		connection = DriverManager.getConnection(
 				"jdbc:postgresql://" + host + ":" + port + "/" + db + "?user=" + user + "&password=" + pass);
-
+		return connection;
 	}
 
 	
@@ -117,7 +116,7 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 	    sb.append(") ");
 	    sb.append("RETURNING block_id");
 
-	    try (PreparedStatement ps = connection.prepareStatement(sb.toString())) {
+	    try (PreparedStatement ps = getConnection().prepareStatement(sb.toString())) {
 	        ps.setString(1, "processing");
 	        ps.setString(2, "ready");
 
@@ -140,30 +139,30 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 		sb.append(WORKING_TABLE);
 		sb.append(" set status = ? where block_id = ?");
 		
-		try(PreparedStatement ps = connection.prepareStatement(sb.toString())){
+		try(PreparedStatement ps = getConnection().prepareStatement(sb.toString())){
 			ps.setString(1, "done");
 			ps.setInt(2, block.getBlockId());
 			ps.execute();
 		}
 	}
 	
-	private void initWorkingTable() throws Exception {
+	public void initWorkingTable() throws Exception {
 
 		for (String table : new String[] {WORKING_LINK_TABLE, WORKING_TABLE}) {
-			connection.createStatement().execute("DROP TABLE IF EXISTS " + table);
+			getConnection().createStatement().execute("DROP TABLE IF EXISTS " + table);
 		}
 
 		StringBuilder sb = new StringBuilder();
 		sb.append("CREATE TABLE ");
 		sb.append(WORKING_LINK_TABLE);
 		sb.append("(block_id int, graph_id int)");
-		connection.createStatement().execute(sb.toString());
+		getConnection().createStatement().execute(sb.toString());
 
 		sb = new StringBuilder();
 		sb.append("CREATE TABLE ");
 		sb.append(WORKING_TABLE);
 		sb.append("(block_id int primary key, status varchar)");
-		connection.createStatement().execute(sb.toString());
+		getConnection().createStatement().execute(sb.toString());
 
 		
 		sb = new StringBuilder();
@@ -182,9 +181,9 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 		String insert = "INSERT INTO " + WORKING_LINK_TABLE + " (block_id, graph_id) values (?,?)";
 		String insertb = "INSERT INTO " + WORKING_TABLE + " (block_id, status) values (?,?)";
 		
-		try (PreparedStatement st = connection.prepareStatement(sb.toString()); 				
-				PreparedStatement pslink = connection.prepareStatement(insert);
-				PreparedStatement psblock = connection.prepareStatement(insertb)) {
+		try (PreparedStatement st = getConnection().prepareStatement(sb.toString()); 				
+				PreparedStatement pslink = getConnection().prepareStatement(insert);
+				PreparedStatement psblock = getConnection().prepareStatement(insertb)) {
 
 			for (int i = 0; i < properties.getAoi().size(); i ++) {
 				st.setString(i + 1,  properties.getAoi().get(i));
@@ -227,18 +226,18 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 		sb.append("CREATE INDEX working_table_link_graph_idx on ");
 		sb.append(WORKING_LINK_TABLE);
 		sb.append("(graph_id)");
-		connection.createStatement().execute(sb.toString());
+		getConnection().createStatement().execute(sb.toString());
 		
 		sb = new StringBuilder();
 		sb.append("CREATE INDEX working_table_link_blk_idx on ");
 		sb.append(WORKING_LINK_TABLE);
 		sb.append("(block_id)");
-		connection.createStatement().execute(sb.toString());
+		getConnection().createStatement().execute(sb.toString());
 	}
 
 
 	public void close() throws SQLException {
-		connection.close();
+		if (connection != null) connection.close();
 	}
 
 	
@@ -253,9 +252,9 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 		sb.append(properties.getGeometryColumn());
 		sb.append(" = st_setsrid(st_geomfromewkb(?), " + properties.getSrid() + ") WHERE id = ?");
 
-		connection.setAutoCommit(false);
-		try {
-			PreparedStatement ps = connection.prepareStatement(sb.toString());
+		getConnection().setAutoCommit(false);
+		try (PreparedStatement ps = getConnection().prepareStatement(sb.toString())){
+			
 			int cnt = 0;
 
 			for (EFlowpath edge : features) {
@@ -269,11 +268,13 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 				ps.addBatch();
 			}
 			ps.executeBatch();
-			connection.commit();
+			getConnection().commit();
 		} catch (Exception ex) {
 			logger.error("Error updating flowpath geometries. ", ex);
-			connection.rollback();
-			connection.setAutoCommit(true);
+			getConnection().rollback();
+			throw ex;
+		}finally {
+			getConnection().setAutoCommit(true);
 		}
 
 	}
@@ -294,7 +295,7 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 		
 		HashMap<UUID, Node> nodes = new HashMap<>();
 		
-		try (PreparedStatement ps = connection.prepareStatement(sb.toString())) {
+		try (PreparedStatement ps = getConnection().prepareStatement(sb.toString())) {
 
 			ps.setInt(1, block.getBlockId());
 
@@ -347,7 +348,7 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 		WKBReader wkbReader = new WKBReader(geometryFactory);
 
 		List<EFlowpath> edges = new ArrayList<>();
-		try (PreparedStatement ps = connection.prepareStatement(sb.toString())) {
+		try (PreparedStatement ps = getConnection().prepareStatement(sb.toString())) {
 			ps.setInt(1, block.getBlockId());
 			ps.setObject(2, lastId);
 			

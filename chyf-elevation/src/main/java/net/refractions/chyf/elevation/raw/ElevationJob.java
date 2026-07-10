@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package net.refractions.chyf.elevation;
+package net.refractions.chyf.elevation.raw;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 import org.geotools.api.referencing.operation.TransformException;
+import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
 import org.slf4j.Logger;
@@ -34,45 +36,62 @@ public class ElevationJob implements Runnable {
 
 	private static Logger logger = LoggerFactory.getLogger(ElevationJob.class);
 
+	private Supplier<IElevationDataSource> dataSourceProvider;
 	private IElevationDataSource dataSource;
 	private DemElevationReader elevationSource;
 
-	public ElevationJob(IElevationDataSource dataSource) {
-		this.dataSource = dataSource;
+	public ElevationJob(Supplier<IElevationDataSource> dataSourceProvider) {
+		this.dataSourceProvider = dataSourceProvider;
 	}
 
 	@Override
 	public void run() {
 		logger.info("Starting Elevation Processor");
+		try (IElevationDataSource dataSource = dataSourceProvider.get()) {
+			this.dataSource = dataSource;
+			try (DemElevationReader elevationSource = new DemElevationReader(this.dataSource.getCogPath())) {
+				this.elevationSource = elevationSource;
 
-		try (DemElevationReader elevationSource = new DemElevationReader(this.dataSource.getCogPath())) {
-			this.elevationSource = elevationSource;
-
-			while (true) {
-				try {
-					Block block = dataSource.checkOutNextBlock();
-					if (block == null)
-						return;
-					logger.info("Processing Block: " + block.getBlockId());
-					applyElevation(block);
-					dataSource.finishBlock(block);
-					logger.info("Finished Block: " + block.getBlockId());
-				} catch (Exception ex) {
-					logger.error("Error processing block.", ex);
+				while (true) {
+					try {
+						Block block = dataSource.checkOutNextBlock();
+						if (block == null)
+							return;
+						logger.info("Processing Block: " + block.getBlockId());
+						applyElevation(block);
+						dataSource.finishBlock(block);
+						logger.info("Finished Block: " + block.getBlockId());
+					} catch (Exception ex) {
+						logger.error("Error processing block.", ex);
+					}
 				}
+			} catch (Exception ex) {
+				logger.error("Error assigning 3d elevation", ex);
 			}
 		} catch (Exception ex) {
-			logger.error("Error assigning 3d elevation", ex);
+			logger.error("Error with datasource", ex);
 		}
 	}
 
 	private void applyElevation(Block block) throws Exception {
-		GridBlock cogImage = elevationSource.getElevations(block);
+		//expand bounds to include ALL edges then apply elevation
+		//too every coordinate; then it doesn't matter if we overwrite
+		//for edges that cross block boundaries
+		//they will get processed twice, but there won't be any mulit-
+		//threading issues
 		List<EFlowpath> edges = dataSource.getFlowPaths(block.getBounds());
+
+		ReferencedEnvelope re =  new ReferencedEnvelope(block.getBounds());
+		for (EFlowpath edge : edges) {
+			re.expandToInclude(edge.getLineString().getEnvelopeInternal());
+		}
+		
+		GridBlock cogImage = elevationSource.getElevations(block, re);
+		
 		for (EFlowpath edge : edges) {
 			edge.setLineString(applyElevation(edge.getLineString(), cogImage));
 		}
-		dataSource.updateFlowathGeometries(edges);
+		dataSource.updateFlowpathGeometries(edges);
 	}
 
 	private LineString applyElevation(LineString ls, GridBlock cogImage) throws TransformException {

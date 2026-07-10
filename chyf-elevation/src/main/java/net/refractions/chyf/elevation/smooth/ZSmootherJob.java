@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.locationtech.jts.geom.Coordinate;
@@ -45,35 +46,41 @@ public class ZSmootherJob implements Runnable{
 
 	static final Logger logger = LoggerFactory.getLogger(ZSmootherJob.class.getCanonicalName());
 
+	private Supplier<IZSmootherDataSource> dataSourceProvider;
 	private IZSmootherDataSource dataSource;
 	private GeometryFactory gf = new GeometryFactory();
 	
-	public ZSmootherJob(IZSmootherDataSource dataSource) {
-		this.dataSource = dataSource;
+	public ZSmootherJob(Supplier<IZSmootherDataSource> dataSourceProvider) {
+		this.dataSourceProvider = dataSourceProvider;
 	}
 
 
 	@Override
 	public void run() {
-		
-		while(true) {
-			try {
-				Block b = dataSource.checkOutNextBlock();				
-				if (b == null) return;
-				logger.info("Processing Block: " + b.getBlockId());
+		try(IZSmootherDataSource dataSource = dataSourceProvider.get()){
+			this.dataSource = dataSource;				
+			while(true) {
 				try {
-					Map<UUID, Double> nodeElevations = processBlock(b);
-					processBlockEdges(b, nodeElevations);
-					dataSource.finishBlock(b);
+					Block b = dataSource.checkOutNextBlock();				
+					if (b == null) return;
+					logger.info("Processing Block: " + b.getBlockId());
+					try {
+						Map<UUID, Double> nodeElevations = processBlock(b);
+						processBlockEdges(b, nodeElevations);
+						dataSource.finishBlock(b);
+					}catch (Exception ex) {
+						logger.error("Unable to process block: " + b.getBlockId(), ex);
+					}
+				
 				}catch (Exception ex) {
-					logger.error("Unable to process block: " + b.getBlockId(), ex);
+					logger.error("Unable to process blocks.", ex);
+					return;
 				}
-			
-			}catch (Exception ex) {
-				logger.error("Unable to process blocks.", ex);
-				return;
-			}
-		}		
+			}		
+		}catch (Exception ex) {
+			logger.error("Data source error.", ex);
+			return;
+		}
 	}
 	
 	private void processBlockEdges(Block b, Map<UUID, Double> nodeElevations) throws Exception {
@@ -210,6 +217,7 @@ public class ZSmootherJob implements Runnable{
 			.filter(n->n.getInNodes().size() == 0)
 			.collect(Collectors.toSet());
 
+		stuckCnt = 0;
 		toProcess = new ArrayDeque<>(sourceNodes);
 		while(!toProcess.isEmpty()) {
 			
@@ -229,6 +237,7 @@ public class ZSmootherJob implements Runnable{
 				}
 			}
 			if (processed) {
+				stuckCnt = 0;
 				n.setMinUpZ(z);
 				//add all in nodes to the array
 				for (UUID out : n.getOutNodes()) {
@@ -236,6 +245,10 @@ public class ZSmootherJob implements Runnable{
 				}
 			}else {
 				toProcess.add(n);
+				stuckCnt ++;
+				if (stuckCnt > toProcess.size()) {
+					throw new Exception("Graph appears to have a cycle");
+				}
 			}
 		}
 		

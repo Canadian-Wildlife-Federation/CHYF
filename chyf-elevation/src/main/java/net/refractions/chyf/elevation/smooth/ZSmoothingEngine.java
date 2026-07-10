@@ -23,11 +23,13 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.elevation.AppProperties;
+import net.refractions.chyf.elevation.ElevationArgs;
 
 /**
  * Main entry point for the elevation smoothing processor. Reads
@@ -58,7 +60,7 @@ public class ZSmoothingEngine {
 	 * @param dataSource
 	 * @throws InterruptedException
 	 */
-	public void doSmoothing(IZSmootherDataSource dataSource) throws InterruptedException {
+	public void doSmoothing(Supplier<IZSmootherDataSource> dataSource) throws InterruptedException {
 		ExecutorService service = Executors.newFixedThreadPool(numThreads);
 
 		for (int i = 0; i < numThreads; i ++) {
@@ -79,7 +81,7 @@ public class ZSmoothingEngine {
 	 */
 	public static void main(String[] args) throws Exception {
 
-		SmootherArgs cargs = new SmootherArgs(ZSmoothingEngine.class.getCanonicalName());
+		ElevationArgs cargs = new ElevationArgs(ZSmoothingEngine.class.getCanonicalName());
 		if (!cargs.parseArguments(args))
 			return;
 
@@ -88,11 +90,15 @@ public class ZSmoothingEngine {
 		
 		Long now = System.nanoTime();
 		try (ZSmootherPostGisDataSource source = new ZSmootherPostGisDataSource(
-				cargs.getDbConnectionString(), props, !cargs.getDoContinue())) {
-
-			ZSmoothingEngine computer = new ZSmoothingEngine(props.getNumThreads());
-			computer.doSmoothing(source);
+				cargs.getDbConnectionString(), props)) {
+			if  (!cargs.getDoContinue()) {
+				source.initWorkingTable();
+			}
 		}
+
+		ZSmoothingEngine computer = new ZSmoothingEngine(props.getNumThreads());
+		computer.doSmoothing(()->new ZSmootherPostGisDataSource(cargs.getDbConnectionString(), props));
+		
 
 		Long end = System.nanoTime();
 		double time = (end - now) / (double) Math.pow(10, 9);

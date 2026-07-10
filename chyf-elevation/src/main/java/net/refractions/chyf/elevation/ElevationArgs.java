@@ -68,7 +68,7 @@ public class ElevationArgs {
 			parseOptions(cmd);
 			
 			if (cmd.getArgList().size() == 1) {
-				propertiesFile = cmd.getArgList().get(0).trim().toLowerCase();
+				propertiesFile = cmd.getArgList().get(0).trim();
 			}else {
 				printUsage();
 				return false;

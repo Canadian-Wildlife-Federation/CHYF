@@ -13,37 +13,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package net.refractions.chyf.elevation;
+package net.refractions.chyf.elevation.raw;
 
-import java.util.UUID;
-
-import org.locationtech.jts.geom.LineString;
+import org.geotools.geometry.jts.ReferencedEnvelope;
 
 /**
- * Represents a flowpath edge with its id and geometry, used to
- * carry elevation values back to the data source.
+ * Represents a unit of work for elevation processing: a spatial
+ * block with an id and bounding envelope.
  *
  * @author Emily
  *
  */
-public class EFlowpath {
+public class Block {
 
-	private UUID id;
-	private LineString ls;
+	public ReferencedEnvelope bounds;
+	public Integer blockId;
 	
-	public EFlowpath(UUID id, LineString ls) {
-		this.id = id;
-		this.ls = ls;
-	}
 	
-	public UUID getId() {
-		return this.id;
+	public Block (Integer blockId, ReferencedEnvelope bounds) {
+		this.blockId = blockId;
+		this.bounds = bounds;
 	}
 	
-	public LineString getLineString() {
-		return this.ls;
+	public Integer getBlockId() {
+		return this.blockId;
 	}
-	public void setLineString(LineString ls) {
-		this.ls = ls;
+	
+	public ReferencedEnvelope getBounds() {
+		return this.bounds;
 	}
+	
 }
