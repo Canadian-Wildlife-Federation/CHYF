@@ -51,11 +51,11 @@ the docontinue flag is used - see below).
 ---------------------------------------
 To run the delevation tools use the chyf-elevation files. For example:
 
-chyf-elevation.bat -d host=<host>;port=<port>;db=<db>;user=<user>;password=<pass> <properties_file>
+chyf-elevation-rawz.bat -d host=<host>;port=<port>;db=<db>;user=<user>;password=<pass> <properties_file>
 
 
 Usage:
-chyf-streamorder-computer.bat -d <connectionstring>  -docontinue elevation.properties
+chyf-elevation-rawz.bat -d <connectionstring> -docontinue elevation.properties
 
 connectionstring
 The database connection string in the form "host=<host>;port=<port>;db=<db>;user=<user>;password=<pass>"
@@ -75,11 +75,11 @@ A file that contains the properties for processing. This file is described below
 ---------------------------------------
 To run the delevation tools use the chyf-elevation files. For example:
 
-chyf-elevation-smoothing.bat -d host=<host>;port=<port>;db=<db>;user=<user>;password=<pass> <properties_file>
+chyf-elevation-smoothedz.bat -d host=<host>;port=<port>;db=<db>;user=<user>;password=<pass> <properties_file>
 
 
 Usage:
-chyf-streamorder-computer.bat -d <connectionstring>  -docontinue elevation.properties
+chyf-elevation-smoothedz.bat -d <connectionstring> -docontinue elevation.properties
 
 connectionstring
 The database connection string in the form "host=<host>;port=<port>;db=<db>;user=<user>;password=<pass>"

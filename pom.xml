@@ -62,6 +62,12 @@
 				<module>chyf-streamorder</module>
 			</modules>
 		</profile>
+		<profile>
+			<id>elevation</id>
+			<modules>
+				<module>chyf-elevation</module>
+			</modules>
+		</profile>
 	</profiles>
 
 	<build>

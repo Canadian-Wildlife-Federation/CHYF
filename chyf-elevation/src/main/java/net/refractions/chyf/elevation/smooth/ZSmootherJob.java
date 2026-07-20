@@ -108,6 +108,22 @@ public class ZSmootherJob implements Runnable{
 		Double upZ = nodeElevations.get(p.getFromNodeId());
 		Double downZ = nodeElevations.get(p.getToNodeId());
 		
+		if (upZ == ZSmootherPostGisDataSource.NO_DATA || downZ == ZSmootherPostGisDataSource.NO_DATA) {
+			//if either node has no_data we can't smooth this
+			CoordinateXYZM[] allc = new CoordinateXYZM[c.length];
+			for (int i = 0; i < c.length; i ++) {
+				CoordinateXYZM mc = new CoordinateXYZM(c[i]);
+				mc.setM(ZSmootherPostGisDataSource.NO_DATA);
+				if (Double.valueOf(mc.getZ()).isNaN()) {
+					mc.setZ(ZSmootherPostGisDataSource.NO_DATA);
+				}
+				allc[i] = mc;				
+				
+			}
+			p.setLineString(gf.createLineString(allc));
+			return;
+		}
+		
 		Double[] z = new Double[c.length];
 		
 		z[0] = upZ;
@@ -189,7 +205,11 @@ public class ZSmootherJob implements Runnable{
 					processed = false;					
 					break;
 				}else {
-					z = Double.max(z, outnode.getMaxDownZ());
+					if (z == ZSmootherPostGisDataSource.NO_DATA) {
+						z = outnode.getMaxDownZ();
+					}else {
+						z = Double.max(z, outnode.getMaxDownZ());
+					}
 				}
 			}
 			if (processed) {
@@ -233,7 +253,11 @@ public class ZSmootherJob implements Runnable{
 					processed = false;					
 					break;
 				}else {
-					z = Double.min(z, innode.getMinUpZ());
+					if (z == ZSmootherPostGisDataSource.NO_DATA) {
+						z = innode.getMinUpZ();
+					}else {
+						z = Double.min(z, innode.getMinUpZ());
+					}
 				}
 			}
 			if (processed) {

@@ -21,6 +21,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -54,6 +55,7 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 	protected Connection connection;
 	protected AppProperties properties;
 	
+	public static double NO_DATA = -9999;
 	
 	/**
 	 * Connects to the database and configures the working table (if necessary)
@@ -284,7 +286,7 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 		logger.info("Getting node graph: " + block.getBlockId());
 
 		StringBuilder sb = new StringBuilder();
-		sb.append("SELECT a.id, a.from_nexus_id, a.to_nexus_id, ");
+		sb.append("SELECT a.from_nexus_id, a.to_nexus_id, ");
 		sb.append("ST_Z(ST_StartPoint(a." + properties.getGeometryColumn() + ")) AS from_z, " );
 		sb.append("ST_Z(ST_EndPoint(a." + properties.getGeometryColumn() + ")) AS to_z " );
 		sb.append(" FROM ");
@@ -301,12 +303,22 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 
 			try (ResultSet rs = ps.executeQuery()) {
 				while (rs.next()) {
-					UUID edgeid = (UUID) rs.getObject(1);
-
-					UUID fromNodeId = (UUID)rs.getObject(2);
-					UUID toNodeId = (UUID)rs.getObject(3);
-					Double fromZ = rs.getDouble(4);
-					Double toZ = rs.getDouble(5);
+					UUID fromNodeId = (UUID)rs.getObject(1);
+					UUID toNodeId = (UUID)rs.getObject(2);
+					
+					Double fromZ = NO_DATA;
+					if (rs.getObject(3) == null) {
+						logger.warn(MessageFormat.format("A geometry in block {0} has no Z value. You should add a z value to this before smoothing.  See node {1}.", block.blockId, fromNodeId), ps);						
+					}else {
+						fromZ = rs.getDouble(3);
+					}
+					
+					Double toZ = NO_DATA;
+					if (rs.getObject(4) == null) {
+						logger.warn(MessageFormat.format("A geometry in block {0} has no Z value. You should add a z value to this before smoothing.  See node {1}.", block.blockId, toNodeId), ps);						
+					}else {
+						toZ = rs.getDouble(4);
+					}
 					
 					Node n = nodes.get(fromNodeId);
 					if (n == null) {
