@@ -42,14 +42,14 @@ public class StreamOrderMainstemEngine {
 
 	private Logger logger = LoggerFactory.getLogger(StreamOrderMainstemEngine.class);
 
-	private boolean useNamesForMainstems = false;
+	private StreamOrderArgs.MAINSTEM_NAME_OP nameOption;
 	
 	/**
 	 * 
 	 * @param useNamesForMainstems if names should be used for mainstems
 	 */
-	public StreamOrderMainstemEngine(boolean useNamesForMainstems) {
-		this.useNamesForMainstems = useNamesForMainstems;
+	public StreamOrderMainstemEngine(StreamOrderArgs.MAINSTEM_NAME_OP nameOption) {
+		this.nameOption = nameOption;
 	}
 	
 	public void computeOrderValues(IGraphDataSource source) throws Exception {
@@ -310,11 +310,24 @@ public class StreamOrderMainstemEngine {
 
 				String upNameId = null;
 				
-				for (Relationship r : n.getRelationships(Direction.OUTGOING)) {
-					if ((Integer) r.getProperty(FlowpathProperty.RANK.key) == RankType.PRIMARY.getChyfValue()) {
-						if (r.hasProperty(FlowpathProperty.NAMEID.key))
-							upNameId = r.getProperty(FlowpathProperty.NAMEID.key).toString();
-						break;
+				if (this.nameOption == StreamOrderArgs.MAINSTEM_NAME_OP.ALWAYS) {
+					for (Relationship r : n.getRelationships(Direction.OUTGOING)) {
+						if ((Integer) r.getProperty(FlowpathProperty.RANK.key) == RankType.PRIMARY.getChyfValue()) {
+							if (r.hasProperty(FlowpathProperty.NAMEID.key))
+								upNameId = r.getProperty(FlowpathProperty.NAMEID.key).toString();
+							break;
+						}
+					}
+				}else if (this.nameOption == StreamOrderArgs.MAINSTEM_NAME_OP.SINGLELINE) {
+					for (Relationship r : n.getRelationships(Direction.OUTGOING)) {
+						int eftype = (Integer)r.getProperty(FlowpathProperty.EF_TYPE.key); 
+						if (eftype == EfType.INFRASTRUCTURE.getChyfValue() || eftype == EfType.REACH.getChyfValue()) {
+							if ((Integer) r.getProperty(FlowpathProperty.RANK.key) == RankType.PRIMARY.getChyfValue()) {								
+								if (r.hasProperty(FlowpathProperty.NAMEID.key))
+									upNameId = r.getProperty(FlowpathProperty.NAMEID.key).toString();
+								break;
+							}
+						}
 					}
 				}
 	
@@ -323,8 +336,8 @@ public class StreamOrderMainstemEngine {
 				
 				Node sameNameUpstreamNode = null;
 	
-				Node longestNamedUpstreamNode = null;
-				double longestNamedUpstream = -1;
+//				Node longestNamedUpstreamNode = null;
+//				double longestNamedUpstream = -1;
 
 				int shorder = 0;
 				
@@ -348,19 +361,21 @@ public class StreamOrderMainstemEngine {
 					if (fromnode.hasProperty(NexusProperty.UPSTREAMLENGTH.key))
 						uplength = (double) fromnode.getProperty(NexusProperty.UPSTREAMLENGTH.key);
 	
+					if (upNameId != null && nameid != null && nameid.equals(upNameId)) {
+						sameNameUpstreamNode = fromnode;
+					}
+					
 					if ((uplength + length) > longestupstream) {
 						longestupstream = uplength + length;
 						longestupstreamNode = fromnode;
 					}
 	
-					if (nameid != null && ((uplength + length) > longestNamedUpstream)) {
-						longestNamedUpstream = uplength + length;
-						longestNamedUpstreamNode = fromnode;
-					}
+//					if (nameid != null && ((uplength + length) > longestNamedUpstream)) {
+//						longestNamedUpstream = uplength + length;
+//						longestNamedUpstreamNode = fromnode;
+//					}
 					
-					if (upNameId != null && nameid != null && nameid.equals(upNameId)) {
-						sameNameUpstreamNode = fromnode;
-					}
+
 
 					if (!fromnode.hasProperty(NexusProperty.SHORDER.key)) {
 						System.out.println("ERROR: " + fromnode.getProperty(NexusProperty.ID.key));
@@ -387,24 +402,12 @@ public class StreamOrderMainstemEngine {
 				if (shorder == 0) shorder = 1;
 				n.setProperty(NexusProperty.SHORDER.key, shorder);
 				
-				if (useNamesForMainstems) {
-					//use names for mainstems
-					if (sameNameUpstreamNode != null) {
-						n.setProperty(NexusProperty.MAINSTEMID.key, sameNameUpstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
-					} else if (longestupstreamNode == null) {
-						n.setProperty(NexusProperty.MAINSTEMID.key, UUID.randomUUID().toString());
-					}else if (longestNamedUpstreamNode != null) {
-						n.setProperty(NexusProperty.MAINSTEMID.key, longestNamedUpstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
-					} else {
-						n.setProperty(NexusProperty.MAINSTEMID.key, longestupstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
-					}	
-				}else {
-					//only use upstream lenght for mainstems
-					if (longestupstreamNode == null) {
-						n.setProperty(NexusProperty.MAINSTEMID.key, UUID.randomUUID().toString());
-					}else {
-						n.setProperty(NexusProperty.MAINSTEMID.key, longestupstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
-					}
+				if (sameNameUpstreamNode != null) {
+					n.setProperty(NexusProperty.MAINSTEMID.key, sameNameUpstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
+				}else if (longestupstreamNode == null) {
+					n.setProperty(NexusProperty.MAINSTEMID.key, UUID.randomUUID().toString());
+				} else {
+					n.setProperty(NexusProperty.MAINSTEMID.key, longestupstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
 				}
 				
 				if (longestupstreamNode == null) {
@@ -412,6 +415,37 @@ public class StreamOrderMainstemEngine {
 				} else {
 					n.setProperty(NexusProperty.UPSTREAMLENGTH.key, longestupstream);
 				}
+				
+				
+//				if (this.nameOption == StreamOrderArgs.MAINSTEM_NAME_OP.ALWAYS) {
+//					//use names for mainstems
+//					if (sameNameUpstreamNode != null) {
+//						n.setProperty(NexusProperty.MAINSTEMID.key, sameNameUpstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
+//					} else if (longestupstreamNode == null) {
+//						n.setProperty(NexusProperty.MAINSTEMID.key, UUID.randomUUID().toString());
+//					}else if (longestNamedUpstreamNode != null) {
+//						n.setProperty(NexusProperty.MAINSTEMID.key, longestNamedUpstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
+//					} else {
+//						n.setProperty(NexusProperty.MAINSTEMID.key, longestupstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
+//					}
+//				}else if (this.nameOption == StreamOrderArgs.MAINSTEM_NAME_OP.SINGLELINE) {
+//					//only use upstream length of mainstems in single line streams
+//					if (r.getProperty(upNameId))
+//					
+//				}else  {
+//					//only use upstream length for mainstems
+//					if (longestupstreamNode == null) {
+//						n.setProperty(NexusProperty.MAINSTEMID.key, UUID.randomUUID().toString());
+//					}else {
+//						n.setProperty(NexusProperty.MAINSTEMID.key, longestupstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
+//					}
+//				}
+//				
+//				if (longestupstreamNode == null) {
+//					n.setProperty(NexusProperty.UPSTREAMLENGTH.key, 0.0);
+//				} else {
+//					n.setProperty(NexusProperty.UPSTREAMLENGTH.key, longestupstream);
+//				}
 		
 			}
 			

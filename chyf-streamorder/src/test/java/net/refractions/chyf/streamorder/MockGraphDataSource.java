@@ -71,9 +71,9 @@ public class MockGraphDataSource implements IGraphDataSource {
 			datasource.createRelationship(tx, "N-7", "N-13", "E-11", 1, 1, 7, 1, "PURPLE");
 			datasource.createRelationship(tx, "N-13", "N-15", "E-12", 1, 1, 5, 1, "PURPLE");
 			
-			datasource.createRelationship(tx, "N-8", "N-14", "E-13", 1, 1, 1, 1, null);
+			datasource.createRelationship(tx, "N-8", "N-14", "E-13", 3, 1, 1, 1, "BLUE");
 			datasource.createRelationship(tx, "N-9", "N-14", "E-14", 1, 1, 2, 1, null);
-			datasource.createRelationship(tx, "N-14", "N-15", "E-15", 1, 1, 2, 1, null);
+			datasource.createRelationship(tx, "N-14", "N-15", "E-15", 3, 1, 2, 1, "BLUE");
 			
 			datasource.createRelationship(tx, "N-15", "N-17", "E-16", 1, 1, 3, 1, "PURPLE");
 			datasource.createRelationship(tx, "N-17", "N-18", "E-17", 1, 1, 3, 1, "PURPLE");

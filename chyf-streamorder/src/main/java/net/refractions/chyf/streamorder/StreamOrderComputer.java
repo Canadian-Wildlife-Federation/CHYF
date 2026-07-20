@@ -39,7 +39,7 @@ public class StreamOrderComputer {
 			
 			source.connect();
 	
-			StreamOrderMainstemEngine computer = new StreamOrderMainstemEngine(cargs.useNames());
+			StreamOrderMainstemEngine computer = new StreamOrderMainstemEngine(cargs.getNameOption());
 			try {
 				computer.computeOrderValues(source);
 			} finally {

@@ -32,8 +32,13 @@ public class StreamOrderArgs {
 	protected final static Options options = new Options();
 
 	protected String mainClass;
-	protected Boolean useNames = null;
-	protected Boolean ignoreNames = null;
+	
+	public enum MAINSTEM_NAME_OP{
+		ALWAYS, NEVER, SINGLELINE
+		
+	}
+	protected MAINSTEM_NAME_OP nameOp;
+	
 	protected String dbstring = "";
 	protected String outputTable = "";
 	protected String inputSchema = "";
@@ -50,6 +55,7 @@ public class StreamOrderArgs {
 	public void initOptions() {
 		options.addOption("usenames", false, "use names when computing mainstems/orders");
 		options.addOption("ignorenames", false, "ignore names when computing mainstems/orders");
+		options.addOption("singlenames", false, "use names on single line streams only when computing mainstems/orders");
 		options.addOption("d", true, "postgis data source connection string");
 	}
 	
@@ -93,10 +99,27 @@ public class StreamOrderArgs {
 	 * Parses command line arguments.  Users should override if they have custom 
 	 * arguments.
 	 * @param cmd
+	 * @throws Exception 
 	 */
-	protected void parseOptions(CommandLine cmd) {
-		if (cmd.hasOption("usenames")) useNames = true;
-		if (cmd.hasOption("ignorenames")) ignoreNames = true;
+	protected void parseOptions(CommandLine cmd) throws Exception {
+		
+				
+		if (cmd.hasOption("usenames")) {
+			nameOp = MAINSTEM_NAME_OP.ALWAYS;
+		}
+		if (cmd.hasOption("ignorenames")) {
+			if (nameOp != null) {
+				throw new Exception("Only one of usenames, ignorenames, or singlenames can be provided");
+			}
+			nameOp = MAINSTEM_NAME_OP.NEVER;
+		}
+		if (cmd.hasOption("singlenames")) {
+			if (nameOp != null) {
+				throw new Exception("Only one of usenames, ignorenames, or singlenames can be provided");
+			}
+			nameOp = MAINSTEM_NAME_OP.SINGLELINE;
+		}
+		
 		if (cmd.hasOption("d")) {
 			dbstring = cmd.getOptionValue("d");
 		}
@@ -104,12 +127,9 @@ public class StreamOrderArgs {
 	
 	
 	protected boolean validate() {
-		if (useNames == null && ignoreNames == null) {
-			System.err.println("One of usenames or ignorenames must be provided");
-			return false;
-		}
-		if (useNames != null && ignoreNames != null) {
-			System.err.println("Only one of of usenames or ignorenames can be provided");
+		
+		if (nameOp == null) {
+			System.err.println("One of usenames, ignorenames, or singlenames must be provided");
 			return false;
 		}
 		if (outputTable == null || outputTable.trim().isBlank()) {
@@ -166,10 +186,8 @@ public class StreamOrderArgs {
 		return this.inputSchema;
 	}
 	
-	public boolean useNames() {
-		if (useNames != null) return useNames;
-		if (ignoreNames != null) return !ignoreNames;
-		return false;
+	public MAINSTEM_NAME_OP getNameOption() {
+		return this.nameOp;
 	}
 	
 	private void printUsage() {
