@@ -267,7 +267,7 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 				tx.commit();
 			}
 			try (Transaction tx = datasource.getDatabase().beginTx()) {
-				tx.schema().awaitIndexesOnline(30, TimeUnit.MINUTES);
+				tx.schema().awaitIndexesOnline(8 * 60, TimeUnit.MINUTES);
 				tx.commit();
 			}
 			logger.info("Node indexes created");
@@ -334,7 +334,7 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 				tx.commit();
 			}
 			try (Transaction tx = datasource.getDatabase().beginTx()) {
-				tx.schema().awaitIndexesOnline(30, TimeUnit.MINUTES);
+				tx.schema().awaitIndexesOnline(8 * 60, TimeUnit.MINUTES);
 				tx.commit();
 			}
 			logger.info("Relationship indexes created");

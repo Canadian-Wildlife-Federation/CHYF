@@ -119,7 +119,7 @@ public class StreamOrderMainstemEngine {
 			tx.commit();
 		}
 		try (Transaction tx = graph.getDatabase().beginTx()) {
-			tx.schema().awaitIndexesOnline(30, TimeUnit.MINUTES);
+			tx.schema().awaitIndexesOnline(8 * 60, TimeUnit.MINUTES);
 			tx.commit();
 		}
 
