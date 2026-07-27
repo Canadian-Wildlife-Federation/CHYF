@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Relationship;
@@ -56,11 +57,11 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 	private String aoiTable = "";
 	
 	//db connection
-	private String host = "";
+	private String host = null;
 	private int port = 5432;
-	private String db ="";
-	private String user ="";
-	private String pass = "";
+	private String db = null;
+	private String user = null;
+	private String pass = null;
 	
 	//output table
 	private String outputTable = "";
@@ -137,16 +138,16 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 		sb.append(" WHERE ");
 		sb.append(" a.aoi_id != b.aoi_id AND a.rank = 1 AND b.rank = 1 ");
 		
-		HashMap<String, Set<String>> aoiLinks = new HashMap<>();
+		HashMap<UUID, Set<UUID>> aoiLinks = new HashMap<>();
 
 		try (Statement s = connection.createStatement(); ResultSet rs = s.executeQuery(sb.toString())) {
 
 			while (rs.next()) {
 
-				String id1 = rs.getString(1);
-				String id2 = rs.getString(2);
+				UUID id1 = (UUID) rs.getObject(1);
+				UUID id2 = (UUID) rs.getObject(2);
 
-				Set<String> set = aoiLinks.get(id1);
+				Set<UUID> set = aoiLinks.get(id1);
 				if (set == null) {
 					set = new HashSet<>();
 					aoiLinks.put(id1, set);
@@ -162,26 +163,26 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 			}
 		}
 
-		Set<String> visited = new HashSet<>();
+		Set<UUID> visited = new HashSet<>();
 
 		List<AoiGroup> groups = new ArrayList<>();
-		for (String s : aoiLinks.keySet()) {
+		for (UUID s : aoiLinks.keySet()) {
 
 			if (visited.contains(s))
 				continue;
 
-			ArrayDeque<String> tovisit = new ArrayDeque<>();
+			ArrayDeque<UUID> tovisit = new ArrayDeque<>();
 
-			AoiGroup aoiGroup = new AoiGroup(UUID.fromString(s));
+			AoiGroup aoiGroup = new AoiGroup(s);
 			groups.add(aoiGroup);
 			tovisit.addAll(aoiLinks.get(s));
 			visited.add(s);
 
 			while (!tovisit.isEmpty()) {
-				String n = tovisit.remove();
+				UUID n = tovisit.remove();
 				if (visited.contains(n))
 					continue;
-				aoiGroup.addAoi(UUID.fromString(n));
+				aoiGroup.addAoi(n);
 				visited.add(n);
 				tovisit.addAll(aoiLinks.get(n));
 			}
@@ -190,12 +191,12 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 		// add any aoi's that are not in a group
 
 		try (Statement s = connection.createStatement();
-				ResultSet rs = s.executeQuery("SELECT cast(id as varchar) FROM " + aoiTable)) {
+				ResultSet rs = s.executeQuery("SELECT id  FROM " + aoiTable)) {
 
 			while (rs.next()) {
-				String id = rs.getString(1);
+				UUID id = (UUID)rs.getObject(1);
 				if (!visited.contains(id)) {
-					AoiGroup aoiGroup = new AoiGroup(UUID.fromString(id));
+					AoiGroup aoiGroup = new AoiGroup(id);
 					groups.add(aoiGroup);
 					visited.add(id);
 				}
@@ -205,124 +206,142 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 	}
 
 	public void loadGraph(Neo4JDatastore datasource, AoiGroup group) throws SQLException {
-
-		logger.info("Creating nodes");
-		Transaction ntx = datasource.getDatabase().beginTx();
 		try {
-
-			StringBuilder sb = new StringBuilder();
-
-			sb.append(" WITH edges AS (");
-			sb.append(" SELECT from_nexus_id, to_nexus_id FROM ");
-			sb.append( eflowpathTable );
-			sb.append(" WHERE aoi_id IN (");
-			for (int i = 0; i < group.getAoiIds().size(); i++) {
-				sb.append("?,");
-			}
-			sb.deleteCharAt(sb.length() - 1);
-			sb.append(")");
-			sb.append(") ");
-			sb.append(" SELECT id, nexus_type FROM ");
-			sb.append( nexusTable );
-			sb.append(" WHERE id IN (");
-			sb.append(" SELECT from_nexus_id FROM edges UNION SELECT to_nexus_id FROM edges");
-			sb.append(")");
-
-			int cnt = 0;
-			try (PreparedStatement ps = connection.prepareStatement(sb.toString())) {
-				int i = 1;
-				for (UUID uuid : group.getAoiIds()) {
-					ps.setObject(i++, uuid);
+		connection.setAutoCommit(false);
+			logger.info("Creating nodes");
+			Transaction ntx = datasource.getDatabase().beginTx();
+			try {
+	
+				StringBuilder sb = new StringBuilder();
+	
+				sb.append(" WITH edges AS (");
+				sb.append(" SELECT from_nexus_id, to_nexus_id FROM ");
+				sb.append( eflowpathTable );
+				sb.append(" WHERE aoi_id IN (");
+				for (int i = 0; i < group.getAoiIds().size(); i++) {
+					sb.append("?,");
 				}
-				try (ResultSet rs = ps.executeQuery()) {
-					while (rs.next()) {
-						String id = rs.getString(1);
-						int type = rs.getInt(2);
-
-						datasource.createNexus(ntx, id, type);
-						
-						cnt++;
-						if (cnt > COMMIT_CNT) {
-							cnt = 0;
-							ntx.commit();
-							ntx = datasource.getDatabase().beginTx();
+				sb.deleteCharAt(sb.length() - 1);
+				sb.append(")");
+				sb.append(") ");
+				sb.append(" SELECT id, nexus_type FROM ");
+				sb.append( nexusTable );
+				sb.append(" WHERE id IN (");
+				sb.append(" SELECT from_nexus_id FROM edges UNION SELECT to_nexus_id FROM edges");
+				sb.append(")");
+	
+				int cnt = 0;
+				
+				try (PreparedStatement ps = connection.prepareStatement(sb.toString())) {
+					ps.setFetchSize(10000);
+					int i = 1;
+					for (UUID uuid : group.getAoiIds()) {
+						ps.setObject(i++, uuid);
+					}
+					try (ResultSet rs = ps.executeQuery()) {
+						while (rs.next()) {
+							String id = rs.getString(1);
+							int type = rs.getInt(2);
+	
+							datasource.createNexus(ntx, id, type);
+							
+							cnt++;
+							if (cnt > COMMIT_CNT) {
+								cnt = 0;
+								ntx.commit();
+								ntx = datasource.getDatabase().beginTx();
+							}
 						}
 					}
 				}
+				ntx.commit();
+			} finally {
+				ntx.close();
 			}
-			ntx.commit();
-		} finally {
-			ntx.close();
-		}
-		logger.info("Nodes created");
-
-		logger.info("Creating node indexes");
-		try (Transaction tx = datasource.getDatabase().beginTx()) {
-			tx.schema().indexFor(datasource.getNexusType()).on(NexusProperty.ID.key).create();
-			tx.commit();
-		}
-		logger.info("Node indexes created");
-
-		logger.info("Creating relationships");
-		Transaction rtx = datasource.getDatabase().beginTx();
-		try {
-
-			StringBuilder sb = new StringBuilder();
-			sb.append("SELECT from_nexus_id, to_nexus_id, id, ef_type, ef_subtype, length, rank, rivernameid1 ");
-			sb.append(" FROM ");
-			sb.append(eflowpathTable);
-			sb.append(" WHERE aoi_id IN (");
-			for (int i = 0; i < group.getAoiIds().size(); i++) {
-				sb.append("?,");
+		
+			logger.info("Nodes created");
+	
+			logger.info("Creating node indexes");
+			try (Transaction tx = datasource.getDatabase().beginTx()) {
+				tx.schema().indexFor(datasource.getNexusType()).on(NexusProperty.ID.key).create();
+				tx.commit();
 			}
-			sb.deleteCharAt(sb.length() - 1);
-			sb.append(")");
-
-			int cnt = 0;
-//			System.out.println(sb.toString());
-			try (PreparedStatement ps = connection.prepareStatement(sb.toString())) {
-				int i = 1;
-				for (UUID uuid : group.getAoiIds()) {
-					ps.setObject(i++, uuid);
+			try (Transaction tx = datasource.getDatabase().beginTx()) {
+				tx.schema().awaitIndexesOnline(8 * 60, TimeUnit.MINUTES);
+				tx.commit();
+			}
+			logger.info("Node indexes created");
+	
+			logger.info("Creating relationships");
+			Transaction rtx = datasource.getDatabase().beginTx();
+			try {
+	
+				StringBuilder sb = new StringBuilder();
+				sb.append("SELECT from_nexus_id, to_nexus_id, id, ef_type, ef_subtype, length, rank, rivernameid1 ");
+				sb.append(" FROM ");
+				sb.append(eflowpathTable);
+				sb.append(" WHERE aoi_id IN (");
+				for (int i = 0; i < group.getAoiIds().size(); i++) {
+					sb.append("?,");
 				}
-				try (ResultSet rs = ps.executeQuery()) {
-					while (rs.next()) {
-						String from = rs.getString(1);
-						String to = rs.getString(2);
-						String id = rs.getString(3);
-						int type = rs.getInt(4);
-						int subtype = rs.getInt(5);
-						double length = rs.getDouble(6);
-						int rank = rs.getInt(7);
-						String nameid = rs.getString(8);
-
-						datasource.createRelationship(rtx,  from, to, id, type, subtype, length, rank, nameid);
-						
-						cnt++;
-						if (cnt > COMMIT_CNT) {
-							cnt = 0;
-							rtx.commit();
-							rtx = datasource.getDatabase().beginTx();
+				sb.deleteCharAt(sb.length() - 1);
+				sb.append(")");
+	
+				int cnt = 0;
+	//			System.out.println(sb.toString());
+				try (PreparedStatement ps = connection.prepareStatement(sb.toString())) {
+					int i = 1;
+					for (UUID uuid : group.getAoiIds()) {
+						ps.setObject(i++, uuid);
+					}
+					
+					ps.setFetchSize(10000);
+					try (ResultSet rs = ps.executeQuery()) {
+						while (rs.next()) {
+							String from = rs.getString(1);
+							String to = rs.getString(2);
+							String id = rs.getString(3);
+							int type = rs.getInt(4);
+							int subtype = rs.getInt(5);
+							double length = rs.getDouble(6);
+							int rank = rs.getInt(7);
+							String nameid = rs.getString(8);
+	
+							datasource.createRelationship(rtx,  from, to, id, type, subtype, length, rank, nameid);
+							
+							cnt++;
+							if (cnt > COMMIT_CNT) {
+								cnt = 0;
+								rtx.commit();
+								rtx = datasource.getDatabase().beginTx();
+							}
 						}
 					}
+	
 				}
-
+				rtx.commit();
+	
+			} finally {
+				rtx.close();
 			}
-			rtx.commit();
+	
+			logger.info("Relationships created");
+	
+			logger.info("Creating relationship indexes");
+			try (Transaction tx = datasource.getDatabase().beginTx()) {
+				tx.schema().indexFor(datasource.getFlowpathType()).on(FlowpathProperty.EF_TYPE.key).create();
+				tx.schema().indexFor(datasource.getFlowpathType()).on(FlowpathProperty.RANK.key).create();
+				tx.commit();
+			}
+			try (Transaction tx = datasource.getDatabase().beginTx()) {
+				tx.schema().awaitIndexesOnline(8 * 60, TimeUnit.MINUTES);
+				tx.commit();
+			}
+			logger.info("Relationship indexes created");
 
-		} finally {
-			rtx.close();
+		}finally {
+			connection.setAutoCommit(true);
 		}
-
-		logger.info("Relationships created");
-
-		logger.info("Creating relationship indexes");
-		try (Transaction tx = datasource.getDatabase().beginTx()) {
-			tx.schema().indexFor(datasource.getFlowpathType()).on(FlowpathProperty.EF_TYPE.key).create();
-			tx.schema().indexFor(datasource.getFlowpathType()).on(FlowpathProperty.RANK.key).create();
-			tx.commit();
-		}
-		logger.info("Relationship indexes created");
 	}
 	
 	public void saveData(Neo4JDatastore graph) throws SQLException{
@@ -372,38 +391,30 @@ public class PostgresqlGraphDataSource implements IGraphDataSource{
 
 						//only primary non-bank
 						
-						Integer sorder = -9999;
-						if (ne.hasProperty(NexusProperty.SORDER.key)) sorder =  (Integer) ne.getProperty(NexusProperty.SORDER.key);
+						Integer sorder = (Integer)ne.getProperty(NexusProperty.SORDER.key, -9999);
 						ps.setInt(2, sorder);
 						
-						String mid = null;
-						if (ne.hasProperty(NexusProperty.MAINSTEMID.key)) {
-							mid = ne.getProperty(NexusProperty.MAINSTEMID.key).toString();
-						}
+						String mid = (String)ne.getProperty(NexusProperty.MAINSTEMID.key, null);
 						if (mid == null) {
 							ps.setNull(4, Types.OTHER);
 						}else {
 							ps.setObject(4, UUID.fromString(mid));
 						}
 						
-						Double uplength = -1.0;
-						if (ne.hasProperty(NexusProperty.UPSTREAMLENGTH.key)) uplength = (Double) ne.getProperty(NexusProperty.UPSTREAMLENGTH.key);
+						
+						Double uplength = (Double)ne.getProperty(NexusProperty.UPSTREAMLENGTH.key, -1.0);						
 						ps.setDouble(5, uplength);
 						
-						Integer hack = -9999;
-						if (ne.hasProperty(NexusProperty.HKORDER.key)) hack = (Integer) ne.getProperty(NexusProperty.HKORDER.key);
+						Integer hack = (Integer)ne.getProperty(NexusProperty.HKORDER.key, -9999);
 						ps.setInt(6, hack);
 
-						Integer horton = -9999;
-						if (ne.hasProperty(NexusProperty.HTORDER.key)) horton = (Integer) ne.getProperty(NexusProperty.HTORDER.key);
+						Integer horton = (Integer)ne.getProperty(NexusProperty.HTORDER.key, -9999);
 						ps.setInt(7, horton);
 						
-						Integer seq = -9999;
-						if (ne.hasProperty(NexusProperty.MAINSTEMID_SEQ.key)) seq= (Integer) ne.getProperty(NexusProperty.MAINSTEMID_SEQ.key);
+						Integer seq = (Integer)ne.getProperty(NexusProperty.MAINSTEMID_SEQ.key, -9999);
 						ps.setInt(8, seq);
 						
-						Integer shorder = -9999;
-						if (ne.hasProperty(NexusProperty.SHORDER.key)) shorder =  (Integer) ne.getProperty(NexusProperty.SHORDER.key);
+						Integer shorder = (Integer)ne.getProperty(NexusProperty.SHORDER.key, -9999);
 						ps.setInt(9, shorder);
 						
 						

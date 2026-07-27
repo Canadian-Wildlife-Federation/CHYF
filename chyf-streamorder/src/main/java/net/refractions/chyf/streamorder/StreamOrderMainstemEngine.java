@@ -16,11 +16,13 @@
 package net.refractions.chyf.streamorder;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.neo4j.gds.impl.walking.WalkPath;
@@ -42,14 +44,14 @@ public class StreamOrderMainstemEngine {
 
 	private Logger logger = LoggerFactory.getLogger(StreamOrderMainstemEngine.class);
 
-	private boolean useNamesForMainstems = false;
+	private StreamOrderArgs.MAINSTEM_NAME_OP nameOption;
 	
 	/**
 	 * 
 	 * @param useNamesForMainstems if names should be used for mainstems
 	 */
-	public StreamOrderMainstemEngine(boolean useNamesForMainstems) {
-		this.useNamesForMainstems = useNamesForMainstems;
+	public StreamOrderMainstemEngine(StreamOrderArgs.MAINSTEM_NAME_OP nameOption) {
+		this.nameOption = nameOption;
 	}
 	
 	public void computeOrderValues(IGraphDataSource source) throws Exception {
@@ -114,6 +116,10 @@ public class StreamOrderMainstemEngine {
 			tx.schema()
 				.indexFor(graph.getNexusType())
 				.on(NexusProperty.COMPONENTID.key).create();
+			tx.commit();
+		}
+		try (Transaction tx = graph.getDatabase().beginTx()) {
+			tx.schema().awaitIndexesOnline(8 * 60, TimeUnit.MINUTES);
 			tx.commit();
 		}
 
@@ -230,25 +236,21 @@ public class StreamOrderMainstemEngine {
 	
 	private void processSubGraphOrder(Neo4JDatastore graph, Set<Long> componentIds) {
 
-		StringBuilder in = new StringBuilder();
-		for (Long pi : componentIds) {
-			in.append(String.valueOf(pi));
-			in.append(",");
-		}
-		in.deleteCharAt(in.length() - 1);
+		List<Long> ids = new ArrayList<>(componentIds);
 
 		StringBuilder nodeQuery = new StringBuilder();
 		nodeQuery.append("MATCH (n:Nexus) ");
 		nodeQuery.append("WHERE n." + NexusProperty.COMPONENTID.key);
-		nodeQuery.append(" IN [" + in.toString() + "] ");
+		nodeQuery.append(" IN $componentIds ");
 		nodeQuery.append("RETURN id(n) as id ");
+
 
 		StringBuilder edgeQuery = new StringBuilder();
 		edgeQuery.append("MATCH (s:Nexus)-[flow:FLOWPATH]->(t:Nexus) ");
 		edgeQuery.append("WHERE s." + NexusProperty.COMPONENTID.key);
-		edgeQuery.append(" IN [" + in.toString() + "] ");
+		edgeQuery.append(" IN $componentIds ");
 		edgeQuery.append(" AND t." + NexusProperty.COMPONENTID.key);
-		edgeQuery.append(" IN [" + in.toString() + "] ");
+		edgeQuery.append(" IN $componentIds ");
 		edgeQuery.append(" AND flow." + FlowpathProperty.RANK.key);
 		edgeQuery.append(" = " + RankType.PRIMARY.getChyfValue() );
 		edgeQuery.append(" AND flow." + FlowpathProperty.EF_TYPE.key);
@@ -262,17 +264,24 @@ public class StreamOrderMainstemEngine {
 			StringBuilder cql = new StringBuilder();
 			cql.append("CALL gds.graph.create.cypher");
 			cql.append("('tempGraph',  ");
-			cql.append("'" + nodeQuery.toString() + "',");
-			cql.append("'" + edgeQuery.toString() + "'");
+			cql.append("$nodeQuery,");
+			cql.append("$edgeQuery,");
+			cql.append("{parameters: {componentIds: $componentIds}}");
 			cql.append(") YIELD graphName");
 
-			Result resultSet = tx.execute(cql.toString());
+
+			Map<String, Object> params = new HashMap<>();
+			params.put("nodeQuery", nodeQuery.toString());
+			params.put("edgeQuery", edgeQuery.toString());
+			params.put("componentIds", ids);
+
+			Result resultSet = tx.execute(cql.toString(), params);
 			while (resultSet.hasNext()) resultSet.next();
-			
+
 			StringBuilder sb = new StringBuilder();
 			sb.append("MATCH(a:Nexus) WHERE ");
 			sb.append("a." + NexusProperty.COMPONENTID.key);
-			sb.append(" IN [" + in.toString() + "] ");
+			sb.append(" IN $componentIds ");
 			sb.append(" and isEmpty([(a)-[fp:FLOWPATH]->() WHERE ");
 			sb.append("fp." + FlowpathProperty.RANK.key );
 			sb.append(" = " + RankType.PRIMARY.getChyfValue() + " and ");
@@ -282,8 +291,8 @@ public class StreamOrderMainstemEngine {
 			sb.append("CALL gds.alpha.bfs.stream('tempGraph', {startNode: startNode}) ");
 			sb.append("YIELD path ");
 			sb.append("RETURN path ");
-			
-			try (Result result = tx.execute(sb.toString())) {
+
+			try (Result result = tx.execute(sb.toString(), Map.of("componentIds", ids))) {
 				while (result.hasNext()) {
 					Map<String, Object> row = result.next();
 					WalkPath path = (WalkPath) row.get("path");
@@ -310,11 +319,22 @@ public class StreamOrderMainstemEngine {
 
 				String upNameId = null;
 				
-				for (Relationship r : n.getRelationships(Direction.OUTGOING)) {
-					if ((Integer) r.getProperty(FlowpathProperty.RANK.key) == RankType.PRIMARY.getChyfValue()) {
-						if (r.hasProperty(FlowpathProperty.NAMEID.key))
-							upNameId = r.getProperty(FlowpathProperty.NAMEID.key).toString();
-						break;
+				if (this.nameOption == StreamOrderArgs.MAINSTEM_NAME_OP.ALWAYS) {
+					for (Relationship r : n.getRelationships(Direction.OUTGOING)) {
+						if ((Integer) r.getProperty(FlowpathProperty.RANK.key) == RankType.PRIMARY.getChyfValue()) {
+							upNameId = (String)r.getProperty(FlowpathProperty.NAMEID.key, null);;
+							break;
+						}
+					}
+				}else if (this.nameOption == StreamOrderArgs.MAINSTEM_NAME_OP.SINGLELINE) {
+					for (Relationship r : n.getRelationships(Direction.OUTGOING)) {
+						int eftype = (Integer)r.getProperty(FlowpathProperty.EF_TYPE.key); 
+						if (eftype == EfType.INFRASTRUCTURE.getChyfValue() || eftype == EfType.REACH.getChyfValue()) {
+							if ((Integer) r.getProperty(FlowpathProperty.RANK.key) == RankType.PRIMARY.getChyfValue()) {								
+								upNameId = (String)r.getProperty(FlowpathProperty.NAMEID.key, null);;
+								break;
+							}
+						}
 					}
 				}
 	
@@ -322,9 +342,6 @@ public class StreamOrderMainstemEngine {
 				double longestupstream = -1;
 				
 				Node sameNameUpstreamNode = null;
-	
-				Node longestNamedUpstreamNode = null;
-				double longestNamedUpstream = -1;
 
 				int shorder = 0;
 				
@@ -336,36 +353,25 @@ public class StreamOrderMainstemEngine {
 					
 					Node fromnode = r.getStartNode();
 	
-					double length = (double) r.getProperty(FlowpathProperty.LENGTH.key);
+					double length = (double) r.getProperty(FlowpathProperty.LENGTH.key);	
+
+					String nameid = (String)r.getProperty(FlowpathProperty.NAMEID.key, null);					
+					double uplength = (Double)fromnode.getProperty(NexusProperty.UPSTREAMLENGTH.key, 0.0);
 	
-					double uplength = 0;
-	
-					String nameid = null;
-					if (r.hasProperty(FlowpathProperty.NAMEID.key)) {
-						nameid = (String)r.getProperty(FlowpathProperty.NAMEID.key);
+					if (upNameId != null && nameid != null && nameid.equals(upNameId)) {
+						sameNameUpstreamNode = fromnode;
 					}
 					
-					if (fromnode.hasProperty(NexusProperty.UPSTREAMLENGTH.key))
-						uplength = (double) fromnode.getProperty(NexusProperty.UPSTREAMLENGTH.key);
-	
 					if ((uplength + length) > longestupstream) {
 						longestupstream = uplength + length;
 						longestupstreamNode = fromnode;
 					}
-	
-					if (nameid != null && ((uplength + length) > longestNamedUpstream)) {
-						longestNamedUpstream = uplength + length;
-						longestNamedUpstreamNode = fromnode;
-					}
-					
-					if (upNameId != null && nameid != null && nameid.equals(upNameId)) {
-						sameNameUpstreamNode = fromnode;
-					}
 
 					if (!fromnode.hasProperty(NexusProperty.SHORDER.key)) {
+						logger.error("ERROR: node missing shorder value"  + fromnode.getProperty(NexusProperty.ID.key));
 						System.out.println("ERROR: " + fromnode.getProperty(NexusProperty.ID.key));
 					}
-					Integer nshorder = (Integer) fromnode.getProperty(NexusProperty.SHORDER.key);
+					Integer nshorder = (Integer) fromnode.getProperty(NexusProperty.SHORDER.key, -9999);
 					shorder += nshorder;
 					
 					Integer norder = (Integer) fromnode.getProperty(NexusProperty.SORDER.key);
@@ -387,24 +393,12 @@ public class StreamOrderMainstemEngine {
 				if (shorder == 0) shorder = 1;
 				n.setProperty(NexusProperty.SHORDER.key, shorder);
 				
-				if (useNamesForMainstems) {
-					//use names for mainstems
-					if (sameNameUpstreamNode != null) {
-						n.setProperty(NexusProperty.MAINSTEMID.key, sameNameUpstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
-					} else if (longestupstreamNode == null) {
-						n.setProperty(NexusProperty.MAINSTEMID.key, UUID.randomUUID().toString());
-					}else if (longestNamedUpstreamNode != null) {
-						n.setProperty(NexusProperty.MAINSTEMID.key, longestNamedUpstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
-					} else {
-						n.setProperty(NexusProperty.MAINSTEMID.key, longestupstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
-					}	
-				}else {
-					//only use upstream lenght for mainstems
-					if (longestupstreamNode == null) {
-						n.setProperty(NexusProperty.MAINSTEMID.key, UUID.randomUUID().toString());
-					}else {
-						n.setProperty(NexusProperty.MAINSTEMID.key, longestupstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
-					}
+				if (sameNameUpstreamNode != null) {
+					n.setProperty(NexusProperty.MAINSTEMID.key, sameNameUpstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
+				}else if (longestupstreamNode == null) {
+					n.setProperty(NexusProperty.MAINSTEMID.key, UUID.randomUUID().toString());
+				} else {
+					n.setProperty(NexusProperty.MAINSTEMID.key, longestupstreamNode.getProperty(NexusProperty.MAINSTEMID.key));
 				}
 				
 				if (longestupstreamNode == null) {
@@ -412,7 +406,6 @@ public class StreamOrderMainstemEngine {
 				} else {
 					n.setProperty(NexusProperty.UPSTREAMLENGTH.key, longestupstream);
 				}
-		
 			}
 			
 			Result resultSet = tx.execute("CALL gds.graph.drop('tempGraph') YIELD graphName");

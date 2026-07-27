@@ -29,7 +29,7 @@ class TestBasicGraph {
 	@Test
 	void testOrderMainstemComputations() throws Exception{
 		try(MockGraphDataSource dataSource = new MockGraphDataSource()){
-			StreamOrderMainstemEngine computer = new StreamOrderMainstemEngine(false);
+			StreamOrderMainstemEngine computer = new StreamOrderMainstemEngine(StreamOrderArgs.MAINSTEM_NAME_OP.NEVER);
 			
 			computer.computeOrderValues(dataSource);
 			
@@ -122,7 +122,7 @@ class TestBasicGraph {
 	@Test
 	void testNamedOrderMainstemComputations() throws Exception{
 		try(MockGraphDataSource dataSource = new MockGraphDataSource()){
-			StreamOrderMainstemEngine computer = new StreamOrderMainstemEngine(true);
+			StreamOrderMainstemEngine computer = new StreamOrderMainstemEngine(StreamOrderArgs.MAINSTEM_NAME_OP.ALWAYS);
 			
 			computer.computeOrderValues(dataSource);
 			
@@ -136,6 +136,92 @@ class TestBasicGraph {
 			for (Entry<String,Object> so : sorder.entrySet()) {
 				Assertions.assertEquals((Integer)so.getValue(), (Integer)edges.get(so.getKey()).get(NexusProperty.SORDER.key));
 			}
+			
+			Map<String, Object> uplength = createMap("E-1",0.0, "E-2", 0.0, "E-3", 3.0,	"E-4", 0.0,
+					"E-5", 0.0,"E-6", 6.0,"E-7", 14.0,"E-8", 0.0,"E-9", 15.0,"E-10", 0.0,
+					"E-11", 0.0,"E-12", 8.0,"E-13", 0.0,"E-14", 0.0,"E-15", 2.0,"E-16", 13.0,
+					"E-17", 17.0);
+					
+			for (Entry<String,Object> so : uplength.entrySet()) {
+				Assertions.assertEquals((Double)so.getValue(), (Double)edges.get(so.getKey()).get(NexusProperty.UPSTREAMLENGTH.key));
+			}
+			
+	
+			
+			String mid = edges.get("E-17").get(NexusProperty.MAINSTEMID.key).toString();
+			String[] edges1 = new String[] {"E-16", "E-12", "E-11"};
+			for (String eid : edges1) {
+				Assertions.assertEquals(mid, edges.get(eid).get(NexusProperty.MAINSTEMID.key));
+			}
+			
+			mid = edges.get("E-15").get(NexusProperty.MAINSTEMID.key).toString();
+			edges1 = new String[] {"E-13"};
+			for (String eid : edges1) {
+				Assertions.assertEquals(mid, edges.get(eid).get(NexusProperty.MAINSTEMID.key));
+			}
+			
+			mid = edges.get("E-9").get(NexusProperty.MAINSTEMID.key).toString();
+			edges1 = new String[] {"E-7", "E-3", "E-2"};
+			for (String eid : edges1) {
+				Assertions.assertEquals(mid, edges.get(eid).get(NexusProperty.MAINSTEMID.key));
+			}
+			
+			mid = edges.get("E-6").get(NexusProperty.MAINSTEMID.key).toString();
+			edges1 = new String[] {"E-5"};
+			for (String eid : edges1) {
+				Assertions.assertEquals(mid, edges.get(eid).get(NexusProperty.MAINSTEMID.key));
+			}
+			
+			
+			Map<String, Object> mainseq = createMap("E-1",1, "E-2", 4, "E-3", 3, "E-4", 1,
+					"E-5", 2,"E-6", 1,"E-7", 2,"E-8", 1,"E-9", 1,"E-10", 1,
+					"E-11", 4,"E-12", 3,"E-13", 2,"E-14", 1,"E-15", 1,"E-16", 2,
+					"E-17", 1);
+					
+			for (Entry<String,Object> so : mainseq.entrySet()) {
+				Assertions.assertEquals((Integer)so.getValue(), (Integer)edges.get(so.getKey()).get(NexusProperty.MAINSTEMID_SEQ.key));
+			}
+			
+			Map<String, Object> hack = createMap("E-1",3, "E-2", 2, "E-3", 2, "E-4", 4,
+					"E-5", 3,"E-6", 3,"E-7", 2,"E-8", 3,"E-9", 2,"E-10", 2,
+					"E-11", 1,"E-12", 1,"E-13", 2,"E-14", 3,"E-15", 2,"E-16", 1,
+					"E-17", 1);
+					
+			for (Entry<String,Object> so : hack.entrySet()) {
+				Assertions.assertEquals((Integer)so.getValue(), (Integer)edges.get(so.getKey()).get(NexusProperty.HKORDER.key));
+			}
+			
+			Map<String, Object> horton = createMap("E-1",1, "E-2", 3, "E-3", 3, "E-4", 1,
+					"E-5", 2,"E-6", 2,"E-7", 3,"E-8", 1,"E-9", 3,"E-10", 1,
+					"E-11", 4,"E-12", 4,"E-13", 2,"E-14", 1,"E-15", 2,"E-16", 4,
+					"E-17", 4);
+					
+			for (Entry<String,Object> so : horton.entrySet()) {
+				Assertions.assertEquals((Integer)so.getValue(), (Integer)edges.get(so.getKey()).get(NexusProperty.HTORDER.key));
+			}
+			
+			Map<String, Object> shreveorder = createMap("E-1",1, "E-2", 1, "E-3", 2, "E-4", 1,
+					"E-5", 1,"E-6", 2, "E-7", 4,"E-8", 1,"E-9", 5,"E-10", 1,
+					"E-11", 1,"E-12", 2,"E-13", 1,"E-14", 1,"E-15", 2,"E-16", 4,
+					"E-17", 9);
+					
+			for (Entry<String,Object> so : shreveorder.entrySet()) {
+				Assertions.assertEquals((Integer)so.getValue(), (Integer)edges.get(so.getKey()).get(NexusProperty.SHORDER.key));
+			}
+		}
+	}
+	
+	
+	
+	@Test
+	void testSingleNamedOrderMainstemComputations() throws Exception{
+		try(MockGraphDataSource dataSource = new MockGraphDataSource()){
+			StreamOrderMainstemEngine computer = new StreamOrderMainstemEngine(StreamOrderArgs.MAINSTEM_NAME_OP.SINGLELINE);
+			
+			computer.computeOrderValues(dataSource);
+			
+			Map<String,Map<String,Object>> edges = dataSource.getEdgeProperties();
+			
 			
 			Map<String, Object> uplength = createMap("E-1",0.0, "E-2", 0.0, "E-3", 3.0,	"E-4", 0.0,
 					"E-5", 0.0,"E-6", 6.0,"E-7", 14.0,"E-8", 0.0,"E-9", 15.0,"E-10", 0.0,
@@ -180,34 +266,7 @@ class TestBasicGraph {
 					
 			for (Entry<String,Object> so : mainseq.entrySet()) {
 				Assertions.assertEquals((Integer)so.getValue(), (Integer)edges.get(so.getKey()).get(NexusProperty.MAINSTEMID_SEQ.key));
-			}
-			
-			Map<String, Object> hack = createMap("E-1",3, "E-2", 2, "E-3", 2, "E-4", 4,
-					"E-5", 3,"E-6", 3,"E-7", 2,"E-8", 3,"E-9", 2,"E-10", 2,
-					"E-11", 1,"E-12", 1,"E-13", 3,"E-14", 2,"E-15", 2,"E-16", 1,
-					"E-17", 1);
-					
-			for (Entry<String,Object> so : hack.entrySet()) {
-				Assertions.assertEquals((Integer)so.getValue(), (Integer)edges.get(so.getKey()).get(NexusProperty.HKORDER.key));
-			}
-			
-			Map<String, Object> horton = createMap("E-1",1, "E-2", 3, "E-3", 3, "E-4", 1,
-					"E-5", 2,"E-6", 2,"E-7", 3,"E-8", 1,"E-9", 3,"E-10", 1,
-					"E-11", 4,"E-12", 4,"E-13", 1,"E-14", 2,"E-15", 2,"E-16", 4,
-					"E-17", 4);
-					
-			for (Entry<String,Object> so : horton.entrySet()) {
-				Assertions.assertEquals((Integer)so.getValue(), (Integer)edges.get(so.getKey()).get(NexusProperty.HTORDER.key));
-			}
-			
-			Map<String, Object> shreveorder = createMap("E-1",1, "E-2", 1, "E-3", 2, "E-4", 1,
-					"E-5", 1,"E-6", 2, "E-7", 4,"E-8", 1,"E-9", 5,"E-10", 1,
-					"E-11", 1,"E-12", 2,"E-13", 1,"E-14", 1,"E-15", 2,"E-16", 4,
-					"E-17", 9);
-					
-			for (Entry<String,Object> so : shreveorder.entrySet()) {
-				Assertions.assertEquals((Integer)so.getValue(), (Integer)edges.get(so.getKey()).get(NexusProperty.SHORDER.key));
-			}
+			}	
 		}
 	}
 	

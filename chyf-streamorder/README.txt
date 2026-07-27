@@ -36,9 +36,10 @@ chyf-streamorder-computer.bat -d <connectionstring> -ignorenames -usenames <inpu
 connectionstring
 The database connection string in the form "host=<host>;port=<port>;db=<db>;user=<user>;password=<pass>"
 
-Only one of -ignorenames or -usenames can be provided.  
+Only one of -ignorenames, -usenames, singenames can be provided.  
 ignorenames - names will be ignored when computing mainstems and orders
 usenames - names will affect how mainstems (and orders) are computed
+singlenames - names will only be used for mainstems when associated with single line flows (not inside waterbodies)
 
 inputschema
 The schema name of the input data. At a minimum this schema musch contain 
