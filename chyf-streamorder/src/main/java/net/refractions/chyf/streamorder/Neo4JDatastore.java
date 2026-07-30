@@ -69,6 +69,7 @@ public class Neo4JDatastore {
 		Map<String, String> settings = new HashMap<>();
 		settings.put("dbms.security.procedures.unrestricted", "jwt.security.*,gds.*,apoc.*");
 		settings.put("dbms.security.procedures.whitelist", "gds.*");
+		settings.put("dbms.tx_log.rotation.retention_policy", "false");
 	
 		managementService = new DatabaseManagementServiceBuilder(directory)
 				.setConfigRaw(settings)
