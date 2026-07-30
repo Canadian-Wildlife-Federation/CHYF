@@ -88,30 +88,11 @@ public class StreamOrderMainstemEngine {
 	private void computeOrder(Neo4JDatastore graph) {
 
 		logger.info("Computing order");
-		
-		StringBuilder cql = new StringBuilder();
-		cql.append("CALL gds.graph.create");
-		cql.append("('primaryGraph',  ['Nexus'], ['FLOWPATH'])");
-		cql.append(" YIELD graphName");
 
 		logger.info("Computing order - creating component networks");
 
-		try (Transaction tx = graph.getDatabase().beginTx()) {
-			Result resultSet = tx.execute(cql.toString());
-			while (resultSet.hasNext()) resultSet.next();
-			
-			StringBuilder sb = new StringBuilder();
-			sb.append("CALL gds.wcc.write('primaryGraph', { writeProperty: '" + NexusProperty.COMPONENTID.key + "' }) ");
-			sb.append(" YIELD nodePropertiesWritten, componentCount;");
+		computeComponentIds(graph);
 
-			tx.execute(sb.toString());
-			
-			resultSet = tx.execute("CALL gds.graph.drop('primaryGraph') YIELD graphName");
-			while (resultSet.hasNext()) resultSet.next();
-			
-			tx.commit();
-		}
-	
 		try (Transaction tx = graph.getDatabase().beginTx()) {
 			tx.schema()
 				.indexFor(graph.getNexusType())
@@ -171,6 +152,81 @@ public class StreamOrderMainstemEngine {
 			logger.info("Computing order - processing subgraph " + i + "/" + subgraphs.size());
 			processSubGraphOrder(graph, tocompute);
 		}
+	}
+
+	/**
+	 * Computes weakly connected components with an in-memory union-find over node ids,
+	 * writing the result to componentId. Avoids projecting the whole AOI graph into GDS
+	 * native memory (gds.graph.create + gds.wcc.write), which was OOM-killing the process
+	 * on large datasets.
+	 */
+	private void computeComponentIds(Neo4JDatastore graph) {
+
+		int maxId = -1;
+		try (Transaction tx = graph.getDatabase().beginTx()) {
+			try (Result result = tx.execute("MATCH (n:Nexus) RETURN max(id(n)) AS maxid")) {
+				Object v = result.next().get("maxid");
+				if (v != null) maxId = ((Long) v).intValue();
+			}
+		}
+		if (maxId < 0) return;
+
+		int[] parent = new int[maxId + 1];
+		for (int i = 0; i <= maxId; i++) parent[i] = i;
+
+		try (Transaction tx = graph.getDatabase().beginTx()) {
+			try (Result result = tx.execute(
+					"MATCH (a:Nexus)-[:FLOWPATH]->(b:Nexus) RETURN id(a) AS aid, id(b) AS bid")) {
+				while (result.hasNext()) {
+					Map<String, Object> row = result.next();
+					union(parent, ((Long) row.get("aid")).intValue(), ((Long) row.get("bid")).intValue());
+				}
+			}
+		}
+
+		List<Map<String, Object>> batch = new ArrayList<>();
+		Transaction tx = graph.getDatabase().beginTx();
+		try {
+			for (int i = 0; i <= maxId; i++) {
+				Map<String, Object> row = new HashMap<>();
+				row.put("id", (long) i);
+				row.put("cid", (long) find(parent, i));
+				batch.add(row);
+
+				if (batch.size() == 5000) {
+					writeComponentIdBatch(tx, batch);
+					tx.commit();
+					tx = graph.getDatabase().beginTx();
+					batch.clear();
+				}
+			}
+			if (!batch.isEmpty()) writeComponentIdBatch(tx, batch);
+			tx.commit();
+		} finally {
+			tx.close();
+		}
+	}
+
+	private void writeComponentIdBatch(Transaction tx, List<Map<String, Object>> batch) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("UNWIND $rows AS row ");
+		sb.append("MATCH (n:Nexus) WHERE id(n) = row.id ");
+		sb.append("SET n." + NexusProperty.COMPONENTID.key + " = row.cid");
+		tx.execute(sb.toString(), Map.of("rows", batch));
+	}
+
+	private static int find(int[] parent, int i) {
+		while (parent[i] != i) {
+			parent[i] = parent[parent[i]]; // path halving
+			i = parent[i];
+		}
+		return i;
+	}
+
+	private static void union(int[] parent, int a, int b) {
+		int ra = find(parent, a);
+		int rb = find(parent, b);
+		if (ra != rb) parent[ra] = rb;
 	}
 
 	private void processSize2Networks(Neo4JDatastore graph) {

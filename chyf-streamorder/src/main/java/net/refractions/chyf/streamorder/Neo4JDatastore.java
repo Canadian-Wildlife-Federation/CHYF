@@ -34,8 +34,6 @@ import org.neo4j.gds.catalog.GraphDropProc;
 import org.neo4j.gds.catalog.GraphListProc;
 import org.neo4j.gds.compat.GraphDatabaseApiProxy;
 import org.neo4j.gds.traverse.TraverseProc;
-import org.neo4j.gds.wcc.WccMutateProc;
-import org.neo4j.gds.wcc.WccWriteProc;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -79,12 +77,10 @@ public class Neo4JDatastore {
 		graphDb = managementService.database(DEFAULT_DATABASE_NAME);
 		
 		var procsToRegister = List.of(
-				GraphListProc.class, 
-				GraphCreateProc.class, 
+				GraphListProc.class,
+				GraphCreateProc.class,
 				GraphDropProc.class,
-				TraverseProc.class,
-				WccMutateProc.class,
-				WccWriteProc.class);
+				TraverseProc.class);
 		for (Class<?> procedureClass : procsToRegister) {
 			GraphDatabaseApiProxy.registerProcedures(graphDb, procedureClass);
 		}
