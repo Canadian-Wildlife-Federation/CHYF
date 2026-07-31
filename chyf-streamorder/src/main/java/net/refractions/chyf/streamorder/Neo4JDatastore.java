@@ -39,36 +39,44 @@ import net.refractions.chyf.streamorder.IGraphDataSource.FlowpathProperty;
 import net.refractions.chyf.streamorder.IGraphDataSource.NexusProperty;
 
 public class Neo4JDatastore {
-	
+
+	public static final String DEFAULT_PAGE_CACHE_SIZE = "1g";
+
 	private Label nexusType;
 	private RelationshipType flowpathType ;
-	
+
 	private Path directory;
-	
+
 	private GraphDatabaseService graphDb;
 	private DatabaseManagementService managementService;
-	
+
 	public Neo4JDatastore(Path tempDir) {
 		this.directory = tempDir;
 	}
-	
+
 	public Neo4JDatastore() throws IOException {
 		this(Files.createTempDirectory("chyfstreamorderneo4j"));
 	}
 
 	public void init() throws Exception {
+		init(DEFAULT_PAGE_CACHE_SIZE);
+	}
+
+	public void init(String pageCacheSize) throws Exception {
 		clearDataDirectory();
 		Files.createDirectories(directory);
-	
+
 		Map<String, String> settings = new HashMap<>();
 		settings.put("dbms.security.procedures.unrestricted", "jwt.security.*,apoc.*");
 		settings.put("dbms.tx_log.rotation.retention_policy", "false");
-	
+		settings.put("dbms.memory.pagecache.size",
+				(pageCacheSize == null || pageCacheSize.isBlank()) ? DEFAULT_PAGE_CACHE_SIZE : pageCacheSize);
+
 		managementService = new DatabaseManagementServiceBuilder(directory)
 				.setConfigRaw(settings)
 				.build();
-	
-		graphDb = managementService.database(DEFAULT_DATABASE_NAME);		
+
+		graphDb = managementService.database(DEFAULT_DATABASE_NAME);
 
 		nexusType = Label.label("Nexus");
 		flowpathType = RelationshipType.withName("FLOWPATH");

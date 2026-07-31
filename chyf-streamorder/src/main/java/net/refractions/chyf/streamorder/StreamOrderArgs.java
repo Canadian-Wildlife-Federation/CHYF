@@ -42,6 +42,7 @@ public class StreamOrderArgs {
 	protected String dbstring = "";
 	protected String outputTable = "";
 	protected String inputSchema = "";
+	protected String pageCacheSize = Neo4JDatastore.DEFAULT_PAGE_CACHE_SIZE;
 	
 	public StreamOrderArgs(String mainClass) {
 		this.mainClass = mainClass;
@@ -57,6 +58,7 @@ public class StreamOrderArgs {
 		options.addOption("ignorenames", false, "ignore names when computing mainstems/orders");
 		options.addOption("singlenames", false, "use names on single line streams only when computing mainstems/orders");
 		options.addOption("d", true, "postgis data source connection string");
+		options.addOption("pagecachesize", true, "Neo4j page cache size, e.g. 512m, 1g, 2g (default: " + Neo4JDatastore.DEFAULT_PAGE_CACHE_SIZE + ")");
 	}
 	
 	/**
@@ -123,11 +125,19 @@ public class StreamOrderArgs {
 		if (cmd.hasOption("d")) {
 			dbstring = cmd.getOptionValue("d");
 		}
+
+		if (cmd.hasOption("pagecachesize")) {
+			pageCacheSize = cmd.getOptionValue("pagecachesize");
+		}
 	}
 	
 	
 	protected boolean validate() {
-		
+
+		if (!pageCacheSize.matches("\\d+[kKmMgG]?")) {
+			System.err.println("Invalid pagecachesize. Must be of the form <number><optional unit>, e.g. 512m, 1g, 2g");
+			return false;
+		}
 		if (nameOp == null) {
 			System.err.println("One of usenames, ignorenames, or singlenames must be provided");
 			return false;
@@ -188,6 +198,14 @@ public class StreamOrderArgs {
 	
 	public MAINSTEM_NAME_OP getNameOption() {
 		return this.nameOp;
+	}
+
+	/**
+	 *
+	 * @return the configured Neo4j page cache size (e.g. "1g")
+	 */
+	public String getPageCacheSize() {
+		return this.pageCacheSize;
 	}
 	
 	private void printUsage() {

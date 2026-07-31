@@ -39,7 +39,7 @@ public class StreamOrderComputer {
 			
 			source.connect();
 	
-			StreamOrderMainstemEngine computer = new StreamOrderMainstemEngine(cargs.getNameOption());
+			StreamOrderMainstemEngine computer = new StreamOrderMainstemEngine(cargs.getNameOption(), cargs.getPageCacheSize());
 			try {
 				computer.computeOrderValues(source);
 			} finally {

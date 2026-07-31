@@ -47,13 +47,24 @@ public class StreamOrderMainstemEngine {
 	private Logger logger = LoggerFactory.getLogger(StreamOrderMainstemEngine.class);
 
 	private StreamOrderArgs.MAINSTEM_NAME_OP nameOption;
-	
+	private String pageCacheSize;
+
 	/**
-	 * 
+	 *
 	 * @param useNamesForMainstems if names should be used for mainstems
 	 */
 	public StreamOrderMainstemEngine(StreamOrderArgs.MAINSTEM_NAME_OP nameOption) {
+		this(nameOption, Neo4JDatastore.DEFAULT_PAGE_CACHE_SIZE);
+	}
+
+	/**
+	 *
+	 * @param nameOption if names should be used for mainstems
+	 * @param pageCacheSize Neo4j page cache size, e.g. "1g"
+	 */
+	public StreamOrderMainstemEngine(StreamOrderArgs.MAINSTEM_NAME_OP nameOption, String pageCacheSize) {
 		this.nameOption = nameOption;
+		this.pageCacheSize = pageCacheSize;
 	}
 	
 	public void computeOrderValues(IGraphDataSource source) throws Exception {
@@ -73,7 +84,7 @@ public class StreamOrderMainstemEngine {
 
 		Neo4JDatastore graph = new Neo4JDatastore();
 		try {
-			graph.init();
+			graph.init(pageCacheSize);
 
 			source.loadGraph(graph, group);
 			computeOrder(graph);
