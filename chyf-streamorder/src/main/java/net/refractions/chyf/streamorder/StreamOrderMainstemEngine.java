@@ -15,7 +15,10 @@
  */
 package net.refractions.chyf.streamorder;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -25,7 +28,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.neo4j.gds.impl.walking.WalkPath;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
@@ -294,45 +296,9 @@ public class StreamOrderMainstemEngine {
 
 		List<Long> ids = new ArrayList<>(componentIds);
 
-		StringBuilder nodeQuery = new StringBuilder();
-		nodeQuery.append("MATCH (n:Nexus) ");
-		nodeQuery.append("WHERE n." + NexusProperty.COMPONENTID.key);
-		nodeQuery.append(" IN $componentIds ");
-		nodeQuery.append("RETURN id(n) as id ");
-
-
-		StringBuilder edgeQuery = new StringBuilder();
-		edgeQuery.append("MATCH (s:Nexus)-[flow:FLOWPATH]->(t:Nexus) ");
-		edgeQuery.append("WHERE s." + NexusProperty.COMPONENTID.key);
-		edgeQuery.append(" IN $componentIds ");
-		edgeQuery.append(" AND t." + NexusProperty.COMPONENTID.key);
-		edgeQuery.append(" IN $componentIds ");
-		edgeQuery.append(" AND flow." + FlowpathProperty.RANK.key);
-		edgeQuery.append(" = " + RankType.PRIMARY.getChyfValue() );
-		edgeQuery.append(" AND flow." + FlowpathProperty.EF_TYPE.key);
-		edgeQuery.append(" <> " + EfType.BANK.getChyfValue() );
-		edgeQuery.append(" RETURN id(t) AS source, id(s) as target ");
-
 		//store the nodes to visit in array list
 		List<Long> toProcess = new ArrayList<>();
 		try (Transaction tx = graph.getDatabase().beginTx()) {
-
-			StringBuilder cql = new StringBuilder();
-			cql.append("CALL gds.graph.create.cypher");
-			cql.append("('tempGraph',  ");
-			cql.append("$nodeQuery,");
-			cql.append("$edgeQuery,");
-			cql.append("{parameters: {componentIds: $componentIds}}");
-			cql.append(") YIELD graphName");
-
-
-			Map<String, Object> params = new HashMap<>();
-			params.put("nodeQuery", nodeQuery.toString());
-			params.put("edgeQuery", edgeQuery.toString());
-			params.put("componentIds", ids);
-
-			Result resultSet = tx.execute(cql.toString(), params);
-			while (resultSet.hasNext()) resultSet.next();
 
 			StringBuilder sb = new StringBuilder();
 			sb.append("MATCH(a:Nexus) WHERE ");
@@ -343,26 +309,28 @@ public class StreamOrderMainstemEngine {
 			sb.append(" = " + RankType.PRIMARY.getChyfValue() + " and ");
 			sb.append("fp." + FlowpathProperty.EF_TYPE.key);
 			sb.append(" <> " + EfType.BANK.getChyfValue() + " | a]) ");
-			sb.append("WITH id(a) AS startNode ");
-			sb.append("CALL gds.alpha.bfs.stream('tempGraph', {startNode: startNode}) ");
-			sb.append("YIELD path ");
-			sb.append("RETURN path ");
+			sb.append("RETURN id(a) AS id ");
 
+			List<Long> startNodes = new ArrayList<>();
 			try (Result result = tx.execute(sb.toString(), Map.of("componentIds", ids))) {
 				while (result.hasNext()) {
-					Map<String, Object> row = result.next();
-					WalkPath path = (WalkPath) row.get("path");
-					path.reverseNodes().forEach(n->toProcess.add(n.getId()));
+					startNodes.add((Long) result.next().get("id"));
 				}
 			}
+
+			for (Long startNodeId : startNodes) {
+				toProcess.addAll(bfsUpstreamOrder(tx, componentIds, startNodeId));
+			}
 		}
+
+		final int COMMIT_BATCH_SIZE = 5000;
 
 		int commitcnt = 0;
 		Transaction tx = graph.getDatabase().beginTx();
 		try {
 			//visit nodes in order committing every x number of visits
 			for (Long nid : toProcess) {
-				if (commitcnt == 500) {
+				if (commitcnt == COMMIT_BATCH_SIZE) {
 					tx.commit();
 					tx = graph.getDatabase().beginTx();
 					commitcnt = 0;
@@ -463,17 +431,14 @@ public class StreamOrderMainstemEngine {
 					n.setProperty(NexusProperty.UPSTREAMLENGTH.key, longestupstream);
 				}
 			}
-			
-			Result resultSet = tx.execute("CALL gds.graph.drop('tempGraph') YIELD graphName");
-			while (resultSet.hasNext()) resultSet.next();
-			
+
 			tx.commit();
 		}finally {
 			tx.close();
 		}
-		
-		
-		
+
+
+
 		//walk up computing mainsteam sequestion, horton and hack order
 		commitcnt = 0;
 		tx = graph.getDatabase().beginTx();
@@ -481,8 +446,8 @@ public class StreamOrderMainstemEngine {
 			//visit nodes in order committing every x number of visits
 			for (int i = toProcess.size() - 1; i >= 0; i--) {
 				Long nid = toProcess.get(i);
-			
-				if (commitcnt == 500) {
+
+				if (commitcnt == COMMIT_BATCH_SIZE) {
 					tx.commit();
 					tx = graph.getDatabase().beginTx();
 					commitcnt = 0;
@@ -526,7 +491,48 @@ public class StreamOrderMainstemEngine {
 			tx.commit();
 		}finally {
 			tx.close();
-		}	
+		}
 
+	}
+
+	/**
+	 * Breadth-first walk upstream from startNode along primary, non-bank FLOWPATH edges.
+	 * These edges form a tree rooted at the outlet (each node has at most one outgoing
+	 * primary edge), so reversing the BFS visit order yields a valid upstream-to-downstream
+	 * processing order — replaces the gds.alpha.bfs.stream call, which materializes a full
+	 * WalkPath object and was the main cost for very large components.
+	 */
+	private List<Long> bfsUpstreamOrder(Transaction tx, Set<Long> componentIds, Long startNodeId) {
+		List<Long> visitOrder = new ArrayList<>();
+		Set<Long> visited = new HashSet<>();
+		Deque<Long> queue = new ArrayDeque<>();
+
+		queue.add(startNodeId);
+		visited.add(startNodeId);
+
+		while (!queue.isEmpty()) {
+			Long id = queue.poll();
+			visitOrder.add(id);
+
+			Node n = tx.getNodeById(id);
+			for (Relationship r : n.getRelationships(Direction.INCOMING)) {
+				if (((Integer) r.getProperty(FlowpathProperty.EF_TYPE.key)) == EfType.BANK.getChyfValue() ||
+						((Integer) r.getProperty(FlowpathProperty.RANK.key)) != RankType.PRIMARY.getChyfValue())
+					continue;
+
+				Node up = r.getStartNode();
+				Long upId = up.getId();
+				if (visited.contains(upId)) continue;
+
+				Long upComponentId = (Long) up.getProperty(NexusProperty.COMPONENTID.key, null);
+				if (upComponentId == null || !componentIds.contains(upComponentId)) continue;
+
+				visited.add(upId);
+				queue.add(upId);
+			}
+		}
+
+		Collections.reverse(visitOrder); // downstream-first -> upstream-first
+		return visitOrder;
 	}
 }
