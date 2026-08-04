@@ -1,1 +1,1 @@
-java -cp lib/*;lib-chyf/chyf-core-${chyf.core.version}.jar;lib-chyf/chyf-streamorder-${streamorder.version}.jar net.refractions.chyf.streamorder.StreamOrderComputer %*
+java -XX:MaxMetaspaceSize=512m -XX:MaxDirectMemorySize=512m -cp lib/*;lib-chyf/chyf-core-${chyf.core.version}.jar;lib-chyf/chyf-streamorder-${streamorder.version}.jar net.refractions.chyf.streamorder.StreamOrderComputer %*

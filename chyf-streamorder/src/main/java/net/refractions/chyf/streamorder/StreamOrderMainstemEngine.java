@@ -15,6 +15,9 @@
  */
 package net.refractions.chyf.streamorder;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -76,8 +79,30 @@ public class StreamOrderMainstemEngine {
 		for (int i = 0; i < groups.size(); i++) {
 			logger.info("Processing aoi group " + i + "/" + groups.size());
 			processAoiGroup(source, groups.get(i));
+
+			System.gc();
+			logMemoryUsage();
 		}
 
+	}
+
+	private void logMemoryUsage() {
+		Runtime rt = Runtime.getRuntime();
+		long heapUsedMb = (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024);
+
+		String rss = null;
+		try {
+			for (String line : Files.readAllLines(Path.of("/proc/self/status"))) {
+				if (line.startsWith("VmRSS:")) {
+					rss = line.trim();
+					break;
+				}
+			}
+		} catch (IOException ex) {
+			// /proc/self/status not available (e.g. not running on Linux) - skip
+		}
+
+		logger.info("Memory usage - heap used: " + heapUsedMb + "MB" + (rss == null ? "" : ", " + rss));
 	}
 
 	private void processAoiGroup(IGraphDataSource source, AoiGroup group) throws Exception {
