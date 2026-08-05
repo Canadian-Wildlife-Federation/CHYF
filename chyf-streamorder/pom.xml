@@ -48,53 +48,7 @@
 			</exclusions>
 		</dependency>
 
-		<dependency>
-			<groupId>org.neo4j.gds</groupId>
-			<artifactId>core</artifactId>
-			<version>${neo4j.gds.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.neo4j.gds</groupId>
-			<artifactId>config-api</artifactId>
-			<version>${neo4j.gds.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.neo4j.gds</groupId>
-			<artifactId>transaction</artifactId>
-			<version>${neo4j.gds.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>org.neo4j.gds</groupId>
-			<artifactId>proc-common</artifactId>
-			<version>${neo4j.gds.version}</version>
-		</dependency>
-
-
-		<!-- Contains the productized algorithm procedures -->
-		<dependency>
-			<groupId>org.neo4j.gds</groupId>
-			<artifactId>proc</artifactId>
-			<version>${neo4j.gds.version}</version>
-			<exclusions>
-				<exclusion>
-					<groupId>com.neo4j.gds</groupId>
-					<artifactId>pipeline</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<!-- Required by the Write procedures, this artifact is responsible for 
-			providing the various exporters -->
-		<dependency>
-			<groupId>org.neo4j.gds</groupId>
-			<artifactId>write-services</artifactId>
-			<version>${neo4j.gds.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.reflections</groupId>
-			<artifactId>reflections</artifactId>
-			<version>0.10.2</version>
-		</dependency>
+		
 
 		<!-- logging -->
 		<dependency>

@@ -21,6 +21,11 @@ data schema.
 ---------------------------------------
 On windows use the .bat files, on linux use the .sh files.
 
+On the processing server, the temp directory had to be configured specifically to use the mounted extra space as neo4j makes larger data files that were 
+using up the disk space on the main drive.  This was done using the -D option.  The -pagecachsize option ensures neo4j limits it memory use. This is the full command string used for running on the processing server:
+
+/usr/lib/jvm/java-11-openjdk-amd64/bin/java -Djava.io.tmpdir=/mnt  -XX:MaxMetaspaceSize=512m -XX:MaxDirectMemorySize=512m  -Xmx4G  -cp ./lib/*:./lib-chyf/chyf-core-1.5.10.jar:./lib-chyf/chyf-streamorder-1.3.3.jar net.refractions.chyf.streamorder.StreamOrderComputer -d "host=<dbhost>;port=<port>;db=<databaes>;user=<username>;password=<password>"  -singlenames -pagecachesize 1g <inschema> <outschema>.<outtable> > log.txt
+
 
 ---------------------------------------
 --- Stream Order Tools  ---

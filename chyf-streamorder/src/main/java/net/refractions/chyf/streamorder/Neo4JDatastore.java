@@ -24,18 +24,10 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.dbms.api.DatabaseManagementServiceBuilder;
-import org.neo4j.gds.catalog.GraphCreateProc;
-import org.neo4j.gds.catalog.GraphDropProc;
-import org.neo4j.gds.catalog.GraphListProc;
-import org.neo4j.gds.compat.GraphDatabaseApiProxy;
-import org.neo4j.gds.traverse.TraverseProc;
-import org.neo4j.gds.wcc.WccMutateProc;
-import org.neo4j.gds.wcc.WccWriteProc;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -47,48 +39,45 @@ import net.refractions.chyf.streamorder.IGraphDataSource.FlowpathProperty;
 import net.refractions.chyf.streamorder.IGraphDataSource.NexusProperty;
 
 public class Neo4JDatastore {
-	
+
+	public static final String DEFAULT_PAGE_CACHE_SIZE = "1g";
+
 	private Label nexusType;
 	private RelationshipType flowpathType ;
-	
+
 	private Path directory;
-	
+
 	private GraphDatabaseService graphDb;
 	private DatabaseManagementService managementService;
-	
+
 	public Neo4JDatastore(Path tempDir) {
 		this.directory = tempDir;
 	}
-	
+
 	public Neo4JDatastore() throws IOException {
 		this(Files.createTempDirectory("chyfstreamorderneo4j"));
 	}
 
 	public void init() throws Exception {
+		init(DEFAULT_PAGE_CACHE_SIZE);
+	}
+
+	public void init(String pageCacheSize) throws Exception {
 		clearDataDirectory();
 		Files.createDirectories(directory);
-	
+
 		Map<String, String> settings = new HashMap<>();
-		settings.put("dbms.security.procedures.unrestricted", "jwt.security.*,gds.*,apoc.*");
-		settings.put("dbms.security.procedures.whitelist", "gds.*");
-	
+		settings.put("dbms.security.procedures.unrestricted", "jwt.security.*,apoc.*");
+		settings.put("dbms.tx_log.rotation.retention_policy", "false");
+		settings.put("dbms.memory.pagecache.size",
+				(pageCacheSize == null || pageCacheSize.isBlank()) ? DEFAULT_PAGE_CACHE_SIZE : pageCacheSize);
+
 		managementService = new DatabaseManagementServiceBuilder(directory)
 				.setConfigRaw(settings)
 				.build();
-	
+
 		graphDb = managementService.database(DEFAULT_DATABASE_NAME);
-		
-		var procsToRegister = List.of(
-				GraphListProc.class, 
-				GraphCreateProc.class, 
-				GraphDropProc.class,
-				TraverseProc.class,
-				WccMutateProc.class,
-				WccWriteProc.class);
-		for (Class<?> procedureClass : procsToRegister) {
-			GraphDatabaseApiProxy.registerProcedures(graphDb, procedureClass);
-		}
-	
+
 		nexusType = Label.label("Nexus");
 		flowpathType = RelationshipType.withName("FLOWPATH");
 	}

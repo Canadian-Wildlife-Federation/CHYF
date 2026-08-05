@@ -15,7 +15,13 @@
  */
 package net.refractions.chyf.streamorder;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -25,7 +31,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.neo4j.gds.impl.walking.WalkPath;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
@@ -45,13 +50,24 @@ public class StreamOrderMainstemEngine {
 	private Logger logger = LoggerFactory.getLogger(StreamOrderMainstemEngine.class);
 
 	private StreamOrderArgs.MAINSTEM_NAME_OP nameOption;
-	
+	private String pageCacheSize;
+
 	/**
-	 * 
+	 *
 	 * @param useNamesForMainstems if names should be used for mainstems
 	 */
 	public StreamOrderMainstemEngine(StreamOrderArgs.MAINSTEM_NAME_OP nameOption) {
+		this(nameOption, Neo4JDatastore.DEFAULT_PAGE_CACHE_SIZE);
+	}
+
+	/**
+	 *
+	 * @param nameOption if names should be used for mainstems
+	 * @param pageCacheSize Neo4j page cache size, e.g. "1g"
+	 */
+	public StreamOrderMainstemEngine(StreamOrderArgs.MAINSTEM_NAME_OP nameOption, String pageCacheSize) {
 		this.nameOption = nameOption;
+		this.pageCacheSize = pageCacheSize;
 	}
 	
 	public void computeOrderValues(IGraphDataSource source) throws Exception {
@@ -63,15 +79,37 @@ public class StreamOrderMainstemEngine {
 		for (int i = 0; i < groups.size(); i++) {
 			logger.info("Processing aoi group " + i + "/" + groups.size());
 			processAoiGroup(source, groups.get(i));
+
+			System.gc();
+			logMemoryUsage();
 		}
 
+	}
+
+	private void logMemoryUsage() {
+		Runtime rt = Runtime.getRuntime();
+		long heapUsedMb = (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024);
+
+		String rss = null;
+		try {
+			for (String line : Files.readAllLines(Path.of("/proc/self/status"))) {
+				if (line.startsWith("VmRSS:")) {
+					rss = line.trim();
+					break;
+				}
+			}
+		} catch (IOException ex) {
+			// /proc/self/status not available (e.g. not running on Linux) - skip
+		}
+
+		logger.info("Memory usage - heap used: " + heapUsedMb + "MB" + (rss == null ? "" : ", " + rss));
 	}
 
 	private void processAoiGroup(IGraphDataSource source, AoiGroup group) throws Exception {
 
 		Neo4JDatastore graph = new Neo4JDatastore();
 		try {
-			graph.init();
+			graph.init(pageCacheSize);
 
 			source.loadGraph(graph, group);
 			computeOrder(graph);
@@ -88,30 +126,11 @@ public class StreamOrderMainstemEngine {
 	private void computeOrder(Neo4JDatastore graph) {
 
 		logger.info("Computing order");
-		
-		StringBuilder cql = new StringBuilder();
-		cql.append("CALL gds.graph.create");
-		cql.append("('primaryGraph',  ['Nexus'], ['FLOWPATH'])");
-		cql.append(" YIELD graphName");
 
 		logger.info("Computing order - creating component networks");
 
-		try (Transaction tx = graph.getDatabase().beginTx()) {
-			Result resultSet = tx.execute(cql.toString());
-			while (resultSet.hasNext()) resultSet.next();
-			
-			StringBuilder sb = new StringBuilder();
-			sb.append("CALL gds.wcc.write('primaryGraph', { writeProperty: '" + NexusProperty.COMPONENTID.key + "' }) ");
-			sb.append(" YIELD nodePropertiesWritten, componentCount;");
+		computeComponentIds(graph);
 
-			tx.execute(sb.toString());
-			
-			resultSet = tx.execute("CALL gds.graph.drop('primaryGraph') YIELD graphName");
-			while (resultSet.hasNext()) resultSet.next();
-			
-			tx.commit();
-		}
-	
 		try (Transaction tx = graph.getDatabase().beginTx()) {
 			tx.schema()
 				.indexFor(graph.getNexusType())
@@ -171,6 +190,81 @@ public class StreamOrderMainstemEngine {
 			logger.info("Computing order - processing subgraph " + i + "/" + subgraphs.size());
 			processSubGraphOrder(graph, tocompute);
 		}
+	}
+
+	/**
+	 * Computes weakly connected components with an in-memory union-find over node ids,
+	 * writing the result to componentId. Avoids projecting the whole AOI graph into GDS
+	 * native memory (gds.graph.create + gds.wcc.write), which was OOM-killing the process
+	 * on large datasets.
+	 */
+	private void computeComponentIds(Neo4JDatastore graph) {
+
+		int maxId = -1;
+		try (Transaction tx = graph.getDatabase().beginTx()) {
+			try (Result result = tx.execute("MATCH (n:Nexus) RETURN max(id(n)) AS maxid")) {
+				Object v = result.next().get("maxid");
+				if (v != null) maxId = ((Long) v).intValue();
+			}
+		}
+		if (maxId < 0) return;
+
+		int[] parent = new int[maxId + 1];
+		for (int i = 0; i <= maxId; i++) parent[i] = i;
+
+		try (Transaction tx = graph.getDatabase().beginTx()) {
+			try (Result result = tx.execute(
+					"MATCH (a:Nexus)-[:FLOWPATH]->(b:Nexus) RETURN id(a) AS aid, id(b) AS bid")) {
+				while (result.hasNext()) {
+					Map<String, Object> row = result.next();
+					union(parent, ((Long) row.get("aid")).intValue(), ((Long) row.get("bid")).intValue());
+				}
+			}
+		}
+
+		List<Map<String, Object>> batch = new ArrayList<>();
+		Transaction tx = graph.getDatabase().beginTx();
+		try {
+			for (int i = 0; i <= maxId; i++) {
+				Map<String, Object> row = new HashMap<>();
+				row.put("id", (long) i);
+				row.put("cid", (long) find(parent, i));
+				batch.add(row);
+
+				if (batch.size() == 5000) {
+					writeComponentIdBatch(tx, batch);
+					tx.commit();
+					tx = graph.getDatabase().beginTx();
+					batch.clear();
+				}
+			}
+			if (!batch.isEmpty()) writeComponentIdBatch(tx, batch);
+			tx.commit();
+		} finally {
+			tx.close();
+		}
+	}
+
+	private void writeComponentIdBatch(Transaction tx, List<Map<String, Object>> batch) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("UNWIND $rows AS row ");
+		sb.append("MATCH (n:Nexus) WHERE id(n) = row.id ");
+		sb.append("SET n." + NexusProperty.COMPONENTID.key + " = row.cid");
+		tx.execute(sb.toString(), Map.of("rows", batch));
+	}
+
+	private static int find(int[] parent, int i) {
+		while (parent[i] != i) {
+			parent[i] = parent[parent[i]]; // path halving
+			i = parent[i];
+		}
+		return i;
+	}
+
+	private static void union(int[] parent, int a, int b) {
+		int ra = find(parent, a);
+		int rb = find(parent, b);
+		if (ra != rb) parent[ra] = rb;
 	}
 
 	private void processSize2Networks(Neo4JDatastore graph) {
@@ -238,45 +332,9 @@ public class StreamOrderMainstemEngine {
 
 		List<Long> ids = new ArrayList<>(componentIds);
 
-		StringBuilder nodeQuery = new StringBuilder();
-		nodeQuery.append("MATCH (n:Nexus) ");
-		nodeQuery.append("WHERE n." + NexusProperty.COMPONENTID.key);
-		nodeQuery.append(" IN $componentIds ");
-		nodeQuery.append("RETURN id(n) as id ");
-
-
-		StringBuilder edgeQuery = new StringBuilder();
-		edgeQuery.append("MATCH (s:Nexus)-[flow:FLOWPATH]->(t:Nexus) ");
-		edgeQuery.append("WHERE s." + NexusProperty.COMPONENTID.key);
-		edgeQuery.append(" IN $componentIds ");
-		edgeQuery.append(" AND t." + NexusProperty.COMPONENTID.key);
-		edgeQuery.append(" IN $componentIds ");
-		edgeQuery.append(" AND flow." + FlowpathProperty.RANK.key);
-		edgeQuery.append(" = " + RankType.PRIMARY.getChyfValue() );
-		edgeQuery.append(" AND flow." + FlowpathProperty.EF_TYPE.key);
-		edgeQuery.append(" <> " + EfType.BANK.getChyfValue() );
-		edgeQuery.append(" RETURN id(t) AS source, id(s) as target ");
-
 		//store the nodes to visit in array list
 		List<Long> toProcess = new ArrayList<>();
 		try (Transaction tx = graph.getDatabase().beginTx()) {
-
-			StringBuilder cql = new StringBuilder();
-			cql.append("CALL gds.graph.create.cypher");
-			cql.append("('tempGraph',  ");
-			cql.append("$nodeQuery,");
-			cql.append("$edgeQuery,");
-			cql.append("{parameters: {componentIds: $componentIds}}");
-			cql.append(") YIELD graphName");
-
-
-			Map<String, Object> params = new HashMap<>();
-			params.put("nodeQuery", nodeQuery.toString());
-			params.put("edgeQuery", edgeQuery.toString());
-			params.put("componentIds", ids);
-
-			Result resultSet = tx.execute(cql.toString(), params);
-			while (resultSet.hasNext()) resultSet.next();
 
 			StringBuilder sb = new StringBuilder();
 			sb.append("MATCH(a:Nexus) WHERE ");
@@ -287,26 +345,28 @@ public class StreamOrderMainstemEngine {
 			sb.append(" = " + RankType.PRIMARY.getChyfValue() + " and ");
 			sb.append("fp." + FlowpathProperty.EF_TYPE.key);
 			sb.append(" <> " + EfType.BANK.getChyfValue() + " | a]) ");
-			sb.append("WITH id(a) AS startNode ");
-			sb.append("CALL gds.alpha.bfs.stream('tempGraph', {startNode: startNode}) ");
-			sb.append("YIELD path ");
-			sb.append("RETURN path ");
+			sb.append("RETURN id(a) AS id ");
 
+			List<Long> startNodes = new ArrayList<>();
 			try (Result result = tx.execute(sb.toString(), Map.of("componentIds", ids))) {
 				while (result.hasNext()) {
-					Map<String, Object> row = result.next();
-					WalkPath path = (WalkPath) row.get("path");
-					path.reverseNodes().forEach(n->toProcess.add(n.getId()));
+					startNodes.add((Long) result.next().get("id"));
 				}
 			}
+
+			for (Long startNodeId : startNodes) {
+				toProcess.addAll(bfsUpstreamOrder(tx, componentIds, startNodeId));
+			}
 		}
+
+		final int COMMIT_BATCH_SIZE = 5000;
 
 		int commitcnt = 0;
 		Transaction tx = graph.getDatabase().beginTx();
 		try {
 			//visit nodes in order committing every x number of visits
 			for (Long nid : toProcess) {
-				if (commitcnt == 500) {
+				if (commitcnt == COMMIT_BATCH_SIZE) {
 					tx.commit();
 					tx = graph.getDatabase().beginTx();
 					commitcnt = 0;
@@ -407,17 +467,14 @@ public class StreamOrderMainstemEngine {
 					n.setProperty(NexusProperty.UPSTREAMLENGTH.key, longestupstream);
 				}
 			}
-			
-			Result resultSet = tx.execute("CALL gds.graph.drop('tempGraph') YIELD graphName");
-			while (resultSet.hasNext()) resultSet.next();
-			
+
 			tx.commit();
 		}finally {
 			tx.close();
 		}
-		
-		
-		
+
+
+
 		//walk up computing mainsteam sequestion, horton and hack order
 		commitcnt = 0;
 		tx = graph.getDatabase().beginTx();
@@ -425,8 +482,8 @@ public class StreamOrderMainstemEngine {
 			//visit nodes in order committing every x number of visits
 			for (int i = toProcess.size() - 1; i >= 0; i--) {
 				Long nid = toProcess.get(i);
-			
-				if (commitcnt == 500) {
+
+				if (commitcnt == COMMIT_BATCH_SIZE) {
 					tx.commit();
 					tx = graph.getDatabase().beginTx();
 					commitcnt = 0;
@@ -470,7 +527,48 @@ public class StreamOrderMainstemEngine {
 			tx.commit();
 		}finally {
 			tx.close();
-		}	
+		}
 
+	}
+
+	/**
+	 * Breadth-first walk upstream from startNode along primary, non-bank FLOWPATH edges.
+	 * These edges form a tree rooted at the outlet (each node has at most one outgoing
+	 * primary edge), so reversing the BFS visit order yields a valid upstream-to-downstream
+	 * processing order — replaces the gds.alpha.bfs.stream call, which materializes a full
+	 * WalkPath object and was the main cost for very large components.
+	 */
+	private List<Long> bfsUpstreamOrder(Transaction tx, Set<Long> componentIds, Long startNodeId) {
+		List<Long> visitOrder = new ArrayList<>();
+		Set<Long> visited = new HashSet<>();
+		Deque<Long> queue = new ArrayDeque<>();
+
+		queue.add(startNodeId);
+		visited.add(startNodeId);
+
+		while (!queue.isEmpty()) {
+			Long id = queue.poll();
+			visitOrder.add(id);
+
+			Node n = tx.getNodeById(id);
+			for (Relationship r : n.getRelationships(Direction.INCOMING)) {
+				if (((Integer) r.getProperty(FlowpathProperty.EF_TYPE.key)) == EfType.BANK.getChyfValue() ||
+						((Integer) r.getProperty(FlowpathProperty.RANK.key)) != RankType.PRIMARY.getChyfValue())
+					continue;
+
+				Node up = r.getStartNode();
+				Long upId = up.getId();
+				if (visited.contains(upId)) continue;
+
+				Long upComponentId = (Long) up.getProperty(NexusProperty.COMPONENTID.key, null);
+				if (upComponentId == null || !componentIds.contains(upComponentId)) continue;
+
+				visited.add(upId);
+				queue.add(upId);
+			}
+		}
+
+		Collections.reverse(visitOrder); // downstream-first -> upstream-first
+		return visitOrder;
 	}
 }
