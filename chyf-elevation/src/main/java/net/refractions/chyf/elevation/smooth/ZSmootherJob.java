@@ -17,7 +17,6 @@ package net.refractions.chyf.elevation.smooth;
 
 import java.util.ArrayDeque;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -68,10 +67,10 @@ public class ZSmootherJob implements Runnable{
 						Map<UUID, Double> nodeElevations = processBlock(b);
 						processBlockEdges(b, nodeElevations);
 						dataSource.finishBlock(b);
-					}catch (Exception ex) {
+					}catch (Throwable ex) {
 						logger.error("Unable to process block: " + b.getBlockId(), ex);
 					}
-				
+
 				}catch (Exception ex) {
 					logger.error("Unable to process blocks.", ex);
 					return;
@@ -84,21 +83,10 @@ public class ZSmootherJob implements Runnable{
 	}
 	
 	private void processBlockEdges(Block b, Map<UUID, Double> nodeElevations) throws Exception {
-		
+
 		logger.info("Processing edges in: " + b.getBlockId());
 
-		UUID lastEdge = new UUID(0L, 0L);
-		while(true) {
-			List<EFlowpath> edges = dataSource.getFlowPaths(b, lastEdge);
-			if (edges.isEmpty()) return;
-			for(EFlowpath edge : edges) {				
-				lastEdge = edge.getId();
-				processEdge(edge,  nodeElevations);
-			}			
-			//write edges
-			dataSource.updateFlowpathGeometries(edges);
-		}
-			
+		dataSource.processFlowPaths(b, edge -> processEdge(edge, nodeElevations));
 	}
 	
 	private void processEdge(EFlowpath p,  Map<UUID, Double> nodeElevations){

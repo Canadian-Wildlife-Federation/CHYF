@@ -38,8 +38,10 @@ public class Node {
 	public Node(UUID id, Double rawZ) {
 		this.id = id;
 		this.rawZ = rawZ;
-		this.inNodes = new ArrayList<>();
-		this.outNodes = new ArrayList<>();
+		//the vast majority of nodes have a single in and out edge; the default
+		//capacity of 10 wastes a significant amount of memory on large blocks
+		this.inNodes = new ArrayList<>(1);
+		this.outNodes = new ArrayList<>(1);
 	}
 
 	public void addInNode(UUID nodeid) {

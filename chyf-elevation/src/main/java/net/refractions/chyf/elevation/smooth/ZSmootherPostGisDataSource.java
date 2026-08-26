@@ -23,10 +23,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
@@ -53,9 +53,22 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 
 	private String connectionString;
 	protected Connection connection;
+	/**
+	 * A second connection dedicated to streaming flowpaths through a
+	 * server side cursor. It is kept separate from the main connection so
+	 * that geometry updates can be committed without closing the cursor.
+	 */
+	protected Connection readConnection;
 	protected AppProperties properties;
 	
 	public static double NO_DATA = -9999;
+
+	/**
+	 * Rows fetched at a time when streaming the node graph. The rows are
+	 * small (two uuids and two doubles) so this can be much larger than the
+	 * flowpath batch size.
+	 */
+	private static final int NODE_FETCH_SIZE = 100_000;
 	
 	/**
 	 * Connects to the database and configures the working table (if necessary)
@@ -72,8 +85,23 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 	}
 	
 	private synchronized Connection getConnection() throws SQLException {
-		if (connection != null) return this.connection;
-		
+		if (connection == null) connection = createConnection();
+		return connection;
+	}
+
+	/**
+	 * @return the connection used to stream flowpaths; it never has
+	 * autocommit enabled as that is required for server side cursors
+	 */
+	private synchronized Connection getReadConnection() throws SQLException {
+		if (readConnection == null) {
+			readConnection = createConnection();
+			readConnection.setAutoCommit(false);
+		}
+		return readConnection;
+	}
+
+	private Connection createConnection() throws SQLException {
 		String[] bits = this.connectionString.split(";");
 		String host = null;
 		Integer port = null;
@@ -97,9 +125,8 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 			throw new SQLException("Host, database, user or password not supplied.");
 		}
 
-		connection = DriverManager.getConnection(
+		return DriverManager.getConnection(
 				"jdbc:postgresql://" + host + ":" + port + "/" + db + "?user=" + user + "&password=" + pass);
-		return connection;
 	}
 
 	
@@ -134,13 +161,13 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 	        return null;
 	    }
 	}
-	
+
 	public void finishBlock(Block block) throws SQLException {
 		StringBuilder sb = new StringBuilder();
 		sb.append("UPDATE ");
 		sb.append(WORKING_TABLE);
 		sb.append(" set status = ? where block_id = ?");
-		
+
 		try(PreparedStatement ps = getConnection().prepareStatement(sb.toString())){
 			ps.setString(1, "done");
 			ps.setInt(2, block.getBlockId());
@@ -239,46 +266,8 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 
 
 	public void close() throws SQLException {
+		if (readConnection != null) readConnection.close();
 		if (connection != null) connection.close();
-	}
-
-	
-	public void updateFlowpathGeometries(Collection<EFlowpath> features) throws Exception {
-
-		WKBWriter writer = new WKBWriter(4);
-
-		StringBuilder sb = new StringBuilder();
-		sb.append("UPDATE ");
-		sb.append(properties.getEflowpathTable());
-		sb.append(" SET ");
-		sb.append(properties.getGeometryColumn());
-		sb.append(" = st_setsrid(st_geomfromewkb(?), " + properties.getSrid() + ") WHERE id = ?");
-
-		getConnection().setAutoCommit(false);
-		try (PreparedStatement ps = getConnection().prepareStatement(sb.toString())){
-			
-			int cnt = 0;
-
-			for (EFlowpath edge : features) {
-				if (cnt > 1000) {
-					ps.executeBatch();
-					cnt = 0;
-				}
-				cnt++;
-				ps.setObject(1, writer.write(edge.getLineString()));
-				ps.setObject(2, edge.getId());		
-				ps.addBatch();
-			}
-			ps.executeBatch();
-			getConnection().commit();
-		} catch (Exception ex) {
-			logger.error("Error updating flowpath geometries. ", ex);
-			getConnection().rollback();
-			throw ex;
-		}finally {
-			getConnection().setAutoCommit(true);
-		}
-
 	}
 
 	
@@ -296,13 +285,27 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 		sb.append(" WHERE c.block_id = ? ");
 		
 		HashMap<UUID, Node> nodes = new HashMap<>();
-		
-		try (PreparedStatement ps = getConnection().prepareStatement(sb.toString())) {
 
+		//the read connection is used (never autocommit) so that a fetch size
+		//forces a server side cursor; without it the driver pulls every row of
+		//the block into memory before the first node is built, which on the
+		//largest block is enough to exhaust the heap on its own
+		Connection readCon = getReadConnection();
+
+		try (PreparedStatement ps = readCon.prepareStatement(sb.toString(), ResultSet.TYPE_FORWARD_ONLY,
+				ResultSet.CONCUR_READ_ONLY)) {
+
+			ps.setFetchSize(NODE_FETCH_SIZE);
 			ps.setInt(1, block.getBlockId());
+
+			int cnt = 0;
 
 			try (ResultSet rs = ps.executeQuery()) {
 				while (rs.next()) {
+					if (++cnt % 1_000_000 == 0) {
+						logger.info(MessageFormat.format("Block {0}: {1} graph edges read ({2} nodes).",
+								block.getBlockId(), cnt, nodes.size()));
+					}
 					UUID fromNodeId = (UUID)rs.getObject(1);
 					UUID toNodeId = (UUID)rs.getObject(2);
 					
@@ -334,50 +337,134 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 						nodes.put(toNodeId, n);
 					}
 					n.addInNode(fromNodeId);
-					
+
 				}
 			}
+			logger.info(MessageFormat.format("Block {0}: node graph built from {1} edges ({2} nodes).",
+					block.getBlockId(), cnt, nodes.size()));
+		} finally {
+			//release the read snapshot; the select is read only so there is
+			//nothing to commit
+			readCon.rollback();
 		}
 		return nodes;
 	}
 	
 	
-	public List<EFlowpath> getFlowPaths(Block block, UUID lastId) throws Exception {
+	public void processFlowPaths(Block block, Consumer<EFlowpath> processor) throws Exception {
+
+		int batchSize = properties.getSmoothingFlowpathBatchSize();
+
+		Connection readCon = getReadConnection();
+		Connection writeCon = getConnection();
+
+
+		//process edges in aoi groups
+		List<UUID> aoiGroups = new ArrayList<>();
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("SELECT distinct a.aoi_id ");
+		sb.append(" FROM ");
+		sb.append(properties.getEflowpathTable() + " a ");
+		sb.append(" join " + properties.getEflowpathPropertiesTable() + " b on a.id = b.id ");
+		sb.append(" join " + WORKING_LINK_TABLE + " c on b.graph_id = c.graph_id ");
+		sb.append(" WHERE c.block_id = ? ");
+		
+		try (PreparedStatement ps = readCon.prepareStatement(sb.toString(), ResultSet.TYPE_FORWARD_ONLY,
+				ResultSet.CONCUR_READ_ONLY)) {			
+			ps.setInt(1, block.getBlockId());
+			try(ResultSet rs = ps.executeQuery()){
+				while(rs.next()) {
+					aoiGroups.add((UUID)rs.getObject(1));
+				}
+			}
+		}
 
 		
-		StringBuilder sb = new StringBuilder();
+		sb = new StringBuilder();
 		sb.append("SELECT a.id, a.from_nexus_id, a.to_nexus_id, ");
 		sb.append(" st_Asbinary(a." + properties.getGeometryColumn() + ") " );
 		sb.append(" FROM ");
 		sb.append(properties.getEflowpathTable() + " a ");
 		sb.append(" join " + properties.getEflowpathPropertiesTable() + " b on a.id = b.id ");
 		sb.append(" join " + WORKING_LINK_TABLE + " c on b.graph_id = c.graph_id ");
-		sb.append(" WHERE c.block_id = ? AND a.id > ? ");
-		sb.append(" ORDER BY a.id ");
-		sb.append(" LIMIT " + properties.getSmoothingFlowpathBatchSize());
+		sb.append(" WHERE c.block_id = ? and a.aoi_id = ? ");
 
-		GeometryFactory geometryFactory = new GeometryFactory();
-		WKBReader wkbReader = new WKBReader(geometryFactory);
+		StringBuilder usb = new StringBuilder();
+		usb.append("UPDATE ");
+		usb.append(properties.getEflowpathTable());
+		usb.append(" SET ");
+		usb.append(properties.getGeometryColumn());
+		usb.append(" = st_setsrid(st_geomfromewkb(?), " + properties.getSrid() + ") WHERE id = ?");
 
-		List<EFlowpath> edges = new ArrayList<>();
-		try (PreparedStatement ps = getConnection().prepareStatement(sb.toString())) {
-			ps.setInt(1, block.getBlockId());
-			ps.setObject(2, lastId);
-			
-			try (ResultSet rs = ps.executeQuery()) {
-				while (rs.next()) {
-					UUID edgeId = (UUID) rs.getObject(1);
-					UUID fromNexusId = (UUID)rs.getObject(2);
-					UUID toNexusId = (UUID)rs.getObject(3);
-					LineString ls = (LineString) wkbReader.read(rs.getBytes(4));
-					
-					edges.add(new EFlowpath(edgeId, ls, fromNexusId, toNexusId));
+		WKBReader wkbReader = new WKBReader(new GeometryFactory());
+		WKBWriter writer = new WKBWriter(4);
 
+		int total = 0;
+
+		try {
+			for (UUID aoi : aoiGroups) {
+
+				//autocommit must be disabled for every aoi group; the finally
+				//block below restores it once all groups are processed
+				writeCon.setAutoCommit(false);
+
+				try (PreparedStatement ps = readCon.prepareStatement(sb.toString(), ResultSet.TYPE_FORWARD_ONLY,
+						ResultSet.CONCUR_READ_ONLY);
+						PreparedStatement update = writeCon.prepareStatement(usb.toString())) {
+
+					//a fetch size forces the driver to use a server side cursor rather
+					//than pulling the entire result set into memory
+					ps.setFetchSize(batchSize);
+					ps.setInt(1, block.getBlockId());
+					ps.setObject(2,  aoi);
+
+					int cnt = 0;
+
+					try (ResultSet rs = ps.executeQuery()) {
+						while (rs.next()) {
+							UUID edgeId = (UUID) rs.getObject(1);
+							UUID fromNexusId = (UUID) rs.getObject(2);
+							UUID toNexusId = (UUID) rs.getObject(3);
+							LineString ls = (LineString) wkbReader.read(rs.getBytes(4));
+
+							EFlowpath edge = new EFlowpath(edgeId, ls, fromNexusId, toNexusId);
+							processor.accept(edge);
+
+							update.setObject(1, writer.write(edge.getLineString()));
+							update.setObject(2, edge.getId());
+							update.addBatch();
+
+							cnt++;
+							total++;
+							if (cnt >= batchSize) {
+								update.executeBatch();
+								writeCon.commit();
+								cnt = 0;
+								logger.info(MessageFormat.format("Block {0}: {1} edges processed.", block.getBlockId(), total));
+							}
+						}
+					}
+
+					if (cnt > 0) update.executeBatch();
+					writeCon.commit();
+					logger.info(MessageFormat.format("Block {0}: {1} edges processed.", block.getBlockId(), total));
+
+				} catch (Exception ex) {
+					logger.error("Error updating flowpath geometries. ", ex);
+					writeCon.rollback();
+					throw ex;
+				} finally {
+					//release the read snapshot; the select is read only so there is
+					//nothing to commit
+					readCon.rollback();
 				}
 			}
+		} finally {
+			//the connection is shared with the block check out/finish statements
+			//which rely on autocommit being enabled
+			writeCon.setAutoCommit(true);
 		}
-		return edges;
-
 	}
 
 }

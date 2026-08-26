@@ -80,7 +80,9 @@ public class ElevationJob implements Runnable {
 		//they will get processed twice, but there won't be any mulit-
 		//threading issues
 		List<EFlowpath> edges = dataSource.getFlowPaths(block.getBounds());
-
+		
+		if(edges.isEmpty()) return;
+		
 		ReferencedEnvelope re =  new ReferencedEnvelope(block.getBounds());
 		for (EFlowpath edge : edges) {
 			re.expandToInclude(edge.getLineString().getEnvelopeInternal());

@@ -16,10 +16,9 @@
 package net.refractions.chyf.elevation.smooth;
 
 import java.sql.SQLException;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * Data source input for the elevation (z) smoothing tools.
@@ -55,15 +54,6 @@ public interface IZSmootherDataSource extends AutoCloseable{
 	public void close() throws SQLException;
 
 	/**
-	 * Writes the (smoothed) geometries of the given flowpaths back to
-	 * the data source.
-	 *
-	 * @param features
-	 * @throws Exception
-	 */
-	public void updateFlowpathGeometries(Collection<EFlowpath> features) throws Exception ;
-
-	/**
 	 * Builds the node graph (from/to node connectivity and raw elevation
 	 * values) for the flowpaths within the given block.
 	 *
@@ -74,15 +64,16 @@ public interface IZSmootherDataSource extends AutoCloseable{
 	public HashMap<UUID, Node> getNodeGraph(Block block) throws SQLException ;
 
 	/**
-	 * Retrieves a batch of flowpaths within the given block, paged by
-	 * id, starting after the given last processed id.
+	 * Streams all flowpaths within the given block, handing each one to
+	 * the given processor and writing the (possibly modified) geometry
+	 * back to the data source. Writes are batched and committed
+	 * periodically so the entire block is never held in memory.
 	 *
 	 * @param block
-	 * @param lastId the last flowpath id already processed, or null to
-	 * start from the beginning of the block
-	 * @return
+	 * @param processor invoked once per flowpath; any changes it makes to
+	 * the flowpath geometry are written back to the data source
 	 * @throws Exception
 	 */
-	public List<EFlowpath> getFlowPaths(Block block, UUID lastId) throws Exception ;
+	public void processFlowPaths(Block block, Consumer<EFlowpath> processor) throws Exception ;
 
 }
