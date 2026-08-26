@@ -67,10 +67,10 @@ public class ZSmootherJob implements Runnable{
 						Map<UUID, Double> nodeElevations = processBlock(b);
 						processBlockEdges(b, nodeElevations);
 						dataSource.finishBlock(b);
-					}catch (Exception ex) {
+					}catch (Throwable ex) {
 						logger.error("Unable to process block: " + b.getBlockId(), ex);
 					}
-				
+
 				}catch (Exception ex) {
 					logger.error("Unable to process blocks.", ex);
 					return;
