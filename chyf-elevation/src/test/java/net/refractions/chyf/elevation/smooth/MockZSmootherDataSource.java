@@ -103,7 +103,7 @@ public class MockZSmootherDataSource implements IZSmootherDataSource {
 	/**
 	 * Builds the node graph the same way the postgis data source does; node
 	 * elevations are taken from the start/end point z values of the flowpath
-	 * geometries.
+	 * geometries.  A NaN z value is passed through as is.
 	 */
 	@Override
 	public HashMap<UUID, Node> getNodeGraph(Block block) {
@@ -112,10 +112,8 @@ public class MockZSmootherDataSource implements IZSmootherDataSource {
 		for (EFlowpath edge : forBlock(block)) {
 			Coordinate[] c = edge.getLineString().getCoordinates();
 
-			Double fromZ = Double.valueOf(c[0].getZ()).isNaN() ?
-					ZSmootherPostGisDataSource.NO_DATA : c[0].getZ();
-			Double toZ = Double.valueOf(c[c.length - 1].getZ()).isNaN() ?
-					ZSmootherPostGisDataSource.NO_DATA : c[c.length - 1].getZ();
+			Double fromZ = c[0].getZ();
+			Double toZ = c[c.length - 1].getZ();
 
 			Node n = nodes.get(edge.getFromNodeId());
 			if (n == null) {

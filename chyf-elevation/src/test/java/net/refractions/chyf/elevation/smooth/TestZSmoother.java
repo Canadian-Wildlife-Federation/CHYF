@@ -19,8 +19,6 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.locationtech.jts.geom.CoordinateSequence;
-import org.locationtech.jts.geom.LineString;
 
 /**
  * Tests the z smoothing engine against a single block containing a single
@@ -45,7 +43,7 @@ import org.locationtech.jts.geom.LineString;
  * @author Emily
  *
  */
-class TestZSmoother {
+class TestZSmoother extends ZSmootherTestBase {
 
 	//nodes
 	private static final UUID NODE1 = node(1);
@@ -61,14 +59,6 @@ class TestZSmoother {
 	private static final UUID EDGE3 = edge(3);
 	private static final UUID EDGE4 = edge(4);
 	private static final UUID EDGE5 = edge(5);
-
-	private static UUID node(int i) {
-		return UUID.fromString("00000000-0000-0000-0000-00000000000" + i);
-	}
-
-	private static UUID edge(int i) {
-		return UUID.fromString("00000000-0000-0000-0000-0000000000a" + i);
-	}
 
 	/**
 	 * Raw node elevations:
@@ -145,11 +135,8 @@ class TestZSmoother {
 			{180, 60, 85}
 		});
 
-		ZSmootherJob job = new ZSmootherJob(() -> dataSource);
-		job.run();
+		smooth(dataSource);
 
-		Assertions.assertTrue(dataSource.isBlockFinished(MockZSmootherDataSource.BLOCK_ID),
-				"the block should have been marked as finished");
 		Assertions.assertTrue(dataSource.isClosed(), "the data source should have been closed");
 
 		//smoothed values are written to the m ordinate; the raw elevation
@@ -174,34 +161,6 @@ class TestZSmoother {
 		assertSmoothed(dataSource, EDGE4,
 				new double[] {82.5, 82.5, 82.5, 82.5, 82.5, 82.5, 82.5},
 				new double[] {  80,   79,   81,   83,   84,   82,   85});
-	}
-
-	/**
-	 * Asserts the smoothed (m) and raw (z) values of the geometry written back
-	 * for the given flowpath, and that the smoothed values never increase in
-	 * the downstream direction.
-	 */
-	private void assertSmoothed(MockZSmootherDataSource dataSource, UUID edgeId,
-			double[] expectedM, double[] expectedZ) {
-
-		LineString ls = dataSource.getResult(edgeId);
-		Assertions.assertNotNull(ls, "no geometry written back for edge " + edgeId);
-
-		CoordinateSequence cs = ls.getCoordinateSequence();
-		Assertions.assertEquals(expectedM.length, cs.size(), "vertex count for edge " + edgeId);
-
-		for (int i = 0; i < expectedM.length; i++) {
-			Assertions.assertEquals(expectedM[i], cs.getM(i), 0.00001,
-					"smoothed elevation of vertex " + i + " of edge " + edgeId);
-			Assertions.assertEquals(expectedZ[i], cs.getZ(i), 0.00001,
-					"raw elevation of vertex " + i + " of edge " + edgeId);
-		}
-
-		for (int i = 1; i < cs.size(); i++) {
-			Assertions.assertTrue(cs.getM(i) <= cs.getM(i - 1),
-					"elevation increases downstream between vertex " + (i - 1)
-					+ " and " + i + " of edge " + edgeId);
-		}
 	}
 
 }

@@ -26,6 +26,8 @@ import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.referencing.CRS;
 import org.locationtech.jts.geom.Coordinate;
 
+import net.refractions.chyf.elevation.Utils;
+
 /**
  * Wraps the elevation raster for a single block, providing bilinear
  * interpolated elevation lookups for coordinates within its bounds.
@@ -68,13 +70,13 @@ public class GridBlock {
 		int yindex2 = yindex1 + 1;
 
 		if (xindex1 < 0 || xindex2 < 0)
-			return ElevationEngine.NO_DATA;
+			return Utils.NO_DATA;
 		if (yindex1 < 0 || yindex2 < 0)
-			return ElevationEngine.NO_DATA;
+			return Utils.NO_DATA;
 		if (xindex1 >= elevations.getWidth() || xindex2 >= elevations.getWidth())
-			return ElevationEngine.NO_DATA;
+			return Utils.NO_DATA;
 		if (yindex1 >= elevations.getHeight() || yindex2 >= elevations.getHeight())
-			return ElevationEngine.NO_DATA;
+			return Utils.NO_DATA;
 
 		double zx1y1 = elevations.getRaster().getSampleDouble(xindex1, yindex1, 0);
 		double zx1y2 = elevations.getRaster().getSampleDouble(xindex1, yindex2, 0);
@@ -90,6 +92,10 @@ public class GridBlock {
 		double fxy1 = ((x2 - target.getX()) / (x2 - x1)) * zx1y1 + ((target.getX() - x1) / (x2 - x1)) * zx2y1;
 		double fxy2 = ((x2 - target.getX()) / (x2 - x1)) * zx1y2 + ((target.getX() - x1) / (x2 - x1)) * zx2y2;
 		double fxy = ((y2 - target.getY()) / (y2 - y1)) * fxy1 + ((target.getY() - y1) / (y2 - y1)) * fxy2;
+
+		//Math.round converts nan to 0, so this needs to be
+		//checked before rounding
+		if (Double.isNaN(fxy)) return Utils.NO_DATA;
 
 		//round to 4 decimal places
 		fxy = Math.round(fxy * 10000) / 10000.0;

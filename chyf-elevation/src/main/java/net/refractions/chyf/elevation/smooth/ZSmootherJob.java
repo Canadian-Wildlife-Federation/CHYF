@@ -29,6 +29,8 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.refractions.chyf.elevation.Utils;
+
 /**
  * Worker that checks out blocks from the data source and smooths
  * flowpath elevations within each block. For every node graph, an
@@ -96,14 +98,14 @@ public class ZSmootherJob implements Runnable{
 		Double upZ = nodeElevations.get(p.getFromNodeId());
 		Double downZ = nodeElevations.get(p.getToNodeId());
 		
-		if (upZ == ZSmootherPostGisDataSource.NO_DATA || downZ == ZSmootherPostGisDataSource.NO_DATA) {
+		if (Utils.isNoData(upZ) || Utils.isNoData(downZ)) {
 			//if either node has no_data we can't smooth this
 			CoordinateXYZM[] allc = new CoordinateXYZM[c.length];
 			for (int i = 0; i < c.length; i ++) {
 				CoordinateXYZM mc = new CoordinateXYZM(c[i]);
-				mc.setM(ZSmootherPostGisDataSource.NO_DATA);
-				if (Double.valueOf(mc.getZ()).isNaN()) {
-					mc.setZ(ZSmootherPostGisDataSource.NO_DATA);
+				mc.setM(Utils.NO_DATA);
+				if (Utils.isNoData(mc.getZ())) {
+					mc.setZ(Utils.NO_DATA);
 				}
 				allc[i] = mc;				
 				
@@ -112,7 +114,7 @@ public class ZSmootherJob implements Runnable{
 			return;
 		}
 		
-		Double[] z = new Double[c.length];
+		double[] z = new double[c.length];
 		
 		z[0] = upZ;
 		z[z.length-1] = downZ;
@@ -125,14 +127,18 @@ public class ZSmootherJob implements Runnable{
 		//for each vertex find the largest elevation value
 		//on that vertex or downstream of that vertex (must be smaller then the
 		//upstream node z value)
-		Double[] zmax = new Double[c.length];
+		double[] zmax = new double[c.length];
 		zmax[c.length-1] = downZ;
-		
 		for (int i = c.length - 2; i >= 0; i --) {
-			if (c[i].getZ() > upZ) {
+			double workingz = z[i];
+			if (Utils.isNoData(workingz)) {
+				zmax[i] = zmax[i+1];
+				continue;
+			}
+			if (workingz > upZ) {
 				zmax[i] = upZ;
 			}else {
-				zmax[i] = Math.max(c[i].getZ(), zmax[i+1]);
+				zmax[i] = Math.max(workingz, zmax[i+1]);
 			}
 		}
 		
@@ -140,13 +146,19 @@ public class ZSmootherJob implements Runnable{
 		//for each vertex find the smallest elevation value
 		//on that vertex or upstream of that vertex, the value
 		//cannot be smaller than the downstream node z value
-		Double[] zmin = new Double[c.length];
+		double[] zmin = new double[c.length];
 		zmin[0] = upZ;
 		for (int i = 1; i < c.length; i ++) {
-			if (c[i].getZ() < downZ) {
+			double workingz = z[i];
+
+			if (Utils.isNoData(workingz)) {
+				zmin[i] = zmin[i-1];
+				continue;
+			}
+			if (workingz < downZ) {
 				zmin[i] = downZ;
 			}else {
-				zmin[i] = Math.min(c[i].getZ(), zmin[i-1]);
+				zmin[i] = Math.min(workingz, zmin[i-1]);
 			}
 		}
 		
@@ -193,11 +205,9 @@ public class ZSmootherJob implements Runnable{
 					processed = false;					
 					break;
 				}else {
-					if (z == ZSmootherPostGisDataSource.NO_DATA) {
-						z = outnode.getMaxDownZ();
-					}else {
-						z = Double.max(z, outnode.getMaxDownZ());
-					}
+					double outZ = outnode.getMaxDownZ();
+					if (Utils.isNoData(outZ)) continue;
+					z = (Utils.isNoData(z)) ? outZ : Double.max(z, outZ);					
 				}
 			}
 			if (processed) {
@@ -240,12 +250,10 @@ public class ZSmootherJob implements Runnable{
 				if (innode.getMinUpZ() == null) {
 					processed = false;					
 					break;
-				}else {
-					if (z == ZSmootherPostGisDataSource.NO_DATA) {
-						z = innode.getMinUpZ();
-					}else {
-						z = Double.min(z, innode.getMinUpZ());
-					}
+				}else {					
+					double inZ = innode.getMinUpZ();
+					if (Utils.isNoData(inZ)) continue;
+					z = (Utils.isNoData(z)) ? inZ : Double.min(z, inZ);				
 				}
 			}
 			if (processed) {
