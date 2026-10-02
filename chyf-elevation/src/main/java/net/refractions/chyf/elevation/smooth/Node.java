@@ -19,6 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import net.refractions.chyf.elevation.Utils;
+
 /**
  * Represents a node in the stream network with an 
  * elevation value and in/out nodes
@@ -87,6 +89,9 @@ public class Node {
 	}
 	
 	public Double getSmoothedZ() {
+		if (Utils.isNoData(this.minUpZ) || Utils.isNoData(this.maxDownZ)) {
+			return Utils.NO_DATA;
+		}
 		return (this.minUpZ + this.maxDownZ) / 2.0;
 	}
 }

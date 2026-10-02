@@ -41,7 +41,6 @@ import net.refractions.chyf.elevation.ElevationArgs;
  */
 public class ElevationEngine {
 
-	public static double NO_DATA = -9999;
 	private static Logger logger = LoggerFactory.getLogger(ElevationEngine.class);
 
 	private int numThreads = 1;

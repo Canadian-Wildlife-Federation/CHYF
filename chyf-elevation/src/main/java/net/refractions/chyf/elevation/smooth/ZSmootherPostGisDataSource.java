@@ -36,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.refractions.chyf.elevation.AppProperties;
+import net.refractions.chyf.elevation.Utils;
 
 
 /**
@@ -61,8 +62,6 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 	protected Connection readConnection;
 	protected AppProperties properties;
 	
-	public static double NO_DATA = -9999;
-
 	/**
 	 * Rows fetched at a time when streaming the node graph. The rows are
 	 * small (two uuids and two doubles) so this can be much larger than the
@@ -309,14 +308,14 @@ public class ZSmootherPostGisDataSource implements IZSmootherDataSource  {
 					UUID fromNodeId = (UUID)rs.getObject(1);
 					UUID toNodeId = (UUID)rs.getObject(2);
 					
-					Double fromZ = NO_DATA;
+					Double fromZ = Utils.NO_DATA;
 					if (rs.getObject(3) == null) {
 						logger.warn(MessageFormat.format("A geometry in block {0} has no Z value. You should add a z value to this before smoothing.  See node {1}.", block.blockId, fromNodeId), ps);						
 					}else {
 						fromZ = rs.getDouble(3);
 					}
 					
-					Double toZ = NO_DATA;
+					Double toZ = Utils.NO_DATA;
 					if (rs.getObject(4) == null) {
 						logger.warn(MessageFormat.format("A geometry in block {0} has no Z value. You should add a z value to this before smoothing.  See node {1}.", block.blockId, toNodeId), ps);						
 					}else {
